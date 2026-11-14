@@ -1,0 +1,1062 @@
+{
+  "generated_on": "2026-11-14",
+  "permit_window_days": 90,
+  "signal_window_days": 30,
+  "permits": {
+    "total_permits": 8731,
+    "permits_per_week": 679.1,
+    "by_permit_type": [
+      {
+        "permit_type": "PERMIT \u2013 EXPRESS PERMIT PROGRAM",
+        "n": "5737",
+        "cost": "294621779.75"
+      },
+      {
+        "permit_type": "PERMIT - RENOVATION/ALTERATION",
+        "n": "1423",
+        "cost": "1029734772"
+      },
+      {
+        "permit_type": "PERMIT - SIGNS",
+        "n": "532",
+        "cost": "2494032"
+      },
+      {
+        "permit_type": "PERMIT - NEW CONSTRUCTION",
+        "n": "452",
+        "cost": "850469433"
+      },
+      {
+        "permit_type": "PERMIT - ELEVATOR EQUIPMENT",
+        "n": "283",
+        "cost": "45459341.31"
+      },
+      {
+        "permit_type": "PERMIT - WRECKING/DEMOLITION",
+        "n": "189",
+        "cost": "8745302"
+      },
+      {
+        "permit_type": "PERMIT - REINSTATE REVOKED PMT",
+        "n": "115",
+        "cost": "39"
+      }
+    ],
+    "by_work_type": [
+      {
+        "n": "2994"
+      },
+      {
+        "work_type": "Electrical Work",
+        "n": "1458"
+      },
+      {
+        "work_type": "Masonry Work",
+        "n": "627"
+      },
+      {
+        "work_type": "Small-Scale Solar PV System",
+        "n": "523"
+      },
+      {
+        "work_type": "Reroofing",
+        "n": "473"
+      },
+      {
+        "work_type": "Administrative Change",
+        "n": "466"
+      },
+      {
+        "work_type": "Nonstructural Interior Work",
+        "n": "276"
+      },
+      {
+        "work_type": "Fire Alarm System",
+        "n": "272"
+      },
+      {
+        "work_type": "Fence or Trash Enclosure",
+        "n": "256"
+      },
+      {
+        "work_type": "Porch,Deck,Balcony,or Fire Escape",
+        "n": "251"
+      },
+      {
+        "work_type": "Monthly Maintenance Permit",
+        "n": "215"
+      },
+      {
+        "work_type": "Detached Frame Garage",
+        "n": "187"
+      },
+      {
+        "work_type": "Plumbing Work",
+        "n": "176"
+      },
+      {
+        "work_type": "Mechanical Work",
+        "n": "119"
+      },
+      {
+        "work_type": "Scaffolding",
+        "n": "115"
+      },
+      {
+        "work_type": "Other Work",
+        "n": "103"
+      },
+      {
+        "work_type": "Communication Equipment",
+        "n": "93"
+      },
+      {
+        "work_type": "Exterior Windows/Doors Replacement",
+        "n": "86"
+      },
+      {
+        "work_type": "Storm Water Management Plan",
+        "n": "33"
+      },
+      {
+        "work_type": "Small Temporary Structure",
+        "n": "5"
+      },
+      {
+        "work_type": "Construction Trailer",
+        "n": "3"
+      }
+    ],
+    "major_projects": {
+      "definition": "PERMIT - NEW CONSTRUCTION / PERMIT - RENOVATION/ALTERATION with reported_cost >= $100,000",
+      "count": 1082,
+      "per_week": 84.2,
+      "cost_buckets": {
+        ">=100k": 1082,
+        ">=500k": 429,
+        ">=1M": 199,
+        ">=5M": 50
+      },
+      "days_application_to_issue": {
+        "p25": 27.0,
+        "median": 64.0,
+        "p75": 130.0,
+        "p90": 224.0
+      },
+      "trade_already_named_on_permit_pct": {
+        "general_contractor": 99.3,
+        "electrical": 92.2,
+        "plumbing": 83.9,
+        "masonry": 41.4,
+        "hvac": 74.4,
+        "architect": 96.0,
+        "owner": 100.0
+      },
+      "field_completeness_pct": {
+        "reported_cost": 100.0,
+        "lat_long": 99.2,
+        "pin": 99.2,
+        "description_40_chars": 99.9
+      },
+      "distinct_general_contractors": 627,
+      "top_general_contractors": [
+        {
+          "name": "CENTRE CONSTRUCTION SERVICES LLC",
+          "permits": 20,
+          "reported_value": 10371390.0
+        },
+        {
+          "name": "MK CONSTRUCTION & BUILDERS, INC.",
+          "permits": 19,
+          "reported_value": 6837340.0
+        },
+        {
+          "name": "LEOPARDO CONSTRUCTION INC",
+          "permits": 16,
+          "reported_value": 86663677.0
+        },
+        {
+          "name": "JC ANDERSON INC",
+          "permits": 16,
+          "reported_value": 15528807.0
+        },
+        {
+          "name": "POWER CONSTRUCTION COMPANY, LLC",
+          "permits": 15,
+          "reported_value": 39360877.0
+        },
+        {
+          "name": "SKENDER CONSTRUCTION LLC",
+          "permits": 14,
+          "reported_value": 244804232.0
+        },
+        {
+          "name": "BEAR CONSTRUCTION COMPANY",
+          "permits": 12,
+          "reported_value": 8012545.0
+        },
+        {
+          "name": "REDMOND CONSTRUCTION CORP.",
+          "permits": 11,
+          "reported_value": 56679287.0
+        },
+        {
+          "name": "BULLEY & ANDREWS, L.L.C.",
+          "permits": 11,
+          "reported_value": 53650864.0
+        },
+        {
+          "name": "EXECUTIVE CONSTRUCTION , INC.",
+          "permits": 10,
+          "reported_value": 21385400.0
+        },
+        {
+          "name": "BURLING BUILDERS, INC",
+          "permits": 8,
+          "reported_value": 43250000.0
+        },
+        {
+          "name": "REED CONSTRUCTION LLC",
+          "permits": 8,
+          "reported_value": 5914770.0
+        },
+        {
+          "name": "PEPPER CONSTRUCTION COMPANY",
+          "permits": 7,
+          "reported_value": 106757541.0
+        },
+        {
+          "name": "CLUNE CONSTRUCTION COMPANY, L.P.",
+          "permits": 7,
+          "reported_value": 38166278.0
+        },
+        {
+          "name": "TORO CONSTRUCTION CORP",
+          "permits": 7,
+          "reported_value": 19900000.0
+        }
+      ],
+      "subcontractor_market": {
+        "electrical": {
+          "distinct_contractors": 353,
+          "top10_share_pct": 20.8,
+          "top5": [
+            [
+              "CURRENT COMMUNICATIONS CORP.",
+              28
+            ],
+            [
+              "BLUE LINE ELECTRICAL CONTRACTO",
+              27
+            ],
+            [
+              "CHAVEZ ELECTRIC",
+              25
+            ],
+            [
+              "FAST TREK ELECTRIC INC",
+              24
+            ],
+            [
+              "TEXA ENGINEERING",
+              21
+            ]
+          ]
+        },
+        "plumbing": {
+          "distinct_contractors": 312,
+          "top10_share_pct": 20.8,
+          "top5": [
+            [
+              "GEHRETT PLUMBING, INC.",
+              25
+            ],
+            [
+              "VJJ PLUMBING",
+              24
+            ],
+            [
+              "GREAT LAKES PLUMBING & HEATING",
+              24
+            ],
+            [
+              "JOHNS PLUMBING, INC.",
+              23
+            ],
+            [
+              "ZRYW PLUMBING INC",
+              20
+            ]
+          ]
+        },
+        "hvac": {
+          "distinct_contractors": 411,
+          "top10_share_pct": 14.5,
+          "top5": [
+            [
+              "ADMIRAL HEATING & VENTILATING",
+              16
+            ],
+            [
+              "INDOOR AIR MECHANICAL INC.",
+              15
+            ],
+            [
+              "DUNRITE MECHANICAL, INC",
+              14
+            ],
+            [
+              "ENVIRONMENT MECHANICAL SERVICE",
+              12
+            ],
+            [
+              "SHERMAN MECHANICAL INC",
+              12
+            ]
+          ]
+        },
+        "masonry": {
+          "distinct_contractors": 210,
+          "top10_share_pct": 25.3,
+          "top5": [
+            [
+              "ALL CONCRETE CONTRACTORS INC",
+              28
+            ],
+            [
+              "CRS CONCRETE LTD",
+              17
+            ],
+            [
+              "DEXCO CORPORATION",
+              16
+            ],
+            [
+              "MKS MASONRY",
+              16
+            ],
+            [
+              "DS CONSTRUCTION, INC.",
+              15
+            ]
+          ]
+        }
+      },
+      "gc_to_sub_partners": [
+        {
+          "gc": "CENTRE CONSTRUCTION SERVICES LLC",
+          "permits": 20,
+          "electrical": [
+            [
+              "CURRENT COMMUNICATIONS CORP.",
+              8
+            ],
+            [
+              "PROGRESS ELECTRIC COMPANY",
+              3
+            ],
+            [
+              "S & M ELECTRIC, INC.",
+              3
+            ]
+          ],
+          "plumbing": [
+            [
+              "JOHNS PLUMBING, INC.",
+              11
+            ],
+            [
+              "AIR COMFORT, LLC.",
+              2
+            ],
+            [
+              "SCHAAF PLUMBING SOLUTIONS LLC",
+              2
+            ]
+          ],
+          "hvac": [
+            [
+              "ENVIROMENTAL MECHANICAL SERV.",
+              5
+            ],
+            [
+              "SHERMAN MECHANICAL INC",
+              3
+            ],
+            [
+              "RAM MECHANICAL SERVICES, INC.",
+              3
+            ]
+          ],
+          "masonry": []
+        },
+        {
+          "gc": "MK CONSTRUCTION & BUILDERS, INC.",
+          "permits": 19,
+          "electrical": [
+            [
+              "FAST TREK ELECTRIC INC",
+              10
+            ],
+            [
+              "RAFAL SZARWARK",
+              4
+            ],
+            [
+              "DKB PRO SKILL INC",
+              3
+            ]
+          ],
+          "plumbing": [
+            [
+              "STX CONSTRUCTION & PLUMBING",
+              12
+            ],
+            [
+              "BUCZAK CORPORATION",
+              3
+            ],
+            [
+              "ZRYW PLUMBING INC",
+              2
+            ]
+          ],
+          "hvac": [
+            [
+              "INDOOR AIR MECHANICAL INC.",
+              15
+            ],
+            [
+              "INDOOR AIR MECHANICAL INC",
+              3
+            ]
+          ],
+          "masonry": [
+            [
+              "ALL CONCRETE CONTRACTORS INC",
+              15
+            ],
+            [
+              "MK CONSTRUCTION BUILDERS INC",
+              4
+            ]
+          ]
+        },
+        {
+          "gc": "LEOPARDO CONSTRUCTION INC",
+          "permits": 16,
+          "electrical": [
+            [
+              "GRAND-KAHN, LLC",
+              5
+            ],
+            [
+              "ROCHA ELECTRIC COMPANY",
+              2
+            ],
+            [
+              "SHAMROCK ELECTRIC CO.INC",
+              1
+            ]
+          ],
+          "plumbing": [
+            [
+              "HOGAN PLUMBING, INC.",
+              3
+            ],
+            [
+              "R. CARROZZA PLUMBING CO",
+              2
+            ],
+            [
+              "GREAT LAKES PLUMBING & HEATING",
+              1
+            ]
+          ],
+          "hvac": [
+            [
+              "AIR COMFORT, LLC",
+              2
+            ],
+            [
+              "WESTSIDE MECHANCIAL DESIGN/BUI",
+              2
+            ],
+            [
+              "MCCAULEY MECHANICAL CONSTRUCTI",
+              2
+            ]
+          ],
+          "masonry": [
+            [
+              "RICHARDS & WEYER CONSTRUCTION",
+              2
+            ],
+            [
+              "RV BULDERS CORP",
+              1
+            ],
+            [
+              "MCHUGH CONCRETE CONSTRUCTION",
+              1
+            ]
+          ]
+        },
+        {
+          "gc": "JC ANDERSON INC",
+          "permits": 16,
+          "electrical": [
+            [
+              "BLADE ELECTRIC &",
+              4
+            ],
+            [
+              "LOMBARDI ELECTRIC, INC.",
+              4
+            ],
+            [
+              "SKITCH ELECTRIC COMPANY",
+              2
+            ]
+          ],
+          "plumbing": [
+            [
+              "GEHRETT PLUMBING, INC.",
+              5
+            ],
+            [
+              "HAYES INDUSTRIES, INC.",
+              1
+            ],
+            [
+              "JOHNS PLUMBING, INC.",
+              1
+            ]
+          ],
+          "hvac": [
+            [
+              "ENVIRONMENT MECHANICAL SERVICE",
+              4
+            ],
+            [
+              "COMPETITIVE PIPING SYSTEMS INC",
+              3
+            ],
+            [
+              "ENVIROMENTAL MECHANICAL SERV.",
+              2
+            ]
+          ],
+          "masonry": []
+        },
+        {
+          "gc": "POWER CONSTRUCTION COMPANY, LLC",
+          "permits": 15,
+          "electrical": [
+            [
+              "BLADE ELECTRIC &",
+              5
+            ],
+            [
+              "CONNELLY ELECTRIC CO.",
+              2
+            ],
+            [
+              "MARON ELECTRIC COMPANY",
+              1
+            ]
+          ],
+          "plumbing": [
+            [
+              "DW MECHANICAL GROUP,INC.",
+              6
+            ],
+            [
+              "ASHLAND PLUMBING & HEATING CO.",
+              2
+            ],
+            [
+              "WARREN THOMAS PLUMBING",
+              1
+            ]
+          ],
+          "hvac": [
+            [
+              "ADMIRAL HEATING & VENTILATING",
+              3
+            ],
+            [
+              "WESTSIDE MECHANICAL",
+              1
+            ],
+            [
+              "SHERMAN MECHANICAL INC",
+              1
+            ]
+          ],
+          "masonry": [
+            [
+              "CENTRAL BUILDING PRESERVATION",
+              1
+            ],
+            [
+              "POWER CONSTRUCTION COMPANY",
+              1
+            ]
+          ]
+        },
+        {
+          "gc": "SKENDER CONSTRUCTION LLC",
+          "permits": 14,
+          "electrical": [
+            [
+              "MARON ELECTRIC COMPANY",
+              7
+            ],
+            [
+              "TITAN ELECTRIC LLC",
+              2
+            ],
+            [
+              "KELSO-BURNETT CO.",
+              2
+            ]
+          ],
+          "plumbing": [
+            [
+              "DW MECHANICAL GROUP,INC.",
+              4
+            ],
+            [
+              "GREAT LAKES PLUMBING & HEATING",
+              3
+            ],
+            [
+              "EWING-DOHERTY MECHANICAL, INC",
+              2
+            ]
+          ],
+          "hvac": [
+            [
+              "ADMIRAL HEATING & VENTILATING",
+              4
+            ],
+            [
+              "ATOMATIC MECHANICAL SERVICES",
+              2
+            ],
+            [
+              "ADVANCED MECHANICAL",
+              1
+            ]
+          ],
+          "masonry": [
+            [
+              "MIDWEST MASONRY, INC.",
+              2
+            ],
+            [
+              "ADJUSTABLE FORMS INC.",
+              2
+            ],
+            [
+              "RAFFIN CONSTRUCTION COMPANY",
+              1
+            ]
+          ]
+        },
+        {
+          "gc": "BEAR CONSTRUCTION COMPANY",
+          "permits": 12,
+          "electrical": [
+            [
+              "CURRENT COMMUNICATIONS CORP.",
+              6
+            ],
+            [
+              "BLOCK ELECTRIC COMPANY",
+              2
+            ],
+            [
+              "CECO, INC.",
+              2
+            ]
+          ],
+          "plumbing": [
+            [
+              "JOHNS PLUMBING, INC.",
+              3
+            ],
+            [
+              "CARBONE PLUMBING, INC",
+              1
+            ],
+            [
+              "ASHLAND PLUMBING & HEATING CO.",
+              1
+            ]
+          ],
+          "hvac": [
+            [
+              "ENVIRONMENT MECHANICAL SERVICE",
+              3
+            ],
+            [
+              "COMPETITIVE PIPING SYSTEMS INC",
+              2
+            ],
+            [
+              "COMPETITIVE PIPING SYSTEMS",
+              2
+            ]
+          ],
+          "masonry": []
+        },
+        {
+          "gc": "REDMOND CONSTRUCTION CORP.",
+          "permits": 11,
+          "electrical": [
+            [
+              "KELSO-BURNETT CO.",
+              5
+            ],
+            [
+              "CECO, INC.",
+              4
+            ],
+            [
+              "MARON ELECTRIC COMPANY",
+              1
+            ]
+          ],
+          "plumbing": [
+            [
+              "GREAT LAKES PLUMBING & HEATING",
+              3
+            ],
+            [
+              "GEHRETT PLUMBING, INC.",
+              2
+            ],
+            [
+              "A+PLUS PLUMBING, INC.",
+              1
+            ]
+          ],
+          "hvac": [
+            [
+              "ADMIRAL HEATING & VENTILATING",
+              5
+            ],
+            [
+              "HILL MECHANICAL",
+              1
+            ],
+            [
+              "RAM MECHANICAL SERVICES, INC.",
+              1
+            ]
+          ],
+          "masonry": []
+        }
+      ]
+    }
+  },
+  "violations": {
+    "violations": 3463,
+    "open_violations": 3418,
+    "distinct_addresses_with_open_violations": 876,
+    "by_category": [
+      [
+        "COMPLAINT",
+        2215
+      ],
+      [
+        "PERIODIC",
+        921
+      ],
+      [
+        "PERMIT",
+        327
+      ]
+    ],
+    "top_open_descriptions": [
+      [
+        "MAINTAIN OR REPAIR ELECT ELEVA",
+        376
+      ],
+      [
+        "ARRANGE PREMISE INSPECTION",
+        230
+      ],
+      [
+        "MAINTAIN OR REPAIR HYDRO ELEVA",
+        147
+      ],
+      [
+        "REPAIR EXTERIOR WALL",
+        127
+      ],
+      [
+        "REPAIR PORCH SYSTEM",
+        77
+      ],
+      [
+        "REPAIR INTERIOR WALLS/CEILING",
+        62
+      ],
+      [
+        "STOP/REMOVE NUISANCE",
+        62
+      ],
+      [
+        "INSTALL SMOKE DETECTORS",
+        53
+      ],
+      [
+        "PLANS & PERMITS REQ - CONTRCTR",
+        51
+      ],
+      [
+        "REPAIR FENCE",
+        48
+      ],
+      [
+        "MAINTAIN WINDOW",
+        47
+      ],
+      [
+        "REPLCE WINDOW PANES, PLEXGLAS",
+        47
+      ],
+      [
+        "ARRANGE FOR REINSPECTION REGAR",
+        46
+      ],
+      [
+        "OWNER OR LICENSED CONTRACTOR",
+        43
+      ],
+      [
+        "REPAIR EXTERIOR DOOR",
+        43
+      ],
+      [
+        "REPAIR EXTERIOR STAIR",
+        41
+      ],
+      [
+        "PARAPET",
+        41
+      ],
+      [
+        "SCREEN OUTER DOORS, WINDOWS",
+        39
+      ],
+      [
+        "REPAIR OR REPLACE",
+        38
+      ],
+      [
+        "OPEN",
+        38
+      ]
+    ],
+    "open_by_trade": {
+      "windows_doors": {
+        "violations": 337,
+        "distinct_addresses": 209
+      },
+      "porch_deck_stairs": {
+        "violations": 185,
+        "distinct_addresses": 143
+      },
+      "smoke_co_detectors": {
+        "violations": 94,
+        "distinct_addresses": 83
+      },
+      "masonry_tuckpointing": {
+        "violations": 93,
+        "distinct_addresses": 81
+      },
+      "plumbing": {
+        "violations": 81,
+        "distinct_addresses": 50
+      },
+      "heating_hvac": {
+        "violations": 58,
+        "distinct_addresses": 42
+      },
+      "roofing": {
+        "violations": 51,
+        "distinct_addresses": 46
+      },
+      "pest": {
+        "violations": 47,
+        "distinct_addresses": 39
+      },
+      "electrical": {
+        "violations": 42,
+        "distinct_addresses": 29
+      }
+    }
+  },
+  "licenses": {
+    "new_licenses_issued": 621,
+    "issued_by_type": [
+      {
+        "license_description": "Limited Business License",
+        "n": "138"
+      },
+      {
+        "license_description": "Retail Food Establishment",
+        "n": "101"
+      },
+      {
+        "license_description": "Pop-Up Retail User",
+        "n": "99"
+      },
+      {
+        "license_description": "Regulated Business License",
+        "n": "81"
+      },
+      {
+        "license_description": "Pharmaceutical Representative",
+        "n": "33"
+      },
+      {
+        "license_description": "Consumption on Premises - Incidental Activity",
+        "n": "21"
+      },
+      {
+        "license_description": "Video Gaming Location",
+        "n": "17"
+      },
+      {
+        "license_description": "Shared Kitchen User (Long Term)",
+        "n": "15"
+      },
+      {
+        "license_description": "Peddler License",
+        "n": "11"
+      },
+      {
+        "license_description": "Special Event Food",
+        "n": "10"
+      },
+      {
+        "license_description": "Commercial Garage",
+        "n": "10"
+      },
+      {
+        "license_description": "Animal Care License",
+        "n": "8"
+      },
+      {
+        "license_description": "Public Place of Amusement",
+        "n": "8"
+      },
+      {
+        "license_description": "Valet Parking Operator",
+        "n": "8"
+      },
+      {
+        "license_description": "Children's Services Facility License",
+        "n": "7"
+      },
+      {
+        "license_description": "Tavern",
+        "n": "6"
+      },
+      {
+        "license_description": "Video Gaming Terminal",
+        "n": "6"
+      },
+      {
+        "license_description": "Motor Vehicle Services License",
+        "n": "6"
+      },
+      {
+        "license_description": "Outdoor Patio",
+        "n": "6"
+      },
+      {
+        "license_description": "Raffles",
+        "n": "6"
+      },
+      {
+        "license_description": "Special Event Liquor",
+        "n": "5"
+      },
+      {
+        "license_description": "Tobacco",
+        "n": "5"
+      },
+      {
+        "license_description": "Package Goods",
+        "n": "5"
+      },
+      {
+        "license_description": "Indoor Special Event",
+        "n": "5"
+      },
+      {
+        "license_description": "Shared Housing Unit Operator",
+        "n": "4"
+      }
+    ],
+    "pending_new_applications": 0,
+    "pending_by_type": [],
+    "days_application_to_issue": {
+      "p25": 1.0,
+      "median": 13.0,
+      "p75": 50.5,
+      "p90": 140.0
+    }
+  },
+  "food": {
+    "license_inspections": 221,
+    "breakdown": [
+      {
+        "inspection_type": "License",
+        "results": "Pass",
+        "n": "104"
+      },
+      {
+        "inspection_type": "License Re-Inspection",
+        "results": "Pass",
+        "n": "33"
+      },
+      {
+        "inspection_type": "License",
+        "results": "Fail",
+        "n": "31"
+      },
+      {
+        "inspection_type": "License",
+        "results": "Not Ready",
+        "n": "25"
+      },
+      {
+        "inspection_type": "License",
+        "results": "Pass w/ Conditions",
+        "n": "21"
+      },
+      {
+        "inspection_type": "License",
+        "results": "No Entry",
+        "n": "3"
+      },
+      {
+        "inspection_type": "License Re-Inspection",
+        "results": "Pass w/ Conditions",
+        "n": "3"
+      },
+      {
+        "inspection_type": "License Re-Inspection",
+        "results": "Fail",
+        "n": "1"
+      }
+    ]
+  }
+}
