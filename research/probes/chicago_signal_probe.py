@@ -21,7 +21,7 @@ import sys
 import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 PORTAL = "https://data.cityofchicago.org/resource"
@@ -144,7 +144,8 @@ def probe_permits(since: str, days: int) -> dict:
             gc_jobs[name].append(float(r.get("reported_cost") or 0))
         for trade in SUB_TRADES:
             subs = {
-                name for t, name in cs
+                name
+                for t, name in cs
                 if name and any(nd in t for nd in TRADE_CONTACTS[trade]) and "OWNER" not in t
             }
             for s in subs:
@@ -230,9 +231,7 @@ def probe_violations(since: str) -> dict:
         "open_violations": len(open_rows),
         "distinct_addresses_with_open_violations": len({r.get("address") for r in open_rows}),
         "by_category": Counter(r.get("inspection_category") for r in rows).most_common(),
-        "top_open_descriptions": Counter(
-            r.get("violation_description") for r in open_rows
-        ).most_common(20),
+        "top_open_descriptions": Counter(r.get("violation_description") for r in open_rows).most_common(20),
         "open_by_trade": {
             t: {"violations": c, "distinct_addresses": len(trade_addresses[t])}
             for t, c in trade_counts.most_common()
@@ -252,8 +251,7 @@ def probe_licenses(since: str) -> dict:
     pending = fetch(
         LICENSES,
         select="license_description, count(*) as n",
-        where=f"application_type = 'ISSUE' AND date_issued IS NULL "
-        f"AND application_created_date >= '{since}'",
+        where=f"application_type = 'ISSUE' AND date_issued IS NULL AND application_created_date >= '{since}'",
         group="license_description",
         order="n DESC",
         limit="15",
@@ -327,24 +325,41 @@ def render(report: dict) -> str:
     lines += ["", "### Field completeness (major permits)", "", "| Field | % present |", "| --- | --- |"]
     for k, val in m["field_completeness_pct"].items():
         lines.append(f"| {k} | {val}% |")
-    lines += ["", "### Most active general contractors (major permits)", "",
-              "| GC | Permits | Reported value |", "| --- | --- | --- |"]
+    lines += [
+        "",
+        "### Most active general contractors (major permits)",
+        "",
+        "| GC | Permits | Reported value |",
+        "| --- | --- | --- |",
+    ]
     for g in m["top_general_contractors"]:
         lines.append(f"| {g['name']} | {g['permits']} | ${g['reported_value']:,.0f} |")
-    lines += ["", "### Subcontractor market structure (major permits)", "",
-              "| Trade | Distinct contractors | Top-10 share of jobs | Top 3 |",
-              "| --- | --- | --- | --- |"]
+    lines += [
+        "",
+        "### Subcontractor market structure (major permits)",
+        "",
+        "| Trade | Distinct contractors | Top-10 share of jobs | Top 3 |",
+        "| --- | --- | --- | --- |",
+    ]
     for trade, s in m["subcontractor_market"].items():
         top3 = "; ".join(f"{name} ({c})" for name, c in s["top5"][:3])
         lines.append(f"| {trade} | {s['distinct_contractors']} | {s['top10_share_pct']}% | {top3} |")
-    lines += ["", "### Which subcontractors the busiest GCs used (relationship map sample)", "",
-              "| GC | Electrical | Plumbing | HVAC |", "| --- | --- | --- | --- |"]
+    lines += [
+        "",
+        "### Which subcontractors the busiest GCs used (relationship map sample)",
+        "",
+        "| GC | Electrical | Plumbing | HVAC |",
+        "| --- | --- | --- | --- |",
+    ]
+
     def cell(partners: list) -> str:
         return "; ".join(f"{n} ({c})" for n, c in partners) or "—"
 
     for e in m["gc_to_sub_partners"]:
-        lines.append(f"| {e['gc']} ({e['permits']}) | {cell(e['electrical'])} | "
-                     f"{cell(e['plumbing'])} | {cell(e['hvac'])} |")
+        lines.append(
+            f"| {e['gc']} ({e['permits']}) | {cell(e['electrical'])} | "
+            f"{cell(e['plumbing'])} | {cell(e['hvac'])} |"
+        )
     lines += ["", "### Permits by work type (all permits)", "", "| Work type | Count |", "| --- | --- |"]
     for r in p["by_work_type"]:
         lines.append(f"| {r.get('work_type', '(blank)')} | {int(r['n']):,} |")
@@ -373,8 +388,7 @@ def render(report: dict) -> str:
         f"- New licenses issued: **{lic['new_licenses_issued']:,}**",
         f"- New applications still pending (filed in window, not yet issued): "
         f"**{lic['pending_new_applications']:,}**",
-        f"- Days from application to issue: median {ld.get('median', 0):.0f}, "
-        f"p75 {ld.get('p75', 0):.0f}",
+        f"- Days from application to issue: median {ld.get('median', 0):.0f}, p75 {ld.get('p75', 0):.0f}",
         "",
         "| License type (issued) | Count |",
         "| --- | --- |",
@@ -403,7 +417,7 @@ def main() -> int:
     ap.add_argument("--out", default="research/findings")
     args = ap.parse_args()
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     since_permits = (today - timedelta(days=args.days)).isoformat() + "T00:00:00"
     since_signals = (today - timedelta(days=args.signal_days)).isoformat() + "T00:00:00"
 
