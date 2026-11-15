@@ -514,7 +514,10 @@ def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[di
             AND NOT regexp_matches(upper(coalesce(buyer_name, '')), '{NON_OPERATOR_RE}')
         ),
         recent AS (
+          -- Condo units share a pin10, so one lead per parcel and date (lead ids are pin10 + date).
           SELECT * FROM s WHERE sale_date > DATE '{today_sales}' - INTERVAL 240 DAY AND segment IS NOT NULL
+          QUALIFY row_number() OVER (
+            PARTITION BY pin10, sale_date ORDER BY sale_price DESC NULLS LAST, pin, buyer_name, seller_name) = 1
         ),
         repeat AS (
           SELECT buyer_key, count(*) AS purchases_24m FROM s
