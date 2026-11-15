@@ -19,7 +19,7 @@
 | `engine/classify/trades.py` | Regex trade flags for permits and violations (RE2 syntax: no lookarounds) |
 | `engine/score/signals.py` | Shared definitions: `prepare_base` (temp tables `addr_pin`, `p`), parcel features, combination model |
 | `engine/leads/snapshot.py` | Builds `web/data/snapshot.json` (the app's data): leads, areas, competitors, GC targets, pre-application projects |
-| `engine/leads/prospects.py` | Our own prospect list: contractors to pitch → `data/prospects-<date>.csv` |
+| `engine/leads/prospects.py` | Our own prospect list: contractors to pitch → `data/prospects-<date>.csv` and `web/data/prospects.json` (porch, masonry, roofing, plumbing, electrical; app data for `/prospects`) |
 | `research/backtests/run_backtests.py` | Historical validation of core signals → `research/findings/backtests-<date>.md` |
 | `research/signal_lab/lab.py` | Creative hypothesis tests + leaderboard → `research/findings/signal-lab-<date>.md` |
 | `web/` | Next.js 16 client app (Brickline) |
@@ -61,14 +61,16 @@ Warehouse tables: `permits`, `permit_parties` (role, name_key), `violations`, `s
 - Signal lab round 1 (`docs/13-signal-lab.md`): winners H07 (311 building complaint → citation, 32-day head start), H08 (porch inspection request, 11×), H09 (vacant complaint → sale, 2.5×), H13 (pre-1910 masonry, 2.9×), H01/H03 (solar/reroof neighbors ~2.2–2.4×); storms, basement water, lead kits, energy score, no-A/C failed.
 - Productized signal-lab winners (snapshot kinds `complaint`, `porch_request`, `vacant`; masonry pre-1910 split on violation leads; `blocks.roofing` + `blocks.roofingModel`). Every probability and case count is computed in `engine/leads/snapshot.py` and cited in `snap.models` (`complaint`, `porchRequest`, `vacant`, `masonryAge`); 311 data starts mid-2018, so those models cover 2018 onward. Letters for these kinds never mention the 311 report.
 - App (`web/`): dashboard + suggested moves, leads (filters, CSV/mail-merge export), lead detail (evidence, draft, status), neighborhoods, market, commercial preview, results (measured close rates), weekly report + print-ready letters, assistant, settings, client workspaces.
+- Sales kit: `/prospects` + `docs/14-sales-playbook.md`. `/prospects` lists ~1,340 Chicago contractors (3–60 jobs/yr) with a trade filter and a "Best fit only" toggle; `/prospects/[id]` is a printable one-page teaser (counts, sample leads with masked house numbers, trends, competitors, offer) computed from the snapshot for the prospect's trade and areas (not the viewer's workspace), with a CAN-SPAM-style cold-email draft. Code: `src/lib/prospects.ts`, `src/lib/teaser.ts`. The playbook is a plan; its targets are hypotheses.
 - Publish: proposed as "brickline", **awaiting khaled's confirmation** (recommend Private). After it's live, republish after each change.
 
 ## Next tasks (in order)
 
-1. **Client logins not tied to Cursor** so pilots self-serve (security-sensitive: a public app must not expose `data/snapshot.json`, now ~8 MB; consider moving lead data behind authenticated routes or into the DB; magic-link email needs a provider secret).
+1. **Client logins not tied to Cursor** so pilots self-serve (security-sensitive: a public app must not expose `data/snapshot.json`, now ~8 MB; consider moving lead data behind authenticated routes or into the DB; magic-link email needs a provider secret). **Also gate `/prospects` to admins/founders before clients can sign in**: it is our sales list, not client data.
 2. **Automated weekly refresh** (scheduled job running `scripts/refresh-data.sh`, committing the snapshot, republishing).
 3. **Contact enrichment** for company owners/investors (Apollo or similar; bind the API key as a secret; cache results; never fabricate).
-4. **Signal lab round 2** (`docs/13-signal-lab.md` "Next ideas"); also block-level solar lists (H01) and adding the 311 lead types to `research/backtests` so they re-validate on refresh.
+4. **Contact research for prospects** (website, email, phone fields are blank; follow `docs/14-sales-playbook.md` §1) and a CRM import; track replies and pilots per the playbook's metrics.
+5. **Signal lab round 2** (`docs/13-signal-lab.md` "Next ideas"); also block-level solar lists (H01) and adding the 311 lead types to `research/backtests` so they re-validate on refresh.
 
 ## Working agreements
 

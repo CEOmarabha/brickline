@@ -1,14 +1,14 @@
 "use client";
 
-import { BarChart3, Bot, Building2, FileText, LayoutDashboard, ListChecks, Map, MenuIcon, Settings, Trophy } from "lucide-react";
+import { BarChart3, Bot, Building2, FileText, LayoutDashboard, ListChecks, Map, MenuIcon, Settings, Target, Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Fragment, Suspense, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-const ITEMS = [
+const ITEMS: { href: string; label: string; icon: typeof Map; section?: string }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: ListChecks },
   { href: "/assistant", label: "Assistant", icon: Bot },
@@ -17,8 +17,17 @@ const ITEMS = [
   { href: "/commercial", label: "Commercial", icon: Building2 },
   { href: "/results", label: "Results", icon: BarChart3 },
   { href: "/report", label: "Weekly report", icon: FileText },
+  { href: "/prospects", label: "Prospects", icon: Target, section: "Our sales" },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-3 mb-1 border-t border-sidebar-border px-3 pt-3 text-[11px] font-medium tracking-wide text-sidebar-foreground/50 uppercase">
+      {children}
+    </div>
+  );
+}
 
 function useActive() {
   const pathname = usePathname();
@@ -40,18 +49,20 @@ function ActiveSidebarLinks() {
 function SidebarLinks({ isActive }: { isActive: (href: string) => boolean }) {
   return (
     <nav className="flex flex-col gap-0.5 px-3">
-      {ITEMS.map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            isActive(href) && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
-          )}
-        >
-          <Icon className="size-4" />
-          {label}
-        </Link>
+      {ITEMS.map(({ href, label, icon: Icon, section }) => (
+        <Fragment key={href}>
+          {section && <SectionLabel>{section}</SectionLabel>}
+          <Link
+            href={href}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              isActive(href) && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
+            )}
+          >
+            <Icon className="size-4" />
+            {label}
+          </Link>
+        </Fragment>
       ))}
     </nav>
   );
@@ -89,19 +100,21 @@ function MobileMenu({
           <SheetTitle className="text-sidebar-foreground">{brand}</SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-0.5 px-3">
-          {ITEMS.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-sidebar-foreground/75 hover:bg-sidebar-accent",
-                isActive(href) && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
-              )}
-            >
-              <Icon className="size-4" />
-              {label}
-            </Link>
+          {ITEMS.map(({ href, label, icon: Icon, section }) => (
+            <Fragment key={href}>
+              {section && <SectionLabel>{section}</SectionLabel>}
+              <Link
+                href={href}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-sidebar-foreground/75 hover:bg-sidebar-accent",
+                  isActive(href) && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
+                )}
+              >
+                <Icon className="size-4" />
+                {label}
+              </Link>
+            </Fragment>
           ))}
         </nav>
         {footer && <div className="mt-auto border-t border-sidebar-border p-4">{footer}</div>}

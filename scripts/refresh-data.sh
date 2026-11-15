@@ -2,7 +2,7 @@
 # Weekly data refresh: re-download public records, rebuild the warehouse, regenerate the app snapshot.
 #   scripts/refresh-data.sh            # refresh everything
 #   scripts/refresh-data.sh --backtest # also re-run the historical backtests
-# Then commit web/data/snapshot.json and republish the app.
+# Then commit web/data/snapshot.json and web/data/prospects.json and republish the app.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

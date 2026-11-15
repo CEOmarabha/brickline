@@ -29,6 +29,7 @@ This repo contains the plan, the evidence behind it, and the first pieces of the
 | `docs/11-lead-generation-strategy.md` | Backtested lead formulas, homeowner-trade decision, revised 90 days |
 | `docs/12-build-order-and-budget.md` | Client vs admin versions, our own prospecting, first-six-months budget |
 | `docs/13-signal-lab.md` | Creative lead ideas tested against history: results, failures, next ideas |
+| `docs/14-sales-playbook.md` | How to sell Brickline by cold outreach: ideal first customers, pilot offer, email and phone scripts, compliance, 30-day plan (pairs with the app's `/prospects` pages) |
 | `docs/data-source-registry.md` | Data sources with coverage, cadence, access, verification status |
 | `docs/feature-roadmap.md` | Features by status and justifying metric |
 | `docs/decision-log.md` | Decisions, alternatives, evidence |
@@ -49,6 +50,8 @@ The app reads `web/data/snapshot.json`, produced by the engine. Lead statuses, n
 
 The **Assistant** answers questions about leads, neighborhoods, competitors and results by calling read-only tools over the same data (Claude via `ANTHROPIC_API_KEY`, model overridable with `ASSISTANT_MODEL`); without a key, its quick questions still answer directly from the data.
 
+Sales kit: **Prospects** (`/prospects`) lists the contractors to pitch (from `web/data/prospects.json`, written by `engine/leads/prospects.py`), and each one has a printable one-page teaser plus a cold-email draft, computed from the same snapshot. See `docs/14-sales-playbook.md`.
+
 Weekly operations: **Leads** exports a mail-merge CSV; **Weekly report** prints a client summary and one-letter-per-page mailings; **Results** turns won/lost leads into measured close rates that replace the default assumptions after 10 decided leads.
 
 To refresh the data (about 5 minutes, mostly downloads):
@@ -57,7 +60,7 @@ To refresh the data (about 5 minutes, mostly downloads):
 scripts/refresh-data.sh          # add --backtest to re-run the backtests
 ```
 
-Then commit `web/data/snapshot.json` and republish.
+Then commit `web/data/snapshot.json` and `web/data/prospects.json` and republish.
 
 ## Building the warehouse and running backtests
 
