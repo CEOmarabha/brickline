@@ -1,5 +1,7 @@
 # Deliverable 8 — 90-Day Action Plan (and Execution Roadmap)
 
+> **Update 2026-11-14:** the founder has no existing contacts, so discovery happens through cold outreach using our own permit data, and the first product is the owner-facing trigger service. The week-by-week plan in `11-lead-generation-strategy.md` §6 supersedes the customer track below; the engine track, gates and validation framework still apply.
+
 *v1, 2026-11-14. Two tracks run in parallel from day 1: **Customer** (discovery → pilots → pricing) and **Engine** (pipeline → intelligence → delivery). Progress is gated by evidence, not by finished features.*
 
 Assumed resources [E] — adjust after answering the questions in `00-strategic-assessment.md` §5:

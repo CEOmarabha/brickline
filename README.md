@@ -2,13 +2,13 @@
 
 Planning and research workspace for a business that turns public records into sales opportunities for local businesses (starting with construction-related trades in the City of Chicago), paired with a marketing and sales agency.
 
-This repo currently contains **the plan and the evidence behind it**, not the product. The engine will be built here once the open questions in `docs/00-strategic-assessment.md` §5 are answered.
+This repo contains the plan, the evidence behind it, and the first pieces of the engine: a local warehouse of Chicago and Cook County records and historical backtests of lead formulas.
 
 ## Start here
 
-1. `docs/00-strategic-assessment.md` — the summary: what the data says, where the original plan should change, the recommendation, and questions for the founder.
-2. `research/findings/chicago-signal-probe-2026-11-14.md` — live measurements from Chicago's open data that the plan relies on.
-3. `docs/07-mvp-recommendation.md` and `docs/08-90-day-plan.md` — what to build and do first.
+1. `docs/00-strategic-assessment.md` — the summary and the latest decisions.
+2. `docs/11-lead-generation-strategy.md` — which lead signals actually work (backtested), the formulas, the homeowner-trade decision, and the revised first 90 days.
+3. `research/findings/backtests-2026-11-14.md` and `research/findings/chicago-signal-probe-2026-11-14.md` — the measurements.
 
 ## Documents
 
@@ -25,11 +25,25 @@ This repo currently contains **the plan and the evidence behind it**, not the pr
 | `docs/08-90-day-plan.md` | Deliverable 8 — 90-day plan, gates, execution roadmap |
 | `docs/09-research-backlog.md` | Deliverable 9 — ranked open questions and assumptions |
 | `docs/10-additional-opportunities.md` | Deliverable 10 — further opportunities and advantages |
+| `docs/11-lead-generation-strategy.md` | Backtested lead formulas, homeowner-trade decision, revised 90 days |
 | `docs/data-source-registry.md` | Data sources with coverage, cadence, access, verification status |
 | `docs/feature-roadmap.md` | Features by status and justifying metric |
 | `docs/decision-log.md` | Decisions, alternatives, evidence |
 
 Evidence labels used throughout: **[V]** verified, **[V3]** third-party reported, **[E]** estimate, **[H]** hypothesis, **[S]** speculative.
+
+## Building the warehouse and running backtests
+
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/) and internet access. The first sync downloads ~850 MB of public CSVs into `data/` (git-ignored) and takes a few minutes; it resumes if interrupted.
+
+```bash
+uv sync
+uv run python -m engine.warehouse sync     # permits, violations, Cook County sales, food licenses
+uv run python -m engine.warehouse build    # normalized tables in data/warehouse.duckdb (~15 s)
+uv run python research/backtests/run_backtests.py   # writes research/findings/backtests-<date>.md/.json
+```
+
+Code layout: `engine/collect` (Socrata bulk export), `engine/classify` (rules-based trade tagging), `engine/warehouse.py` (tables and join keys), `research/backtests` (signal tests), `research/probes` (quick live-data checks).
 
 ## Re-running the data probe
 

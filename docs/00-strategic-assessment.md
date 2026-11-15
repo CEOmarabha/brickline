@@ -11,6 +11,19 @@ Evidence labels used everywhere in this repo:
 
 ---
 
+## Update — 2026-11-14 (after founder answers and backtests)
+
+Founder answers: building mostly with AI tools, full time, Chicago-based, no existing industry contacts, agrees with the reframe, wants the software to be the priority but generating real cash flow within a year.
+
+Backtests on 20 years of Chicago records (`docs/11-lead-generation-strategy.md`, `research/findings/backtests-2026-11-14.md`) changed the plan:
+
+- **Validated:** GC "open door" scoring for commercial subs (5–6x separation, out of sample); a composite pre-application score (top 100 parcels/half-year: 25% start a ≥$100k project within 180 days, 56x base); investor/company home purchases (30–38% pull permits within a year, 7–14x baseline); porch/masonry/plumbing/electrical violations (10–29% permitted repairs within a year, 7.6–12x); restaurant build-out permits (~90 days ahead of food-license applications).
+- **Failed:** demolition permits as an early signal for new construction (they arrive together with the new-construction permit).
+- **Decision:** two tracks on one engine — **Track 1 (cash flow):** trigger lists + done-for-you mail for owner-facing trades, starting with porch and masonry contractors; **Track 2 (software asset):** commercial relationship intelligence and pre-application predictions for subs and suppliers. Customers are found and contacted cold using our own permit data, which removes the need for prior relationships.
+- §4 and §5 below are superseded where they conflict with `docs/11-lead-generation-strategy.md` §2 and §6.
+
+---
+
 ## 1. The one-paragraph answer
 
 The vision (one platform that finds opportunities, identifies the buyer, drafts outreach and tracks outcomes, with an agency on top) is sound as a *destination*. The plan as written has one load-bearing flaw and three serious risks. The flaw: **for the commercial trades named as the first market (electrical, HVAC, plumbing, concrete), an issued building permit is usually not a lead — it is a record of who already won the work.** Live Chicago data shows the general contractor is named on 99% of major permits at issue, the electrician on 92%, the plumber on 84% and HVAC on 74% [V]. The same data is, however, an excellent map of *which general contractors build what, and which subcontractors they use* — and that relationship intelligence, plus earlier pre-permit signals, is what commercial subcontractors actually need. The risks: raw permit leads are already a cheap commodity ($19–$129/month per market) [V]; "AI search/agent over permits" is already shipping at several competitors [V]; and running a SaaS company, a data company and an agency at once is three businesses. My recommendation is to keep the long-term vision, but start with **one data pipeline (City of Chicago), one buyer type to be chosen from customer interviews in the first four weeks, one deliverable (a weekly, human-reviewed intelligence report), sold as a managed service before any self-serve software exists.**
@@ -138,6 +151,7 @@ Details: `07-mvp-recommendation.md`, `08-90-day-plan.md`.
 | `08-90-day-plan.md` | Deliverable 8 + Execution Roadmap — weekly plan, milestones, gates |
 | `09-research-backlog.md` | Deliverable 9 — ranked open questions |
 | `10-additional-opportunities.md` | Deliverable 10 — ideas beyond the core |
+| `11-lead-generation-strategy.md` | Backtested lead formulas, homeowner-trade decision, revised 90 days |
 | `data-source-registry.md` | Every data source, coverage, access, cost, verification status |
 | `feature-roadmap.md` | Features by status (planned/validated/in-dev/done) |
 | `decision-log.md` | Decisions, alternatives, evidence |

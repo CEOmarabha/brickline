@@ -10,19 +10,19 @@
 - **Reverse if:** Pilots can't use a report format at all.
 
 ### D-002 — City of Chicago as the only launch geography
-- **Status:** Proposed.
+- **Status:** Accepted 2026-11-14 (founder is Chicago-based).
 - **Alternatives:** Chicago metro; collar counties; another metro.
 - **Evidence:** Free daily permit data with named contractors since 2006; suburbs lagged (2–4 months via Cook County Assessor) or fragmented [V].
 - **Reverse if:** Chosen buyer's demand is mostly suburban (e.g. warehouses) and Shovels coverage is good.
 
 ### D-003 — Reframe the commercial-trade product from "permit leads" to relationship/market intelligence + pre-permit signals
-- **Status:** Proposed (biggest change vs. the brief).
+- **Status:** Accepted 2026-11-14. Backtests support it: GC open-door score separates 5–6x; composite pre-application score reaches 56x base rate at the top of the list.
 - **Alternatives:** Permit-issued alerts for subs (as in the brief).
 - **Evidence:** At issue, GC named on 99.3%, electrical 92.2%, plumbing 83.9%, HVAC 74.4%, masonry 41.4% of major permits; median 64 days application→issue; industry sources say sub buyout happens during permit review [V].
 - **Reverse if:** Interviews show subs still win meaningful work from issued-permit alerts (e.g. change orders, late scopes).
 
 ### D-004 — Choose the first buyer by week 4 from three candidates on one pipeline
-- **Status:** Proposed.
+- **Status:** Superseded by D-011 (founder has no existing contacts; backtests favour owner-facing trades for the first revenue).
 - **Alternatives:** Commit now to concrete/electrical/HVAC (brief); commit now to suppliers.
 - **Evidence:** Same data pipeline serves A/B/C; willingness to pay unknown for all three.
 - **Reverse if:** khaled has privileged access to one buyer group → pick it now.
@@ -57,3 +57,18 @@
 - **Status:** Proposed.
 - **Evidence:** Market: $249–$599 under $1k spend; median ~$775 at $5k spend; 10–20% models common [V3].
 - **Reverse if:** Prospects reject hybrid pricing in sales conversations.
+
+### D-011 — Two tracks on one engine: owner-facing trigger service for cash flow, commercial intelligence as the software asset
+- **Status:** Accepted 2026-11-14 (founder delegated the homeowner-trade decision).
+- **Decision:** Track 1 sells weekly trigger lists + done-for-you mail to owner-facing trades, starting with porch and masonry contractors. Track 2 builds and sells GC open-door rankings, relationship maps and pre-application predictions to commercial subs and suppliers from month 3–4.
+- **Alternatives:** Commercial-only (slower sales, no relationships); agency-only (no software asset); residential-only (lower ceiling).
+- **Evidence:** Investor purchases 7–14x permit lift with B2B-reachable buyers; violations 7.6–12x; ~1,100 active porch/masonry contractors reachable cold from permit data; validated commercial formulas (`docs/11-lead-generation-strategy.md`).
+- **Reverse if:** Pilots show close rates too low for F2 economics, or commercial pilots convert faster than expected.
+
+### D-012 — Lead formulas are accepted only on time-split backtests and re-fit quarterly
+- **Status:** Accepted.
+- **Decision:** Train on past years, test on later years; report precision@K per week, lift, calibration; ship only if better than the current version on the latest held-out period.
+
+### D-013 — Demolition permits are not used as an early new-construction signal in Chicago
+- **Status:** Accepted.
+- **Evidence:** Only 30% of demolitions lead to new construction within 2 years; when they do, the new-construction application usually precedes the demolition permit (median −8 days) and trades are already named (89–98%) [V].

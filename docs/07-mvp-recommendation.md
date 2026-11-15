@@ -2,6 +2,8 @@
 
 *v1, 2026-11-14. Labels: [V] verified, [E] estimate, [H] hypothesis.*
 
+> **Update 2026-11-14:** the first buyer is now decided (D-011): owner-facing trades, starting with porch and masonry contractors, with commercial subs as the second track. See `11-lead-generation-strategy.md` §2 and §6. The engine scope below still applies; the buyer-selection section is superseded.
+
 ## The MVP in one sentence
 
 **Every week, deliver 20–50 human-reviewed, source-linked opportunities from City of Chicago public data to 3–5 paying design partners in one buyer cluster, each with why it matters, who to contact and a drafted message, and log what happens next.**
