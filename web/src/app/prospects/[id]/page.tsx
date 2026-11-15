@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { count, dateLabel, money, pct } from "@/lib/format";
 import { tradeNoun } from "@/lib/insights";
+import { getProspectContacts } from "@/lib/contacts";
 import { todayChicago } from "@/lib/pipeline";
 import { getPipelineHistory, getPipelineRow } from "@/lib/prospect-pipeline";
 import { getProspect } from "@/lib/prospects";
@@ -64,7 +65,7 @@ async function Teaser({ params }: { params: PageProps<"/prospects/[id]">["params
         <CardHeader>
           <CardTitle>Pipeline</CardTitle>
           <CardDescription>
-            Your private sales tracking for this contractor: status, contact details you found by hand, notes, and the
+            Your private sales tracking for this contractor: status, contact details (suggestions from public sources, or found by hand), notes, and the
             email sequence (day 0, 4, 10). Only you see this.
           </CardDescription>
         </CardHeader>
@@ -274,11 +275,16 @@ const historyTime = new Intl.DateTimeFormat("en-US", {
 async function Pipeline({ prospectId }: { prospectId: string }) {
   const owner = await viewerId();
   if (!owner) return <p className="text-sm text-muted-foreground">Sign in to track this prospect.</p>;
-  const [row, history] = await Promise.all([getPipelineRow(owner, prospectId), getPipelineHistory(owner, prospectId)]);
+  const [row, history, suggestions] = await Promise.all([
+    getPipelineRow(owner, prospectId),
+    getPipelineHistory(owner, prospectId),
+    getProspectContacts(prospectId),
+  ]);
   return (
     <ProspectPipelinePanel
       prospectId={prospectId}
       today={todayChicago()}
+      suggestions={suggestions}
       state={{
         status: row?.status ?? "not_contacted",
         contactName: row?.contactName ?? "",

@@ -9,6 +9,8 @@ import { LeadStatusPanel } from "@/components/lead-status-panel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContactValue, SourceLine } from "@/components/contact-bits";
+import { getLeadContacts } from "@/lib/contacts";
 import { ago, count, dateLabel, money, pct } from "@/lib/format";
 import { draftOutreach } from "@/lib/outreach";
 import { getCloseRates } from "@/lib/outcomes";
@@ -55,12 +57,13 @@ export default function LeadPage({ params }: PageProps<"/leads/[id]">) {
 async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params"] }) {
   const { id } = await params;
   const leadId = decodeURIComponent(id);
-  const [snap, ws, statuses, history, rates] = await Promise.all([
+  const [snap, ws, statuses, history, rates, suggestions] = await Promise.all([
     getSnapshot(),
     getWorkspace(),
     getStatuses(),
     getLeadHistory(leadId),
     getCloseRates(),
+    getLeadContacts(leadId),
   ]);
   const lead = snap.leads.find((l) => l.id === leadId);
   if (!lead) notFound();
@@ -315,6 +318,54 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
               <div>{lead.owner.mailing ?? "—"}</div>
             </div>
             {lead.owner.note && <p className="text-xs text-muted-foreground">{lead.owner.note}</p>}
+            {suggestions && (
+              <div className="space-y-2.5 rounded-md border bg-muted/30 p-3">
+                <div>
+                  <div className="text-xs font-medium">Suggested from public sources</div>
+                  <p className="text-xs text-muted-foreground">
+                    Matched by name to {suggestions.name}. Verify before outreach; business contacts only.
+                  </p>
+                </div>
+                {suggestions.contactName && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Contact</div>
+                    <div>
+                      <ContactValue field={suggestions.contactName} kind="text" />
+                      <span className="ml-1.5 text-xs text-muted-foreground">({suggestions.contactName.title})</span>
+                    </div>
+                    <SourceLine field={suggestions.contactName} />
+                  </div>
+                )}
+                {suggestions.website && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Website</div>
+                    <ContactValue field={suggestions.website} kind="website" />
+                    <SourceLine field={suggestions.website} />
+                  </div>
+                )}
+                {suggestions.phones.map((f) => (
+                  <div key={`p-${f.value}`}>
+                    <div className="text-xs text-muted-foreground">Phone</div>
+                    <ContactValue field={f} kind="text" />
+                    <SourceLine field={f} />
+                  </div>
+                ))}
+                {suggestions.emails.map((f) => (
+                  <div key={`e-${f.value}`}>
+                    <div className="text-xs text-muted-foreground">Email</div>
+                    <ContactValue field={f} kind="text" />
+                    <SourceLine field={f} />
+                  </div>
+                ))}
+                {suggestions.address && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Business address</div>
+                    <ContactValue field={suggestions.address} kind="text" />
+                    <SourceLine field={suggestions.address} />
+                  </div>
+                )}
+              </div>
+            )}
             {lead.owner.type === "individual" && (
               <p className="text-xs text-muted-foreground">Individual owner: reach out by mail.</p>
             )}

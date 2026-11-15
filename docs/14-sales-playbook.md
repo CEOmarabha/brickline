@@ -20,7 +20,7 @@ The **Best fit only** toggle applies the first two rules. On the 2026-11-13 data
 
 Sole proprietors (a person's name instead of a company name) are still fine to email at a business address; just never mix in home addresses or personal social accounts.
 
-**Where contact details come from** (the list has none; nothing is guessed): the company's own website or Google Business Profile, the Illinois Secretary of State business search for the registered agent and entity name, and Apollo (`12` §3, ~$49/seat/month [V]) for email addresses. Record every source in the CRM (HubSpot free). If you can't find a business email or business phone in 10 minutes, skip the company and move on.
+**Where contact details come from** (nothing is guessed): first the free suggestions on each contractor's page (section 5c: Overture Maps, Chicago business licenses and owner records, the company's own website), then the company's own website or Google Business Profile and the Illinois Secretary of State business search for the registered agent and entity name. Apollo (`12` §3, ~$49/seat/month [V]) is deferred: buy it only if the free match rates prove too low for the weekly list. Record every source in the CRM (HubSpot free). If you can't find a business email or business phone in 10 minutes, skip the company and move on.
 
 ## 2. The pilot offer
 
@@ -81,9 +81,25 @@ Goal of the call: a yes to the one-pager or a 15-minute meeting, not a sale. Log
 - **Export pipeline** (button on `/prospects`, or `/export/prospects`) downloads a CSV for your own records or a mail tool; it contains contact details, so keep it private.
 - Section 7 metrics: emails sent, replies, meetings and pilots can be read straight from the status counts and history; bounce rates still come from the sending tool.
 
+## 5c. Free contact enrichment (suggestions, not facts)
+
+Each refresh (`scripts/refresh-data.sh`, step `engine.enrich.contacts`) matches prospects and the company owners and buyers on leads to free public sources and writes `web/data/contacts.json`:
+
+- **Overture Maps Places** (open data): website, phone, sometimes a business email and address, matched by normalized company name, with a trade-compatible category required for contractors.
+- **Chicago business licenses and business owners** (City data portal): a business address and an owner or officer name with title (preferring owner, sole proprietor, president, CEO, managing member, manager, member), matched by legal name or DBA.
+- **The company's own website**: the homepage and at most two contact pages, fetched only for matched websites, honoring robots.txt, one request a second, cached 30 days. Emails and US phone numbers only.
+
+**How to use it:** open `/prospects/<id>` and look for **Suggested from public sources** in the Pipeline card; each value shows its source (with a link when there is one), the date and the match strength (high = exact name plus trade-compatible category in Chicago; medium = same name outside the city, a missing category or a near-identical spelling). Press **Use these** to copy a value into the form, then **Save**; the button stays disabled when the field already holds something, and nothing is ever saved or overwritten for you. On `/prospects` the **Contact info** column shows which kinds of suggestion exist and **Has contact info** filters to them. Company owners and buyers show the same card on `/leads/<id>`.
+
+**Verify before outreach:** open the website, confirm the company does this trade and works in Chicago, and make sure the name is not a different business that shares it. A name from the owner records is a *suggestion of who to address*, not a promise that the person still runs the company. Note the source in the pipeline notes (section 8, "Records").
+
+**Compliance** (adds to section 8): business contacts only. Never pattern-guess an email, never collect personal social profiles, and never put a name from a public record into cold emails or teasers beyond what the person's own business listing supports. Email follows CAN-SPAM (real postal address, working opt-out, honored right away). Call published business lines manually; no autodialed, prerecorded or AI calls and no texts, even if an Overture or website number turns out to be a mobile.
+
+**Coverage on 2026-11-13 data** (`research/findings/contact-enrichment-2026-11-13.md`): 28% of all 1,343 prospects have at least one suggestion (21% phone, 19% website, 11% email, 12% contact name) and 19.5% of the 215 best-fit prospects; only 3% of the 1,873 company owners and buyers, because most are single-property LLCs without a public listing. That is why the founder still researches by hand for the rest. Revisit paid enrichment only if these rates stay too low for the weekly send volume.
+
 ## 6. Weekly pilot operations (about 2–3 hours per pilot per week at the start) [E]
 
-1. **Refresh the data:** `scripts/refresh-data.sh` (about 5 minutes, mostly downloads). Commit `web/data/snapshot.json` and `web/data/prospects.json`, republish. Until the scheduled refresh exists (HANDOFF next tasks), do this manually each Monday.
+1. **Refresh the data:** `scripts/refresh-data.sh` (about 5 minutes, mostly downloads). Commit `web/data/snapshot.json`, `web/data/prospects.json` and `web/data/contacts.json`, republish. Until the scheduled refresh exists (HANDOFF next tasks), do this manually each Monday.
 2. **Open the client's workspace** (switcher in the sidebar) and check Settings: trade, neighborhoods, business name, phone, mailing address.
 3. **Review the weekly report** (`/report`): scan the act-now leads, drop anything that looks wrong, read the recommendations.
 4. **Send it:** print the summary or export as PDF and send to the client; send the mail-merge CSV if they want to do the mailing; or print the letters (`/report?view=letters`) for the client to sign and mail.
@@ -125,7 +141,7 @@ These are operating rules for outreach, not legal advice. Have a lawyer review t
 | Days | Do |
 | --- | --- |
 | **1–3** | Run `scripts/refresh-data.sh`; open `/prospects?fit=best` and pick the first 60 (porch and masonry). Create the sending domain, mailboxes and warm-up (`12` §3); set up HubSpot. Fill `[Your name]` and the postal address template. Read section 8 once more |
-| **4–7** | Research contacts for the 60 (website, state registry, Apollo). Skip anyone without a business email or phone. Send the first 15 day-0 emails per day once warm-up allows |
+| **4–7** | Research contacts for the 60 (start with the free suggestions on each teaser page, then website and state registry). Skip anyone without a business email or phone. Send the first 15 day-0 emails per day once warm-up allows |
 | **8–14** | Day-0 emails continue to ~120 contacts total. Day-4 touches go out for the earliest batch. Start phone calls to business lines on day 4 after each email. Book meetings; prepare each meeting by opening the contractor's teaser |
 | **15–21** | Day-10 touches for the first batch. Run 15-minute meetings: show the contractor's own teaser, then the real lead list for their neighborhoods in the app. Offer the pilot. Create the workspaces for the first yes answers and deliver the first weekly report within 48 hours of the yes |
 | **22–28** | Second wave of 60 prospects (continue best-fit list). First weekly operations cycle for pilots (section 6): reports, letters, outcome marking. Collect feedback; fix wording or data issues found |

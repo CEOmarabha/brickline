@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ContactValue, SourceLine } from "@/components/contact-bits";
+import type { ContactField, ContactSuggestions } from "@/lib/contacts";
 import {
   cleanProspectFields,
   isDue,
@@ -37,6 +39,49 @@ export interface PanelEvent {
   at: string;
 }
 
+function SuggestionRow({
+  label,
+  field,
+  kind = "text",
+  note,
+  current,
+  onUse,
+}: {
+  label: string;
+  field: ContactField;
+  kind?: "website" | "text";
+  note?: string;
+  current?: string;
+  onUse?: () => void;
+}) {
+  const used = current !== undefined && current.trim() === field.value;
+  const blocked = current !== undefined && current.trim() !== "" && !used;
+  return (
+    <li className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 py-2">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div>
+          <ContactValue field={field} kind={kind} />
+          {note && <span className="ml-1.5 text-xs text-muted-foreground">({note})</span>}
+        </div>
+        <SourceLine field={field} />
+      </div>
+      {onUse && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={used || blocked}
+          title={blocked ? "The field already has a value. Clear it to use this suggestion." : undefined}
+          onClick={onUse}
+        >
+          {used ? "Used" : "Use these"}
+        </Button>
+      )}
+    </li>
+  );
+}
+
 const DAYS_LABEL = ["Day 0", "Day 4", "Day 10"];
 
 function fail(error: unknown) {
@@ -48,11 +93,13 @@ export function ProspectPipelinePanel({
   state,
   history,
   today,
+  suggestions,
 }: {
   prospectId: string;
   state: PanelState;
   history: PanelEvent[];
   today: string;
+  suggestions: ContactSuggestions | null;
 }) {
   const [contactName, setContactName] = useState(state.contactName);
   const [email, setEmail] = useState(state.email);
@@ -146,6 +193,46 @@ export function ProspectPipelinePanel({
           Sets the next follow-up: 4 days after email 1, 6 days after email 2, none after email 3.
         </span>
       </div>
+
+      {suggestions && (
+        <section className="space-y-3 rounded-lg border bg-muted/30 p-4">
+          <div>
+            <h3 className="text-sm font-medium">Suggested from public sources</h3>
+            <p className="text-xs text-muted-foreground">
+              Matched by business name to {suggestions.name}. Check the website and trade before using anything. Business
+              contacts only: call business lines by hand, never autodial or text, and honor opt-outs. &ldquo;Use&rdquo;
+              fills the form below; nothing is saved until you press Save.
+            </p>
+          </div>
+          <ul className="divide-y text-sm">
+            {suggestions.contactName && (
+              <SuggestionRow
+                label="Contact"
+                field={suggestions.contactName}
+                note={suggestions.contactName.title}
+                current={contactName}
+                onUse={() => setContactName(suggestions.contactName?.value ?? "")}
+              />
+            )}
+            {suggestions.website && (
+              <SuggestionRow
+                label="Website"
+                field={suggestions.website}
+                kind="website"
+                current={website}
+                onUse={() => setWebsite(suggestions.website?.value ?? "")}
+              />
+            )}
+            {suggestions.phones.map((f) => (
+              <SuggestionRow key={`p-${f.value}`} label="Phone" field={f} current={phone} onUse={() => setPhone(f.value)} />
+            ))}
+            {suggestions.emails.map((f) => (
+              <SuggestionRow key={`e-${f.value}`} label="Email" field={f} current={email} onUse={() => setEmail(f.value)} />
+            ))}
+            {suggestions.address && <SuggestionRow label="Address" field={suggestions.address} />}
+          </ul>
+        </section>
+      )}
 
       <form onSubmit={saveDetails} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">

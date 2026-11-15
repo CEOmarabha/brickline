@@ -50,7 +50,7 @@ The app reads `web/data/snapshot.json`, produced by the engine. Lead statuses, n
 
 The **Assistant** answers questions about leads, neighborhoods, competitors and results by calling read-only tools over the same data (Claude via `ANTHROPIC_API_KEY`, model overridable with `ASSISTANT_MODEL`); without a key, its quick questions still answer directly from the data.
 
-Sales kit: **Prospects** (`/prospects`) lists the contractors to pitch (from `web/data/prospects.json`, written by `engine/leads/prospects.py`), and each one has a printable one-page teaser plus a cold-email draft, computed from the same snapshot. See `docs/14-sales-playbook.md`.
+Sales kit: **Prospects** (`/prospects`) lists the contractors to pitch (from `web/data/prospects.json`, written by `engine/leads/prospects.py`; free contact suggestions come from `web/data/contacts.json`, written by `engine/enrich/contacts.py`), and each one has a printable one-page teaser plus a cold-email draft, computed from the same snapshot. See `docs/14-sales-playbook.md`.
 
 Weekly operations: **Leads** exports a mail-merge CSV; **Weekly report** prints a client summary and one-letter-per-page mailings; **Results** turns won/lost leads into measured close rates that replace the default assumptions after 10 decided leads.
 
@@ -60,7 +60,7 @@ To refresh the data (about 5 minutes, mostly downloads):
 scripts/refresh-data.sh          # add --backtest to re-run the backtests
 ```
 
-Then commit `web/data/snapshot.json` and `web/data/prospects.json` and republish.
+Then commit `web/data/snapshot.json`, `web/data/prospects.json` and `web/data/contacts.json` and republish.
 
 ## Building the warehouse and running backtests
 

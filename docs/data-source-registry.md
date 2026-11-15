@@ -1,6 +1,6 @@
 # Data Source Registry
 
-*v2, 2026-11-15 (signal-lab round 3 sources added). "Verified" means queried live from this project (see `research/probes/`) or read on the provider's own page. Update when a source is added, changes schema, or its access terms change.*
+*v3, 2026-11-15 (free contact-enrichment sources added). "Verified" means queried live from this project (see `research/probes/`) or read on the provider's own page. Update when a source is added, changes schema, or its access terms change.*
 
 ## In scope for the MVP (City of Chicago + Cook County)
 
@@ -23,6 +23,15 @@
 | CHI-TRACTS | Chicago Boundaries – Census Tracts 2010 (`74p9-q2aq`) and 2020 (`7qjk-677h`) | `data.cityofchicago.org/resource/<id>.csv` | 801 and 789 tracts with WKT geometry and community area | Static | geoid (2020 file: `tract_fips` + `tract_ce`), community area, geometry | Free | Needed to match each HMDA year to its own tract map | **Verified** (ingested as `tracts`) |
 | NOAA-SWDI-HAIL | NOAA NCEI Severe Weather Data Inventory, NEXRAD Level-3 hail signatures (`nx3hail`) | `https://www.ncei.noaa.gov/swdiws/csv/nx3hail/<yyyymmdd>:<yyyymmdd>/<limit>?bbox=<minLon,minLat,maxLon,maxLat>` | Chicago box (-87.95,41.62,-87.50,42.05), pulled 2016-01 to 2026-11 (first detection 2016-03-15, last 2026-08-11); 3,239 detections, 105 days, 1,970 detections of at least 1 inch on 103 days | Near real time | scan time (UTC), radar id, cell id, probability of hail, probability of severe hail, estimated max size (inch), centroid lat/lon | Free, no key | One centroid per tracked cell per scan, not a swath polygon (no MESH grid); service rejects ranges over 744 hours, so the collector pulls one month at a time; coordinates are the cell centroid | **Verified** (ingested as `hail_cells`; no signal, H28) |
 
+## Free contact-enrichment sources (ingested, verified 2026-11-15)
+
+| ID | Source | Endpoint | Coverage | Cadence / lag | Key fields | Access & cost | Reliability notes | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| OVERTURE-PLACES | Overture Maps Foundation, Places theme (`type=place`, GeoParquet) | `s3://overturemaps-us-west-2/release/<release>/theme=places/type=place/*` (anonymous; DuckDB `httpfs`, `SET s3_region='us-west-2'`); latest release listed at `https://overturemaps-us-west-2.s3.amazonaws.com/?list-type=2&prefix=release/&delimiter=/` | Release 2026-10-21.0: 493,243 places in the Chicago metro box (lat 41.45-42.30, lon -88.45--87.45), 472,635 not permanently closed; 197,539 in the city (Chicago bbox lat 41.64-42.03, lon -87.95--87.52 and locality Chicago or a 606xx ZIP). Of the metro rows 88% have a phone, 74% a website and 28% an email | Monthly releases (about 4 weeks apart) | name, taxonomy primary/alternates (this release has `taxonomy`, older ones `categories`), phones (E.164), websites, emails, socials (not used), address, operating status, confidence, lat/lon | **Free. License CDLA-Permissive-2.0 (open, commercial use allowed); attribution required: "Places data (c) Overture Maps Foundation"**, with the contributing sources (Meta, Microsoft and others) listed in each record's `sources` | Names are business listings, not legal names; phone and email quality varies by contributor; bbox filtering on the `bbox` struct reads only the matching row groups (about 3 s for the Chicago box; 40 MB subset) | **Verified** (synced to `data/raw/overture/places-<release>.parquet`, built as `places`; the app shows "Overture Maps" beside each value) |
+| CHI-BIZ-ACTIVE | Chicago Business Licenses - Current Active | `data.cityofchicago.org/resource/uupf-x98q.json` | City of Chicago, all license types, 54,732 licenses for 36,676 accounts | Daily | account number, site number, legal name, DBA, address, ZIP, community area, license type, business activity, expiry | Free Socrata export, no key | Contractors licensed only through the Dept. of Buildings are largely absent, so few prospects match (187 of 3,216 entities matched by name) | **Verified** (`biz_licenses`) |
+| CHI-BIZ-OWNERS | Chicago Business Owners | `.../resource/ezma-pppn.json` | 331,696 owner rows keyed by account number | Daily | account number, DBA, owner first/middle/last name, suffix, entity name, title | Free | Public records of business ownership; no legal-name column (join through the account number); titles include PRESIDENT, SECRETARY, SOLE PROPRIETOR, MANAGING MEMBER; used only as a contact-name suggestion for a matched business | **Verified** (`biz_owners`) |
+| WEB-CONTACTS | Company websites of matched businesses (homepage plus up to 2 contact pages) | Fetched by `engine/enrich/web.py` | 273 matched sites on 2026-11-15: 207 readable (104 with an email, 172 with a phone), 10 blocked by robots.txt, 56 unreachable | On demand, cached 30 days in `data/raw/web_contacts/` (errors 3 days) | emails (own domain or common free-mail), US phone numbers | Free; User-Agent `BricklineResearchBot/0.1 (+contact: founder)`; robots.txt honored (401/403 means no crawl), 1 request/second/host, 10 s timeout, 300 KB per page | Only business contact details are kept; no social profiles; no pattern-guessed emails; JavaScript-rendered sites show nothing | **Verified** |
+
 ## Candidates (not yet verified)
 
 | ID | Source | Use | Access | Next step |
@@ -34,7 +43,7 @@
 | NAPERVILLE | Naperville permit downloads | Suburban permits | Downloads (reported) | Verify |
 | JOLIET | Joliet permits | Suburban permits | Login-only portal; monthly reports via FOIA (third-party report) | Buy or FOIA |
 | SHOVELS | Shovels permits/contractors/decisions/properties | Suburbs, pre-permit decisions, contractor profiles | Free 500 credits; $599 / $999 per month | Free-tier coverage test (backlog #10) |
-| APOLLO | Apollo contacts | Decision-makers, emails, phones | $49–$119/seat/mo; credits | Match-rate test (backlog #4) |
+| APOLLO | Apollo contacts | Decision-makers, emails, phones | $49–$119/seat/mo; credits | Deferred: the founder declined paid providers; revisit only if the free match rates (research/findings/contact-enrichment-2026-11-13.md) are too low |
 | NOAA-STORMS | NOAA storm events / hail | Roofing (residential cluster) | Free | Ingested in round 1 (`storms`); spotter points, no signal (H04, H05). Radar footprints now ingested (see SWDI below) |
 | IL-SOS | Illinois business entity records | New businesses, registered agents | Web lookup; bulk availability unknown | Verify |
 

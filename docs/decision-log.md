@@ -84,3 +84,10 @@
 ### D-013 — Demolition permits are not used as an early new-construction signal in Chicago
 - **Status:** Accepted.
 - **Evidence:** Only 30% of demolitions lead to new construction within 2 years; when they do, the new-construction application usually precedes the demolition permit (median −8 days) and trades are already named (89–98%) [V].
+
+### D-016 — Contact data comes from free public sources first; paid providers are deferred
+- **Status:** Accepted 2026-11-15 (founder declined Apollo and similar for now).
+- **Decision:** Enrich prospects and company owners with Overture Maps Places (open license, attribution shown), Chicago business licenses/owners (contact-name suggestion only) and the company's own website (robots.txt honored, 1 request/second/host, 30-day cache). Everything is a suggestion with a source and match confidence; the founder copies values into the pipeline form and saves. Business contacts only; nothing is pattern-guessed; no personal social profiles.
+- **Evidence:** `research/findings/contact-enrichment-2026-11-13.md`: 28.4% of prospects (19.5% of best-fit) and 3.0% of company owners get at least one suggestion.
+- **Reverse if:** Free coverage is too low for the weekly send volume (then test a paid provider on unmatched best-fit prospects), or Overture's terms or a site owner's objection require removing a source.
+
