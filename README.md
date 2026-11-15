@@ -6,6 +6,7 @@ This repo contains the plan, the evidence behind it, and the first pieces of the
 
 ## Start here
 
+0. `docs/HANDOFF.md` — how everything fits together, conventions, current state, next tasks (start here if you are continuing the work).
 1. `docs/00-strategic-assessment.md` — the summary and the latest decisions.
 2. `docs/11-lead-generation-strategy.md` — which lead signals actually work (backtested), the formulas, the homeowner-trade decision, and the revised first 90 days.
 3. `research/findings/backtests-2026-11-15.md` and `research/findings/chicago-signal-probe-2026-11-14.md` — the measurements.
