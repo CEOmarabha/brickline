@@ -20,7 +20,7 @@ select = ["E", "F", "W", "I", "B", "UP"]
 [tool.ruff.lint.per-file-ignores]
 # Report renderers and SQL templates read better unwrapped.
 "research/**" = ["E501"]
-"engine/leads/snapshot.py" = ["E501"]
+"engine/leads/*.py" = ["E501"]
 
 [build-system]
 requires = ["hatchling"]

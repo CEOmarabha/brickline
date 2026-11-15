@@ -69,6 +69,12 @@
 - **Status:** Accepted.
 - **Decision:** Train on past years, test on later years; report precision@K per week, lift, calibration; ship only if better than the current version on the latest held-out period.
 
+### D-014 — Build the client version first; admin version later; our own prospecting runs on the engine now
+- **Status:** Accepted 2026-11-14 (founder's preference, agreed).
+- **Decision:** Ship the client app (Brickline) for pilots and demos. Our own lead generation uses `engine/leads/prospects.py` + a free CRM until there are ~10 clients; then build the admin version (client workspaces, our pipeline, agency management).
+- **Evidence:** The client app doubles as the sales demo and the outcome-capture tool; admin needs mostly wrap existing tools (`12-build-order-and-budget.md`).
+- **Reverse if:** Agency operations become the bottleneck before the client count does.
+
 ### D-013 — Demolition permits are not used as an early new-construction signal in Chicago
 - **Status:** Accepted.
 - **Evidence:** Only 30% of demolitions lead to new construction within 2 years; when they do, the new-construction application usually precedes the demolition permit (median −8 days) and trades are already named (89–98%) [V].

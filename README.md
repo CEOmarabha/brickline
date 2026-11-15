@@ -26,6 +26,7 @@ This repo contains the plan, the evidence behind it, and the first pieces of the
 | `docs/09-research-backlog.md` | Deliverable 9 — ranked open questions and assumptions |
 | `docs/10-additional-opportunities.md` | Deliverable 10 — further opportunities and advantages |
 | `docs/11-lead-generation-strategy.md` | Backtested lead formulas, homeowner-trade decision, revised 90 days |
+| `docs/12-build-order-and-budget.md` | Client vs admin versions, our own prospecting, first-six-months budget |
 | `docs/data-source-registry.md` | Data sources with coverage, cadence, access, verification status |
 | `docs/feature-roadmap.md` | Features by status and justifying metric |
 | `docs/decision-log.md` | Decisions, alternatives, evidence |
@@ -59,6 +60,8 @@ uv run python -m engine.warehouse sync     # permits, violations, Cook County sa
 uv run python -m engine.warehouse build    # normalized tables in data/warehouse.duckdb (~15 s)
 uv run python research/backtests/run_backtests.py   # writes research/findings/backtests-<date>.md/.json
 ```
+
+Our own prospect list (contractors to pitch): `uv run python -m engine.leads.prospects --trades porch masonry roofing` writes `data/prospects-<date>.csv`.
 
 Code layout: `engine/collect` (Socrata bulk export), `engine/classify` (rules-based trade tagging), `engine/warehouse.py` (tables and join keys), `research/backtests` (signal tests), `research/probes` (quick live-data checks).
 

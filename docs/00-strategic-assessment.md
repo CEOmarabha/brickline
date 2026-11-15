@@ -152,6 +152,7 @@ Details: `07-mvp-recommendation.md`, `08-90-day-plan.md`.
 | `09-research-backlog.md` | Deliverable 9 — ranked open questions |
 | `10-additional-opportunities.md` | Deliverable 10 — ideas beyond the core |
 | `11-lead-generation-strategy.md` | Backtested lead formulas, homeowner-trade decision, revised 90 days |
+| `12-build-order-and-budget.md` | Client vs admin versions, our own prospecting, budget |
 | `data-source-registry.md` | Every data source, coverage, access, cost, verification status |
 | `feature-roadmap.md` | Features by status (planned/validated/in-dev/done) |
 | `decision-log.md` | Decisions, alternatives, evidence |
