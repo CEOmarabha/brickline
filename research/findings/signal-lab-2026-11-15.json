@@ -1,0 +1,851 @@
+[
+  {
+    "id": "H01",
+    "title": "Neighbors went solar \u2192 you go solar",
+    "who": "Solar installers",
+    "data": "Permits (solar), Assessor residential characteristics, geocoded addresses",
+    "signal": "2+ solar permits on the same block (~160 m cell) in the past 12 months",
+    "target": "Solar permit at a house/2\u20136 flat in the next 12 months",
+    "metrics": {
+      "by_neighbors": [
+        {
+          "grp": "0",
+          "parcels": 1778105,
+          "rate": 0.004040818736801258
+        },
+        {
+          "grp": "1",
+          "parcels": 190629,
+          "rate": 0.006331670417407635
+        },
+        {
+          "grp": "2+",
+          "parcels": 25279,
+          "rate": 0.009731397602753274
+        }
+      ],
+      "conversion": 0.0097,
+      "baseline": 0.004,
+      "lift": 2.4083,
+      "any_neighbor_lift": 1.6654,
+      "signals_per_week": 33.4038
+    },
+    "verdict": "Useful",
+    "notes": "Cell-level exposure; confounded by neighborhood income and installer canvassing, so treat lift as an upper bound on true peer influence. Still directly usable for targeting.",
+    "score": 2.3360510000000003
+  },
+  {
+    "id": "H02",
+    "title": "New roof \u2192 solar within 2 years",
+    "who": "Solar installers (and roofers partnering with them)",
+    "data": "Permits (reroof, solar), Assessor residential characteristics",
+    "signal": "Reroof permit in the past 12 months",
+    "target": "Solar permit at the same parcel within 24 months",
+    "metrics": {
+      "conversion": 0.0099,
+      "baseline": 0.0084,
+      "lift": 1.1791,
+      "signals_per_week": 90.2308,
+      "groups": [
+        {
+          "reroofed": false,
+          "parcels": 1995690,
+          "rate": 0.008381562266684706
+        },
+        {
+          "reroofed": true,
+          "parcels": 6476,
+          "rate": 0.009882643607164917
+        }
+      ]
+    },
+    "verdict": "No signal",
+    "notes": "",
+    "score": 1.1673090000000002
+  },
+  {
+    "id": "H03",
+    "title": "Neighbors re-roofed \u2192 you re-roof",
+    "who": "Roofers",
+    "data": "Permits (reroof), Assessor residential characteristics",
+    "signal": "2+ reroof permits on the same block in the past 90 days",
+    "target": "Reroof permit at a neighboring house in the next 180 days",
+    "metrics": {
+      "by_neighbors": [
+        {
+          "grp": "0",
+          "parcels": 11893346,
+          "rate": 0.003118634570960939
+        },
+        {
+          "grp": "1",
+          "parcels": 531783,
+          "rate": 0.0046673173079996915
+        },
+        {
+          "grp": "2+",
+          "parcels": 25928,
+          "rate": 0.006749460043196544
+        }
+      ],
+      "conversion": 0.0067,
+      "baseline": 0.0031,
+      "lift": 2.1642,
+      "signals_per_week": null
+    },
+    "verdict": "Useful",
+    "notes": "Block-level targeting for door hangers and mail right after a cluster of permits.",
+    "score": 0.0
+  },
+  {
+    "id": "H04",
+    "title": "Hail \u2265 1 inch \u2192 reroof wave",
+    "who": "Roofers, gutter and siding contractors, restoration",
+    "data": "NOAA Storm Events (Cook County reports with coordinates), permits",
+    "signal": "Hail report \u2265 1.0 in within ~3 km",
+    "target": "Reroof permits on those blocks in the next 120 days (vs the same blocks a year earlier, vs all other blocks)",
+    "metrics": {
+      "storm_reports": 97,
+      "near_after": 2300,
+      "near_year_before": 2013,
+      "far_after": 80409,
+      "far_year_before": 68831,
+      "conversion": 1.1426,
+      "baseline": 1.1682,
+      "lift": 0.9781,
+      "signals_per_week": 0.1382
+    },
+    "verdict": "No signal",
+    "notes": "'conversion' and 'baseline' here are after/before permit ratios near vs far from the storm; lift is their ratio (difference-in-ratios). Spotter reports are points, so 3 km is a rough footprint.",
+    "score": 0.7722457484599999
+  },
+  {
+    "id": "H05",
+    "title": "Damaging wind (60+ kt) \u2192 reroof wave",
+    "who": "Roofers, gutter and siding contractors, restoration",
+    "data": "NOAA Storm Events (Cook County reports with coordinates), permits",
+    "signal": "Thunderstorm Wind report \u2265 60 kt within ~3 km",
+    "target": "Reroof permits on those blocks in the next 120 days (vs the same blocks a year earlier, vs all other blocks)",
+    "metrics": {
+      "storm_reports": 128,
+      "near_after": 4332,
+      "near_year_before": 4169,
+      "far_after": 121374,
+      "far_year_before": 104722,
+      "conversion": 1.0391,
+      "baseline": 1.159,
+      "lift": 0.8965,
+      "signals_per_week": 0.1823
+    },
+    "verdict": "No signal",
+    "notes": "'conversion' and 'baseline' here are after/before permit ratios near vs far from the storm; lift is their ratio (difference-in-ratios). Spotter reports are points, so 3 km is a rough footprint.",
+    "score": 0.8491106962249998
+  },
+  {
+    "id": "H06",
+    "title": "311 'water in basement' \u2192 plumbing work",
+    "who": "Plumbers, waterproofing and drain contractors",
+    "data": "311 service requests, permits",
+    "signal": "Resident files a 'Water in Basement' 311 complaint",
+    "target": "Plumbing permit at the same address within 365 days",
+    "metrics": {
+      "signals": 47853,
+      "conversion": 0.0047,
+      "baseline": 0.0064,
+      "median_days": 153.0,
+      "signals_per_week": 271.3654,
+      "lift": 0.7418,
+      "by_year": [
+        {
+          "year": 2018,
+          "n": 3,
+          "conversion": 0.0
+        },
+        {
+          "year": 2019,
+          "n": 3611,
+          "conversion": 0.006646358349487676
+        },
+        {
+          "year": 2020,
+          "n": 4871,
+          "conversion": 0.005132416341613631
+        },
+        {
+          "year": 2021,
+          "n": 3284,
+          "conversion": 0.0060901339829476245
+        },
+        {
+          "year": 2022,
+          "n": 6171,
+          "conversion": 0.005995786744449846
+        },
+        {
+          "year": 2023,
+          "n": 13149,
+          "conversion": 0.004106776180698152
+        },
+        {
+          "year": 2024,
+          "n": 3070,
+          "conversion": 0.006514657980456026
+        },
+        {
+          "year": 2025,
+          "n": 13694,
+          "conversion": 0.003432160070103695
+        }
+      ]
+    },
+    "verdict": "No signal",
+    "notes": "Permits undercount drain/waterproofing jobs (many need no permit), so this is a floor.",
+    "score": 0.348646
+  },
+  {
+    "id": "H07",
+    "title": "311 building complaint \u2192 city citation (earlier lead)",
+    "who": "Porch, masonry, roofing, general repair contractors",
+    "data": "311 service requests, building violations",
+    "signal": "'Building Violation' 311 complaint at an address",
+    "target": "Building violation recorded at the same address within 120 days",
+    "metrics": {
+      "signals": 96864,
+      "conversion": 0.3157,
+      "baseline": 0.054,
+      "median_days": 32.0,
+      "signals_per_week": 255.4038,
+      "lift": 5.8455,
+      "by_year": [
+        {
+          "year": 2018,
+          "n": 217,
+          "conversion": 0.5391705069124424
+        },
+        {
+          "year": 2019,
+          "n": 15001,
+          "conversion": 0.4961669222051863
+        },
+        {
+          "year": 2020,
+          "n": 13125,
+          "conversion": 0.2953904761904762
+        },
+        {
+          "year": 2021,
+          "n": 14881,
+          "conversion": 0.330958940931389
+        },
+        {
+          "year": 2022,
+          "n": 14294,
+          "conversion": 0.20351196306142438
+        },
+        {
+          "year": 2023,
+          "n": 14033,
+          "conversion": 0.22539727784507946
+        },
+        {
+          "year": 2024,
+          "n": 13725,
+          "conversion": 0.286120218579235
+        },
+        {
+          "year": 2025,
+          "n": 11588,
+          "conversion": 0.3639109423541595
+        }
+      ],
+      "groups": [
+        {
+          "porch_rate": 0.08825776346217377,
+          "masonry_rate": 0.11448009580442682,
+          "roofing_rate": 0.037898496861579124,
+          "windows_doors_rate": 0.11195077634621738,
+          "plumbing_rate": 0.012780806078625702,
+          "electrical_rate": 0.01198587710604559,
+          "hvac_rate": 0.010179220350181699
+        }
+      ]
+    },
+    "verdict": "Strong",
+    "notes": "If conversion is high, the complaint is an earlier version of the violation lead (median_days = head start).",
+    "score": 184.542435
+  },
+  {
+    "id": "H08",
+    "title": "311 porch inspection request \u2192 porch permit",
+    "who": "Porch builders",
+    "data": "311 service requests, permits",
+    "signal": "'Porch Inspection Request' 311 call",
+    "target": "Porch permit at the same address within 365 days",
+    "metrics": {
+      "signals": 3014,
+      "conversion": 0.1367,
+      "baseline": 0.0119,
+      "median_days": 149.5,
+      "signals_per_week": 7.1154,
+      "lift": 11.4444,
+      "by_year": [
+        {
+          "year": 2018,
+          "n": 2,
+          "conversion": 0.0
+        },
+        {
+          "year": 2019,
+          "n": 457,
+          "conversion": 0.14442013129102846
+        },
+        {
+          "year": 2020,
+          "n": 440,
+          "conversion": 0.10681818181818181
+        },
+        {
+          "year": 2021,
+          "n": 441,
+          "conversion": 0.13151927437641722
+        },
+        {
+          "year": 2022,
+          "n": 498,
+          "conversion": 0.1646586345381526
+        },
+        {
+          "year": 2023,
+          "n": 418,
+          "conversion": 0.145933014354067
+        },
+        {
+          "year": 2024,
+          "n": 429,
+          "conversion": 0.14918414918414918
+        },
+        {
+          "year": 2025,
+          "n": 329,
+          "conversion": 0.1033434650455927
+        }
+      ]
+    },
+    "verdict": "Strong",
+    "notes": "",
+    "score": 55.658419149960004
+  },
+  {
+    "id": "H09",
+    "title": "Vacant-building complaint \u2192 property sells",
+    "who": "Investors' contractors, rehab GCs, property managers (and investors themselves)",
+    "data": "311 service requests, Cook County sales",
+    "signal": "'Vacant/Abandoned Building' 311 complaint",
+    "target": "Property sale within 365 days",
+    "metrics": {
+      "signals": 9307,
+      "conversion": 0.1937,
+      "baseline": 0.0778,
+      "median_days": 167.0,
+      "signals_per_week": 20.5,
+      "lift": 2.4903,
+      "by_year": [
+        {
+          "year": 2018,
+          "n": 83,
+          "conversion": 0.24096385542168675
+        },
+        {
+          "year": 2019,
+          "n": 2052,
+          "conversion": 0.1817738791423002
+        },
+        {
+          "year": 2020,
+          "n": 1426,
+          "conversion": 0.2026647966339411
+        },
+        {
+          "year": 2021,
+          "n": 1377,
+          "conversion": 0.18445896877269427
+        },
+        {
+          "year": 2022,
+          "n": 1345,
+          "conversion": 0.1970260223048327
+        },
+        {
+          "year": 2023,
+          "n": 1176,
+          "conversion": 0.1836734693877551
+        },
+        {
+          "year": 2024,
+          "n": 1347,
+          "conversion": 0.20341499628804752
+        },
+        {
+          "year": 2025,
+          "n": 501,
+          "conversion": 0.22355289421157684
+        }
+      ]
+    },
+    "verdict": "Useful",
+    "notes": "A sale after vacancy usually means a rehab: an early entry into the investor-purchase lead.",
+    "score": 48.237111
+  },
+  {
+    "id": "H10",
+    "title": "Complaint about unpermitted work \u2192 permit gets pulled",
+    "who": "Expediters, architects, GCs who legalize work",
+    "data": "311 service requests, permits",
+    "signal": "'No Building Permit and Construction Violation' 311 complaint",
+    "target": "Any permit at the same address within 180 days",
+    "metrics": {
+      "signals": 26245,
+      "conversion": 0.1885,
+      "baseline": 0.0867,
+      "median_days": 52.0,
+      "signals_per_week": 70.5769,
+      "lift": 2.1741,
+      "by_year": [
+        {
+          "year": 2018,
+          "n": 191,
+          "conversion": 0.15706806282722513
+        },
+        {
+          "year": 2019,
+          "n": 3788,
+          "conversion": 0.2531678986272439
+        },
+        {
+          "year": 2020,
+          "n": 3889,
+          "conversion": 0.1889946001542813
+        },
+        {
+          "year": 2021,
+          "n": 3562,
+          "conversion": 0.2116788321167883
+        },
+        {
+          "year": 2022,
+          "n": 3858,
+          "conversion": 0.19673405909797823
+        },
+        {
+          "year": 2023,
+          "n": 3839,
+          "conversion": 0.1594165147173743
+        },
+        {
+          "year": 2024,
+          "n": 3924,
+          "conversion": 0.1572375127420999
+        },
+        {
+          "year": 2025,
+          "n": 3194,
+          "conversion": 0.15028177833437695
+        }
+      ]
+    },
+    "verdict": "Useful",
+    "notes": "",
+    "score": 40.981785
+  },
+  {
+    "id": "H11",
+    "title": "Lead test kit request \u2192 plumbing work",
+    "who": "Plumbers",
+    "data": "311 service requests, permits",
+    "signal": "Household requests a water lead test kit",
+    "target": "Plumbing permit at the same address within 365 days",
+    "metrics": {
+      "signals": 90930,
+      "conversion": 0.0061,
+      "baseline": 0.0087,
+      "median_days": 155.5,
+      "signals_per_week": 273.3462,
+      "lift": 0.6995,
+      "by_year": [
+        {
+          "year": 2018,
+          "n": 443,
+          "conversion": 0.011286681715575621
+        },
+        {
+          "year": 2019,
+          "n": 37098,
+          "conversion": 0.004420723489136881
+        },
+        {
+          "year": 2020,
+          "n": 5085,
+          "conversion": 0.0058997050147492625
+        },
+        {
+          "year": 2021,
+          "n": 10894,
+          "conversion": 0.00559941252065357
+        },
+        {
+          "year": 2022,
+          "n": 7128,
+          "conversion": 0.007575757575757576
+        },
+        {
+          "year": 2023,
+          "n": 7843,
+          "conversion": 0.007267627183475711
+        },
+        {
+          "year": 2024,
+          "n": 9492,
+          "conversion": 0.010113780025284451
+        },
+        {
+          "year": 2025,
+          "n": 12947,
+          "conversion": 0.006719703406194485
+        }
+      ]
+    },
+    "verdict": "No signal",
+    "notes": "Lead service line replacements are done under the Water Department, not building permits, so this measures only other plumbing work.",
+    "score": 0.42669500000000005
+  },
+  {
+    "id": "H12",
+    "title": "Which houses re-roof: age \u00d7 roof material",
+    "who": "Roofers, solar installers",
+    "data": "Cook County Assessor residential characteristics, permits",
+    "signal": "Property group: 2000+ / Other",
+    "target": "roofing permit per year",
+    "metrics": {
+      "groups": [
+        {
+          "grp": "2000+ / Other",
+          "parcels": 1189,
+          "annual_rate": 0.021586767591813848,
+          "lift": 2.37
+        },
+        {
+          "grp": "2000+ / Tar + Gravel",
+          "parcels": 4907,
+          "annual_rate": 0.014672916242103118,
+          "lift": 1.61
+        },
+        {
+          "grp": "2000+ / Shingle + Asphalt",
+          "parcels": 12117,
+          "annual_rate": 0.013919837143407334,
+          "lift": 1.53
+        },
+        {
+          "grp": "pre-1910 / Other",
+          "parcels": 1769,
+          "annual_rate": 0.010552100998680987,
+          "lift": 1.16
+        },
+        {
+          "grp": "1940-69 / Shingle + Asphalt",
+          "parcels": 92289,
+          "annual_rate": 0.01043822485164357,
+          "lift": 1.15
+        },
+        {
+          "grp": "1910-39 / Shingle + Asphalt",
+          "parcels": 88231,
+          "annual_rate": 0.009705583449505653,
+          "lift": 1.07
+        },
+        {
+          "grp": "1970-99 / Shingle + Asphalt",
+          "parcels": 12546,
+          "annual_rate": 0.008395770232212127,
+          "lift": 0.92
+        },
+        {
+          "grp": "1910-39 / Tile",
+          "parcels": 1258,
+          "annual_rate": 0.007684154742978272,
+          "lift": 0.84
+        },
+        {
+          "grp": "pre-1910 / Tar + Gravel",
+          "parcels": 24428,
+          "annual_rate": 0.00732765678729327,
+          "lift": 0.8
+        },
+        {
+          "grp": "1940-69 / Tar + Gravel",
+          "parcels": 4045,
+          "annual_rate": 0.007251751133086115,
+          "lift": 0.8
+        },
+        {
+          "grp": "pre-1910 / Shingle + Asphalt",
+          "parcels": 64031,
+          "annual_rate": 0.006772761110503766,
+          "lift": 0.74
+        },
+        {
+          "grp": "1910-39 / Tar + Gravel",
+          "parcels": 23994,
+          "annual_rate": 0.006334917062598983,
+          "lift": 0.7
+        },
+        {
+          "grp": "1970-99 / Tar + Gravel",
+          "parcels": 3048,
+          "annual_rate": 0.005686789151356081,
+          "lift": 0.62
+        }
+      ],
+      "overall_annual_rate": 0.0091,
+      "conversion": 0.0216,
+      "baseline": 0.0091,
+      "lift": 2.3709,
+      "signals_per_week": null
+    },
+    "verdict": "Useful",
+    "notes": "",
+    "score": 0.0
+  },
+  {
+    "id": "H13",
+    "title": "Which buildings need masonry work: walls \u00d7 age",
+    "who": "Masons, tuckpointers",
+    "data": "Cook County Assessor residential characteristics, permits",
+    "signal": "Property group: Masonry / pre-1910",
+    "target": "masonry permit per year",
+    "metrics": {
+      "groups": [
+        {
+          "grp": "Masonry / pre-1910",
+          "parcels": 38759,
+          "annual_rate": 0.014052650137172442,
+          "lift": 2.86
+        },
+        {
+          "grp": "Masonry / 1910-39",
+          "parcels": 71009,
+          "annual_rate": 0.007858158824937685,
+          "lift": 1.6
+        },
+        {
+          "grp": "Frame + Masonry / pre-1910",
+          "parcels": 5219,
+          "annual_rate": 0.007281088331097912,
+          "lift": 1.48
+        },
+        {
+          "grp": "Frame + Masonry / 1910-39",
+          "parcels": 9525,
+          "annual_rate": 0.006019247594050744,
+          "lift": 1.23
+        },
+        {
+          "grp": "Masonry / 1970+",
+          "parcels": 20252,
+          "annual_rate": 0.00557969583251037,
+          "lift": 1.14
+        },
+        {
+          "grp": "Frame + Masonry / 1970+",
+          "parcels": 4424,
+          "annual_rate": 0.004219409282700422,
+          "lift": 0.86
+        },
+        {
+          "grp": "Frame / 1970+",
+          "parcels": 9229,
+          "annual_rate": 0.004189691913172247,
+          "lift": 0.85
+        },
+        {
+          "grp": "Frame + Masonry / 1940-69",
+          "parcels": 11652,
+          "annual_rate": 0.0033470648815653965,
+          "lift": 0.68
+        },
+        {
+          "grp": "Stucco / pre-1910",
+          "parcels": 1116,
+          "annual_rate": 0.002688172043010753,
+          "lift": 0.55
+        },
+        {
+          "grp": "Frame / pre-1910",
+          "parcels": 45816,
+          "annual_rate": 0.0018479715965310517,
+          "lift": 0.38
+        },
+        {
+          "grp": "Frame / 1910-39",
+          "parcels": 32018,
+          "annual_rate": 0.0016032648301996793,
+          "lift": 0.33
+        },
+        {
+          "grp": "Masonry / 1940-69",
+          "parcels": 72633,
+          "annual_rate": 0.0012758204489235838,
+          "lift": 0.26
+        },
+        {
+          "grp": "Stucco / 1910-39",
+          "parcels": 2200,
+          "annual_rate": 0.0010606060606060607,
+          "lift": 0.22
+        },
+        {
+          "grp": "Frame / 1940-69",
+          "parcels": 12941,
+          "annual_rate": 0.0008757695180691858,
+          "lift": 0.18
+        }
+      ],
+      "overall_annual_rate": 0.0049,
+      "conversion": 0.0141,
+      "baseline": 0.0049,
+      "lift": 2.8634,
+      "signals_per_week": null
+    },
+    "verdict": "Useful",
+    "notes": "",
+    "score": 0.0
+  },
+  {
+    "id": "H14",
+    "title": "Which homes pull HVAC permits: A/C \u00d7 heat type",
+    "who": "HVAC contractors",
+    "data": "Cook County Assessor residential characteristics, permits",
+    "signal": "Property group: Central A/C / Hot Water Steam",
+    "target": "hvac permit per year",
+    "metrics": {
+      "groups": [
+        {
+          "grp": "Central A/C / Hot Water Steam",
+          "parcels": 8284,
+          "annual_rate": 0.003299533236761629,
+          "lift": 2.16
+        },
+        {
+          "grp": "Central A/C / Warm Air Furnace",
+          "parcels": 97143,
+          "annual_rate": 0.002401957252023649,
+          "lift": 1.57
+        },
+        {
+          "grp": "No Central A/C / Electric Heater",
+          "parcels": 1330,
+          "annual_rate": 0.0020050125313283208,
+          "lift": 1.31
+        },
+        {
+          "grp": "No Central A/C / None",
+          "parcels": 1708,
+          "annual_rate": 0.001366120218579235,
+          "lift": 0.9
+        },
+        {
+          "grp": "No Central A/C / Hot Water Steam",
+          "parcels": 70382,
+          "annual_rate": 0.0012597918028283746,
+          "lift": 0.83
+        },
+        {
+          "grp": "No Central A/C / Warm Air Furnace",
+          "parcels": 157508,
+          "annual_rate": 0.0010010073562401064,
+          "lift": 0.66
+        }
+      ],
+      "overall_annual_rate": 0.0015,
+      "conversion": 0.0033,
+      "baseline": 0.0015,
+      "lift": 2.162,
+      "signals_per_week": null
+    },
+    "verdict": "Useful",
+    "notes": "The original idea (no central A/C \u2192 new A/C installs) is refuted: homes without central A/C are below average. Homes that already have it pull more permits, i.e. replacements. Most residential HVAC swaps aren't permitted, so rates are low.",
+    "score": 0.0
+  },
+  {
+    "id": "H15",
+    "title": "Assessor condition rating \u2192 renovation permits",
+    "who": "General contractors, rehab crews",
+    "data": "Cook County Assessor residential characteristics, permits",
+    "signal": "Property group: Above Average",
+    "target": "interior buildout permit per year",
+    "metrics": {
+      "groups": [
+        {
+          "grp": "Above Average",
+          "parcels": 2273,
+          "annual_rate": 0.006012611819914943,
+          "lift": 1.41
+        },
+        {
+          "grp": "Below Average",
+          "parcels": 2530,
+          "annual_rate": 0.005270092226613966,
+          "lift": 1.24
+        },
+        {
+          "grp": "Average",
+          "parcels": 332210,
+          "annual_rate": 0.004246310064918777,
+          "lift": 1.0
+        }
+      ],
+      "overall_annual_rate": 0.0043,
+      "conversion": 0.006,
+      "baseline": 0.0043,
+      "lift": 1.4095,
+      "signals_per_week": null
+    },
+    "verdict": "Weak",
+    "notes": "",
+    "score": 0.0
+  },
+  {
+    "id": "H16",
+    "title": "Poor energy score \u2192 mechanical/electrical upgrades",
+    "who": "Commercial HVAC, electrical, lighting retrofit, energy services",
+    "data": "Chicago Energy Benchmarking (buildings \u2265 50k sq ft), permits",
+    "signal": "Building reports an ENERGY STAR score \u2264 40",
+    "target": "HVAC or electrical permit in the following two years",
+    "metrics": {
+      "groups": [
+        {
+          "grp": "41-74",
+          "building_years": 5997,
+          "rate": 0.20743705185926298
+        },
+        {
+          "grp": "ENERGY STAR \u2264 40",
+          "building_years": 4373,
+          "rate": 0.17722387377086668
+        },
+        {
+          "grp": "ENERGY STAR \u2265 75",
+          "building_years": 5616,
+          "rate": 0.16417378917378916
+        }
+      ],
+      "conversion": 0.1772,
+      "baseline": 0.1642,
+      "lift": 1.0795,
+      "signals_per_week": null
+    },
+    "verdict": "No signal",
+    "notes": "Large buildings; addresses matched by normalized street address.",
+    "score": 0.0
+  }
+]

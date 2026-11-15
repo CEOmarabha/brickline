@@ -27,6 +27,7 @@ This repo contains the plan, the evidence behind it, and the first pieces of the
 | `docs/10-additional-opportunities.md` | Deliverable 10 — further opportunities and advantages |
 | `docs/11-lead-generation-strategy.md` | Backtested lead formulas, homeowner-trade decision, revised 90 days |
 | `docs/12-build-order-and-budget.md` | Client vs admin versions, our own prospecting, first-six-months budget |
+| `docs/13-signal-lab.md` | Creative lead ideas tested against history: results, failures, next ideas |
 | `docs/data-source-registry.md` | Data sources with coverage, cadence, access, verification status |
 | `docs/feature-roadmap.md` | Features by status and justifying metric |
 | `docs/decision-log.md` | Decisions, alternatives, evidence |
@@ -63,10 +64,12 @@ Requires Python 3.11+, [uv](https://docs.astral.sh/uv/) and internet access. The
 
 ```bash
 uv sync
-uv run python -m engine.warehouse sync     # permits, violations, Cook County sales, food licenses
+uv run python -m engine.warehouse sync     # permits, violations, sales, licenses, 311, benchmarking, assessor characteristics, NOAA storms
 uv run python -m engine.warehouse build    # normalized tables in data/warehouse.duckdb (~15 s)
 uv run python research/backtests/run_backtests.py   # writes research/findings/backtests-<date>.md/.json
 ```
+
+Signal lab (test new lead ideas, ~4 s): `uv run python research/signal_lab/lab.py` writes `research/findings/signal-lab-<date>.md`.
 
 Our own prospect list (contractors to pitch): `uv run python -m engine.leads.prospects --trades porch masonry roofing` writes `data/prospects-<date>.csv`.
 

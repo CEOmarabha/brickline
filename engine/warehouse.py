@@ -17,6 +17,7 @@ from pathlib import Path
 import duckdb
 
 from engine.classify.trades import PERMIT_TRADES, VIOLATION_TRADES, sql_flags
+from engine.collect import noaa
 from engine.collect.socrata import export_csv
 
 DATA = Path("data")
@@ -82,6 +83,45 @@ DATASETS = [
         "year = 2026 AND prop_address_city_name = 'CHICAGO'",
     ),
     Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community,the_geom"),
+    Dataset(
+        "sr311",
+        CHICAGO,
+        "v6vf-nfxy",
+        "sr_number,sr_type,status,created_date,closed_date,street_address,zip_code,community_area,latitude,longitude,"
+        "duplicate",
+        "created_date >= '2015-01-01T00:00:00' AND sr_type in("
+        + ",".join(
+            f"'{t}'"
+            for t in (
+                "Building Violation",
+                "Water in Basement Complaint",
+                "No Building Permit and Construction Violation",
+                "Buildings - Plumbing Violation",
+                "Vacant/Abandoned Building Complaint",
+                "Water Lead Test Kit Request",
+                "Sewer Cave-In Inspection Request",
+                "Porch Inspection Request",
+                "Tree Emergency",
+                "Rodent Baiting/Rat Complaint",
+            )
+        )
+        + ")",
+    ),
+    Dataset(
+        "benchmarking",
+        CHICAGO,
+        "xq83-jr8c",
+        "data_year,id,property_name,address,community_area,primary_property_type,gross_floor_area_buildings_sq_ft,"
+        "year_built,energy_star_score,site_eui_kbtu_sq_ft,chicago_energy_rating,latitude,longitude",
+    ),
+    Dataset(
+        "res_chars",
+        COOK,
+        "x54s-btds",
+        "pin,class,char_yrblt,char_bldg_sf,char_type_resd,char_ext_wall,char_roof_cnst,char_air,char_heat,char_bsmt,"
+        "char_repair_cnd,char_porch,char_use,char_apts",
+        "year = 2026 AND township_code in(" + ",".join(f"'{t}'" for t in CHICAGO_TOWNSHIPS) + ")",
+    ),
 ]
 
 # Address key: "<number> <dir> <street words up to and including the suffix>", unit/floor text dropped.
@@ -107,6 +147,9 @@ def sync(names: list[str] | None = None) -> None:
             continue
         print(f"sync {ds.name} ({ds.domain}/{ds.dataset_id})")
         export_csv(ds.domain, ds.dataset_id, ds.select, ds.where, RAW / ds.name)
+    if not names or "noaa" in names:
+        print("sync noaa storm events")
+        noaa.sync(RAW / "noaa")
 
 
 def _csv(name: str) -> str:
@@ -269,6 +312,57 @@ def build() -> None:
         FROM {_csv("community_areas")}
     """)
 
+    print("build sr311")
+    con.execute(f"""
+        CREATE TABLE sr311 AS
+        SELECT sr_number, sr_type, status,
+            try_cast(created_date AS TIMESTAMP)::DATE AS created_date,
+            try_cast(closed_date AS TIMESTAMP)::DATE AS closed_date,
+            {address_key_sql("street_address")} AS address_key,
+            zip_code, try_cast(community_area AS INTEGER) AS community_area,
+            try_cast(latitude AS DOUBLE) AS lat, try_cast(longitude AS DOUBLE) AS lon,
+            coalesce(duplicate, 'false') = 'true' AS duplicate
+        FROM {_csv("sr311")}
+    """)
+
+    print("build benchmarking")
+    con.execute(f"""
+        CREATE TABLE benchmarking AS
+        SELECT try_cast(data_year AS INTEGER) AS data_year, id AS building_id, property_name,
+            {address_key_sql("address")} AS address_key, address, community_area, primary_property_type,
+            try_cast(gross_floor_area_buildings_sq_ft AS DOUBLE) AS floor_area,
+            try_cast(year_built AS INTEGER) AS year_built,
+            try_cast(energy_star_score AS DOUBLE) AS energy_star_score,
+            try_cast(site_eui_kbtu_sq_ft AS DOUBLE) AS site_eui,
+            try_cast(chicago_energy_rating AS DOUBLE) AS energy_rating,
+            try_cast(latitude AS DOUBLE) AS lat, try_cast(longitude AS DOUBLE) AS lon
+        FROM {_csv("benchmarking")}
+    """)
+
+    print("build res_chars")
+    con.execute(f"""
+        CREATE TABLE res_chars AS
+        SELECT left(lpad(pin, 14, '0'), 10) AS pin10,
+            first(class) AS class,
+            min(try_cast(try_cast(char_yrblt AS DOUBLE) AS INTEGER)) AS year_built,
+            sum(try_cast(char_bldg_sf AS DOUBLE)) AS bldg_sf,
+            first(char_type_resd) AS type_resd, first(char_ext_wall) AS ext_wall,
+            first(char_roof_cnst) AS roof, first(char_air) AS air, first(char_heat) AS heat,
+            first(char_bsmt) AS basement, first(char_repair_cnd) AS repair_condition,
+            first(char_porch) AS porch, first(char_use) AS use, first(char_apts) AS apts
+        FROM {_csv("res_chars")}
+        GROUP BY 1
+    """)
+
+    print("build storms")
+    con.execute(f"""
+        CREATE TABLE storms AS
+        SELECT event_id, strptime(begin_date_time, '%d-%b-%y %H:%M:%S')::DATE AS event_date, event_type,
+            try_cast(magnitude AS DOUBLE) AS magnitude, try_cast(lat AS DOUBLE) AS lat,
+            try_cast(lon AS DOUBLE) AS lon, location, damage_property
+        FROM read_csv('{RAW / "noaa"}/storms-*.csv', header=true, all_varchar=true, union_by_name=true)
+    """)
+
     for t in (
         "permits",
         "permit_parties",
@@ -277,6 +371,10 @@ def build() -> None:
         "food_licenses",
         "parcels",
         "community_areas",
+        "sr311",
+        "benchmarking",
+        "res_chars",
+        "storms",
     ):
         n = con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
         print(f"  {t}: {n:,} rows")

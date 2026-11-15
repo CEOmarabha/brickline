@@ -75,6 +75,12 @@
 - **Evidence:** The client app doubles as the sales demo and the outcome-capture tool; admin needs mostly wrap existing tools (`12-build-order-and-budget.md`).
 - **Reverse if:** Agency operations become the bottleneck before the client count does.
 
+### D-015 — Productize round-1 signal-lab winners; no storm or "old house" leads
+- **Status:** Accepted 2026-11-15.
+- **Decision:** Add 311 building complaints (earliest step before a citation), porch inspection requests, vacant-building complaints, a masonry building-age filter, and block-level solar/roofing lists. Do not sell storm-based roofing leads (no signal with point reports), "old house = new roof", "no A/C = HVAC", basement-water or lead-kit plumbing leads.
+- **Evidence:** `13-signal-lab.md` (H07 5.9×, 32-day head start; H08 11.4×; H09 2.5×; H13 2.9×; storms ~1.0×).
+- **Reverse if:** Radar hail swaths or client job data show a storm effect.
+
 ### D-013 — Demolition permits are not used as an early new-construction signal in Chicago
 - **Status:** Accepted.
 - **Evidence:** Only 30% of demolitions lead to new construction within 2 years; when they do, the new-construction application usually precedes the demolition permit (median −8 days) and trades are already named (89–98%) [V].
