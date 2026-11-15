@@ -1,11 +1,19 @@
 import "server-only";
 
-import { connection } from "next/server";
+import { headers } from "next/headers";
 import { sql } from "@/lib/db";
 import type { TradeKey } from "@/lib/snapshot";
+import { getIdentity } from "../../cursor/identity";
 
-// One workspace until client accounts exist; every table is already keyed by workspace id.
-export const WORKSPACE_ID = "default";
+/**
+ * Each signed-in viewer gets their own workspace. The stage prefix keeps preview sessions out of
+ * production data. Returns null when no verified viewer is on the request.
+ */
+export async function viewerWorkspaceId(): Promise<string | null> {
+  const identity = await getIdentity(await headers());
+  if (!identity.verified) return null;
+  return `${identity.stage}:${identity.sub}`;
+}
 
 export interface Workspace {
   id: string;
@@ -15,6 +23,7 @@ export interface Workspace {
   phone: string;
   mailingAddress: string;
   configured: boolean;
+  signedIn: boolean;
 }
 
 export const LEAD_STATUSES = ["new", "contacted", "meeting", "won", "lost", "not_relevant"] as const;
@@ -37,7 +46,7 @@ export interface LeadStatusRow {
 }
 
 export async function getWorkspace(): Promise<Workspace> {
-  await connection();
+  const wsId = await viewerWorkspaceId();
   const rows = await sql<{
     id: string;
     business_name: string;
@@ -45,17 +54,18 @@ export async function getWorkspace(): Promise<Workspace> {
     areas: number[];
     phone: string;
     mailing_address: string;
-  }>("select * from workspace where id = $1", [WORKSPACE_ID]);
-  const r = rows[0];
+  }>("select * from workspace where id = $1", [wsId ?? ""]);
+  const r = wsId ? rows[0] : undefined;
   if (!r) {
     return {
-      id: WORKSPACE_ID,
+      id: wsId ?? "",
       businessName: "",
       trade: "porch",
       areas: [],
       phone: "",
       mailingAddress: "",
       configured: false,
+      signedIn: wsId !== null,
     };
   }
   return {
@@ -66,14 +76,16 @@ export async function getWorkspace(): Promise<Workspace> {
     phone: r.phone,
     mailingAddress: r.mailing_address,
     configured: true,
+    signedIn: true,
   };
 }
 
 export async function getStatuses(): Promise<Map<string, LeadStatusRow>> {
-  await connection();
+  const wsId = await viewerWorkspaceId();
+  if (!wsId) return new Map();
   const rows = await sql<{ lead_id: string; status: LeadStatus; note: string; updated_at: Date }>(
     "select lead_id, status, note, updated_at from lead_status where workspace_id = $1",
-    [WORKSPACE_ID],
+    [wsId],
   );
   return new Map(
     rows.map((r) => [
@@ -84,9 +96,10 @@ export async function getStatuses(): Promise<Map<string, LeadStatusRow>> {
 }
 
 export async function getLeadHistory(leadId: string) {
-  await connection();
+  const wsId = await viewerWorkspaceId();
+  if (!wsId) return [];
   return sql<{ status: LeadStatus; note: string; created_at: Date }>(
     "select status, note, created_at from lead_event where workspace_id = $1 and lead_id = $2 order by created_at desc",
-    [WORKSPACE_ID, leadId],
+    [wsId, leadId],
   );
 }

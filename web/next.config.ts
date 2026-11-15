@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
     "/**": ["./data/snapshot.json", "./migrations/*.sql"],
   },
   turbopack: {
+    // cursor/identity.ts imports its dev sibling with a .js extension (NodeNext style).
+    resolveAlias: {
+      "./identity.dev.js": "./cursor/identity.dev.ts",
+    },
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],

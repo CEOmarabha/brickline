@@ -64,7 +64,18 @@ async function Dashboard() {
         }
       />
 
-      {!ws.configured && (
+      {!ws.signedIn && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>You&apos;re viewing without signing in</CardTitle>
+            <CardDescription>
+              Leads are visible, but settings and lead statuses can only be saved by a signed-in user.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      {ws.signedIn && !ws.configured && (
         <Card className="mb-6 border-primary/30 bg-primary/5">
           <CardHeader>
             <CardTitle>Tell us what you do and where</CardTitle>
