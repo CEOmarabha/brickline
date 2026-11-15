@@ -1309,6 +1309,397 @@
       "label": "'Vacant/Abandoned Building Complaint' \u2192 property sale"
     }
   },
+  "closed_restaurant": {
+    "period": "2016-01-01 to 2025-11-01",
+    "split": "2016-01-01 to 2020-12-31 vs 2021-01-01 to 2025-11-01",
+    "labels": {
+      "license": "New retail food license, different business name (headline)",
+      "license_after30": "...issued 31+ days after the closure was recorded",
+      "license_any": "Any new retail food license, including the same name",
+      "permit": "Renovation, build-out or new-construction permit"
+    },
+    "views": {
+      "license": {
+        "signals": 7943,
+        "conversion": 0.3233,
+        "baseline": 0.0316,
+        "lift": 10.2351,
+        "median_days": 19.0,
+        "days_p25": 6.0,
+        "days_p75": 112.0,
+        "episodes_per_week": 12.1154,
+        "by_year": [
+          {
+            "year": 2016,
+            "signals": 932,
+            "conversion": 0.3219,
+            "control_conversion": 0.0416
+          },
+          {
+            "year": 2017,
+            "signals": 826,
+            "conversion": 0.3208,
+            "control_conversion": 0.0584
+          },
+          {
+            "year": 2018,
+            "signals": 726,
+            "conversion": 0.3664,
+            "control_conversion": 0.0493
+          },
+          {
+            "year": 2019,
+            "signals": 943,
+            "conversion": 0.2948,
+            "control_conversion": 0.0404
+          },
+          {
+            "year": 2020,
+            "signals": 668,
+            "conversion": 0.3189,
+            "control_conversion": 0.0257
+          },
+          {
+            "year": 2021,
+            "signals": 794,
+            "conversion": 0.2897,
+            "control_conversion": 0.0405
+          },
+          {
+            "year": 2022,
+            "signals": 787,
+            "conversion": 0.3126,
+            "control_conversion": 0.0332
+          },
+          {
+            "year": 2023,
+            "signals": 786,
+            "conversion": 0.369,
+            "control_conversion": 0.0388
+          },
+          {
+            "year": 2024,
+            "signals": 886,
+            "conversion": 0.3115,
+            "control_conversion": 0.0323
+          },
+          {
+            "year": 2025,
+            "signals": 595,
+            "conversion": 0.3429,
+            "control_conversion": 0.0359
+          }
+        ]
+      },
+      "license_after30": {
+        "signals": 7943,
+        "conversion": 0.1504,
+        "baseline": 0.0299,
+        "lift": 5.0283,
+        "median_days": 154.0,
+        "days_p25": 82.0,
+        "days_p75": 252.5,
+        "episodes_per_week": 12.1154,
+        "by_year": [
+          {
+            "year": 2016,
+            "signals": 932,
+            "conversion": 0.162,
+            "control_conversion": 0.0357
+          },
+          {
+            "year": 2017,
+            "signals": 826,
+            "conversion": 0.1368,
+            "control_conversion": 0.0432
+          },
+          {
+            "year": 2018,
+            "signals": 726,
+            "conversion": 0.1529,
+            "control_conversion": 0.0336
+          },
+          {
+            "year": 2019,
+            "signals": 943,
+            "conversion": 0.1474,
+            "control_conversion": 0.03
+          },
+          {
+            "year": 2020,
+            "signals": 668,
+            "conversion": 0.1677,
+            "control_conversion": 0.0206
+          },
+          {
+            "year": 2021,
+            "signals": 794,
+            "conversion": 0.1373,
+            "control_conversion": 0.0334
+          },
+          {
+            "year": 2022,
+            "signals": 787,
+            "conversion": 0.1385,
+            "control_conversion": 0.0294
+          },
+          {
+            "year": 2023,
+            "signals": 786,
+            "conversion": 0.1603,
+            "control_conversion": 0.03
+          },
+          {
+            "year": 2024,
+            "signals": 886,
+            "conversion": 0.1366,
+            "control_conversion": 0.028
+          },
+          {
+            "year": 2025,
+            "signals": 595,
+            "conversion": 0.1748,
+            "control_conversion": 0.0316
+          }
+        ]
+      },
+      "license_any": {
+        "signals": 7943,
+        "conversion": 0.4298,
+        "baseline": 0.0477,
+        "lift": 9.0197,
+        "median_days": 15.0,
+        "days_p25": 5.0,
+        "days_p75": 84.0,
+        "episodes_per_week": 12.1154,
+        "by_year": [
+          {
+            "year": 2016,
+            "signals": 932,
+            "conversion": 0.4356,
+            "control_conversion": 0.1054
+          },
+          {
+            "year": 2017,
+            "signals": 826,
+            "conversion": 0.4504,
+            "control_conversion": 0.2015
+          },
+          {
+            "year": 2018,
+            "signals": 726,
+            "conversion": 0.4972,
+            "control_conversion": 0.187
+          },
+          {
+            "year": 2019,
+            "signals": 943,
+            "conversion": 0.3871,
+            "control_conversion": 0.1234
+          },
+          {
+            "year": 2020,
+            "signals": 668,
+            "conversion": 0.3892,
+            "control_conversion": 0.1399
+          },
+          {
+            "year": 2021,
+            "signals": 794,
+            "conversion": 0.3741,
+            "control_conversion": 0.1363
+          },
+          {
+            "year": 2022,
+            "signals": 787,
+            "conversion": 0.4219,
+            "control_conversion": 0.1158
+          },
+          {
+            "year": 2023,
+            "signals": 786,
+            "conversion": 0.4606,
+            "control_conversion": 0.1347
+          },
+          {
+            "year": 2024,
+            "signals": 886,
+            "conversion": 0.4233,
+            "control_conversion": 0.1272
+          },
+          {
+            "year": 2025,
+            "signals": 595,
+            "conversion": 0.4773,
+            "control_conversion": 0.1516
+          }
+        ]
+      },
+      "permit": {
+        "signals": 7943,
+        "conversion": 0.1102,
+        "baseline": 0.0619,
+        "lift": 1.7798,
+        "median_days": 113.0,
+        "days_p25": 40.0,
+        "days_p75": 210.5,
+        "episodes_per_week": 12.1154,
+        "by_year": [
+          {
+            "year": 2016,
+            "signals": 932,
+            "conversion": 0.117,
+            "control_conversion": 0.0831
+          },
+          {
+            "year": 2017,
+            "signals": 826,
+            "conversion": 0.1235,
+            "control_conversion": 0.0787
+          },
+          {
+            "year": 2018,
+            "signals": 726,
+            "conversion": 0.1198,
+            "control_conversion": 0.0848
+          },
+          {
+            "year": 2019,
+            "signals": 943,
+            "conversion": 0.1283,
+            "control_conversion": 0.0677
+          },
+          {
+            "year": 2020,
+            "signals": 668,
+            "conversion": 0.0853,
+            "control_conversion": 0.0402
+          },
+          {
+            "year": 2021,
+            "signals": 794,
+            "conversion": 0.1159,
+            "control_conversion": 0.0567
+          },
+          {
+            "year": 2022,
+            "signals": 787,
+            "conversion": 0.1067,
+            "control_conversion": 0.0583
+          },
+          {
+            "year": 2023,
+            "signals": 786,
+            "conversion": 0.0992,
+            "control_conversion": 0.0577
+          },
+          {
+            "year": 2024,
+            "signals": 886,
+            "conversion": 0.0948,
+            "control_conversion": 0.0514
+          },
+          {
+            "year": 2025,
+            "signals": 595,
+            "conversion": 0.1025,
+            "control_conversion": 0.0439
+          }
+        ]
+      }
+    },
+    "stability": {
+      "license": {
+        "early": {
+          "signals": 4095,
+          "conversion": 0.3228,
+          "baseline": 0.0316,
+          "lift": 10.2305,
+          "median_days": 17.0,
+          "days_p25": 5.0,
+          "days_p75": 112.0,
+          "episodes_per_week": 12.1154
+        },
+        "late": {
+          "signals": 3848,
+          "conversion": 0.3238,
+          "baseline": 0.0314,
+          "lift": 10.3156,
+          "median_days": 20.0,
+          "days_p25": 7.0,
+          "days_p75": 112.0,
+          "episodes_per_week": 12.1154
+        }
+      },
+      "license_after30": {
+        "early": {
+          "signals": 4095,
+          "conversion": 0.1529,
+          "baseline": 0.03,
+          "lift": 5.0935,
+          "median_days": 153.0,
+          "days_p25": 82.0,
+          "days_p75": 248.0,
+          "episodes_per_week": 12.1154
+        },
+        "late": {
+          "signals": 3848,
+          "conversion": 0.1479,
+          "baseline": 0.0296,
+          "lift": 4.9975,
+          "median_days": 155.0,
+          "days_p25": 82.0,
+          "days_p75": 261.0,
+          "episodes_per_week": 12.1154
+        }
+      },
+      "license_any": {
+        "early": {
+          "signals": 4095,
+          "conversion": 0.4308,
+          "baseline": 0.0484,
+          "lift": 8.9048,
+          "median_days": 13.0,
+          "days_p25": 4.0,
+          "days_p75": 85.0,
+          "episodes_per_week": 12.1154
+        },
+        "late": {
+          "signals": 3848,
+          "conversion": 0.4288,
+          "baseline": 0.0466,
+          "lift": 9.2019,
+          "median_days": 17.0,
+          "days_p25": 6.0,
+          "days_p75": 84.0,
+          "episodes_per_week": 12.1154
+        }
+      },
+      "permit": {
+        "early": {
+          "signals": 4095,
+          "conversion": 0.1162,
+          "baseline": 0.0705,
+          "lift": 1.6483,
+          "median_days": 112.0,
+          "days_p25": 36.0,
+          "days_p75": 209.5,
+          "episodes_per_week": 12.1154
+        },
+        "late": {
+          "signals": 3848,
+          "conversion": 0.1037,
+          "baseline": 0.052,
+          "lift": 1.9959,
+          "median_days": 117.0,
+          "days_p25": 43.0,
+          "days_p75": 210.5,
+          "episodes_per_week": 12.1154
+        }
+      }
+    },
+    "closures_per_week": 13.0769
+  },
   "market": {
     "rows": [
       {

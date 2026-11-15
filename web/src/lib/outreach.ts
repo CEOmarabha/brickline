@@ -73,6 +73,37 @@ export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaNam
     };
   }
 
+  if (lead.kind === "closed_restaurant") {
+    const greeting = lead.owner.name ? `Dear ${lead.owner.name},` : "Dear Property Owner,";
+    const company = lead.owner.type === "company";
+    return {
+      channel: "letter",
+      body: [
+        greeting,
+        "",
+        `If you're preparing the space at ${lead.address} for a new tenant, ${business} can help. We prepare and build out commercial space for the next operator${where}: demolition and clean-out, coordination of kitchen, hood, plumbing and electrical rough-in, permit paperwork, and a space that's ready for move-in.`,
+        "",
+        "We can walk the space this week and send a written estimate at no cost. If the space is already spoken for, or you have a contractor lined up, please disregard this note.",
+        "",
+        `Call ${phone} to schedule a visit, or keep this letter for when you're ready.`,
+        "",
+        "Sincerely,",
+        business,
+        address,
+        "",
+        `${business} is a private contractor and is not affiliated with the City of Chicago. To stop receiving mail from us, call ${phone}.`,
+      ].join("\n"),
+      compliance: [
+        company
+          ? "Company-owned: business-to-business mail or email to a business contact is fine; call a business line, not a personal cell."
+          : "Mail only for individual owners; don't cold-call or text personal numbers.",
+        "Keep the not-affiliated-with-the-City line and an opt-out.",
+        "Don't mention the restaurant, its closing or any inspection or public record; the letter stands on its own offer to prepare the space.",
+        "Pilot list: the contractor audience is unproven, so record outcomes for every lead you work.",
+      ],
+    };
+  }
+
   if (lead.kind !== "investor_purchase") {
     const greeting = lead.owner.name ? `Dear ${lead.owner.name},` : "Dear Property Owner,";
     const lines = ownerLetterBody(lead.kind, { address: lead.address, business, phone, noun, where });

@@ -74,7 +74,12 @@ export function queryLeads(
     if (f.status === "open" && st && st !== "new") return false;
     if (f.status !== "all" && f.status !== "open" && st !== f.status) return false;
     if (q) {
-      const hay = [l.address, l.owner.name, l.kind === "investor_purchase" ? l.buyer.name : ""]
+      const hay = [
+        l.address,
+        l.owner.name,
+        l.kind === "investor_purchase" ? l.buyer.name : "",
+        l.kind === "closed_restaurant" ? l.restaurant.name : "",
+      ]
         .join(" ")
         .toLowerCase();
       if (!hay.includes(q)) return false;

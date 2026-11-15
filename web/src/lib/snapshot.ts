@@ -67,6 +67,18 @@ export interface VacantLead extends LeadBase {
   tradeProbabilities: Partial<Record<TradeKey, number>>;
 }
 
+/**
+ * Restaurant recorded out of business, no new food license under another name yet. `probability` is the chance a
+ * different food business is licensed at the address within a year; `tradeProbabilities.general` the chance of a
+ * renovation or build-out permit (a weak signal).
+ */
+export interface ClosedRestaurantLead extends LeadBase {
+  kind: "closed_restaurant";
+  trade: "general";
+  tradeProbabilities: Partial<Record<TradeKey, number>>;
+  restaurant: { name: string | null; licenseNo: number | null };
+}
+
 export interface PermitSummary {
   date: string;
   type: string;
@@ -89,7 +101,13 @@ export interface InvestorLead extends LeadBase {
   permitsSince: PermitSummary[];
 }
 
-export type Lead = ViolationLead | ComplaintLead | PorchRequestLead | VacantLead | InvestorLead;
+export type Lead =
+  | ViolationLead
+  | ComplaintLead
+  | PorchRequestLead
+  | VacantLead
+  | ClosedRestaurantLead
+  | InvestorLead;
 
 export interface Area {
   id: number;
@@ -163,10 +181,20 @@ export interface RoofingBlockModel {
   period: string;
 }
 
+/** One outcome of the closed-restaurant model: rate within a year, matched baseline, lift and timing (days). */
+export interface ClosedRestaurantOutcome {
+  p365: number;
+  baseline365: number;
+  lift: number;
+  medianDays: number;
+  daysP25: number;
+  daysP75: number;
+}
+
 export interface Snapshot {
   meta: {
     generatedAt: string;
-    dataAsOf: { permits: string; violations: string; sales: string; complaints: string };
+    dataAsOf: { permits: string; violations: string; sales: string; complaints: string; foodInspections: string };
     sources: { name: string; url: string }[];
     assumptions: { winRate: { individual: number; company: number }; margin: number };
   };
@@ -192,6 +220,14 @@ export interface Snapshot {
       permitPeriod: string;
       permitEpisodes: number;
       pTrade730: Record<TradeKey, number>;
+    };
+    closedRestaurant: {
+      period: string;
+      episodes: number;
+      closuresPerWeek: number;
+      license: ClosedRestaurantOutcome;
+      licenseAfter30: ClosedRestaurantOutcome;
+      permit: ClosedRestaurantOutcome;
     };
     masonryAge: {
       useCells: boolean;

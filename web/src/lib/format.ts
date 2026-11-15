@@ -37,3 +37,9 @@ export function ago(days: number): string {
   if (days < 60) return `${Math.round(days / 7)} weeks ago`;
   return `${Math.round(days / 30)} months ago`;
 }
+
+/** Plain-language strength of a lift; the signal lab's verdict cut-offs, as `lift_label` in engine/leads/snapshot.py. */
+export function liftLabel(lift: number): string {
+  if (lift < 1.25) return "no real signal";
+  return lift < 1.8 ? "a weak signal" : lift < 3 ? "a useful lift" : "a strong lift";
+}

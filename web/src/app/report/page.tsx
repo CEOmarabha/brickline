@@ -218,7 +218,7 @@ async function Report({ searchParams }: { searchParams: PageProps<"/report">["se
       <p className="text-xs text-muted-foreground">
         Chance of work is the historical rate at which the same kind of signal in Chicago led to a permitted job,
         adjusted for time already passed. Sources: City of Chicago building permits and violations; Cook County
-        Assessor sales and parcel records.
+        Assessor sales and parcel records{open.some((l) => l.kind === "closed_restaurant") ? "; City of Chicago food inspections and business licenses for closed-restaurant leads" : ""}.
       </p>
     </div>
   );

@@ -221,6 +221,41 @@ Conversion by year of the signal (signals / conversion within the window):
 | 2024 | 13,725 / 28.6% | 429 / 14.9% | 1,347 / 20.3% |
 | 2025 | 11,588 / 36.4% | 329 / 10.3% | 501 / 22.4% |
 
+## BT8 — Closed restaurant spaces (signal-lab H26)
+
+Signal: a restaurant inspection with result 'Out of Business' (first at the street address in 365 days). Matched baseline: ordinary restaurant inspections (Pass, Pass w/ Conditions, Fail) at an address with no closure in the prior 365 days, one per address per 365 days, standardized to the closures' inspection-type mix. Closures 2016-01-01 to 2025-11-01; every window is complete. Matching is by street address, so another tenant's or the landlord's license or permit counts for both groups. The license table holds retail food establishments only, so reopenings as a bar, caterer or non-food tenant are missed and conversion is a floor. The permit view is weak: most re-lets use the space as-is or a license without a permit. Same definitions and period as signal-lab H26 (all four rows reproduce its numbers on the same warehouse); 2025 closures run to the period end only. Closures/week counts episodes (first closure at an address in 365 days) in the 52 weeks to the newest inspection on file.
+
+| Outcome within 365 days | Closures | Conversion | Matched baseline | Lift | Median days | Middle half (days) | Closures/week (last 52 weeks) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| New retail food license, different business name (headline) | 7,943 | 32.3% | 3.2% | 10.24x | 19 | 6–112 | 12.1 |
+| ...issued 31+ days after the closure was recorded | 7,943 | 15.0% | 3.0% | 5.03x | 154 | 82–252 | 12.1 |
+| Any new retail food license, including the same name | 7,943 | 43.0% | 4.8% | 9.02x | 15 | 5–84 | 12.1 |
+| Renovation, build-out or new-construction permit | 7,943 | 11.0% | 6.2% | 1.78x | 113 | 40–210 | 12.1 |
+
+Conversion by year of the closure (closure vs the raw rate after ordinary inspections that year, not standardized to the inspection-type mix; pre-opening inspections lift the raw 'any license' rate):
+
+| Year | Closures | Different-name license | License 31+ days later | Any license | Renovation permit |
+| --- | --- | --- | --- | --- | --- |
+| 2016 | 932 | 32.2% vs 4.2% | 16.2% vs 3.6% | 43.6% vs 10.5% | 11.7% vs 8.3% |
+| 2017 | 826 | 32.1% vs 5.8% | 13.7% vs 4.3% | 45.0% vs 20.2% | 12.3% vs 7.9% |
+| 2018 | 726 | 36.6% vs 4.9% | 15.3% vs 3.4% | 49.7% vs 18.7% | 12.0% vs 8.5% |
+| 2019 | 943 | 29.5% vs 4.0% | 14.7% vs 3.0% | 38.7% vs 12.3% | 12.8% vs 6.8% |
+| 2020 | 668 | 31.9% vs 2.6% | 16.8% vs 2.1% | 38.9% vs 14.0% | 8.5% vs 4.0% |
+| 2021 | 794 | 29.0% vs 4.0% | 13.7% vs 3.3% | 37.4% vs 13.6% | 11.6% vs 5.7% |
+| 2022 | 787 | 31.3% vs 3.3% | 13.9% vs 2.9% | 42.2% vs 11.6% | 10.7% vs 5.8% |
+| 2023 | 786 | 36.9% vs 3.9% | 16.0% vs 3.0% | 46.1% vs 13.5% | 9.9% vs 5.8% |
+| 2024 | 886 | 31.1% vs 3.2% | 13.7% vs 2.8% | 42.3% vs 12.7% | 9.5% vs 5.1% |
+| 2025 | 595 | 34.3% vs 3.6% | 17.5% vs 3.2% | 47.7% vs 15.2% | 10.2% vs 4.4% |
+
+Out-of-time stability (2016-01-01 to 2020-12-31 vs 2021-01-01 to 2025-11-01): conversion vs matched baseline (lift).
+
+| Outcome | Closures (early / late) | Early period | Late period |
+| --- | --- | --- | --- |
+| New retail food license, different business name (headline) | 4,095 / 3,848 | 32.3% vs 3.2% (10.23x) | 32.4% vs 3.1% (10.32x) |
+| ...issued 31+ days after the closure was recorded | 4,095 / 3,848 | 15.3% vs 3.0% (5.09x) | 14.8% vs 3.0% (5.00x) |
+| Any new retail food license, including the same name | 4,095 / 3,848 | 43.1% vs 4.8% (8.90x) | 42.9% vs 4.7% (9.20x) |
+| Renovation, build-out or new-construction permit | 4,095 / 3,848 | 11.6% vs 7.0% (1.65x) | 10.4% vs 5.2% (2.00x) |
+
 ## BT0 — Market size: contractors active in owner-facing trades (last 12 months, non-major permits)
 
 | Trade | Permits | Median reported cost | Distinct contractors | With 5+ jobs | Top-10 share |

@@ -14,13 +14,14 @@ from __future__ import annotations
 import json
 import math
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from engine.score.food import closure_views, round_floats  # noqa: E402
 from engine.score.signals import (  # noqa: E402
     INVESTOR_RE,
     MAJOR,
@@ -633,6 +634,49 @@ def bt_311(con) -> dict:
 
 
 # --------------------------------------------------------------------------------------------------
+# BT8: closed restaurant spaces (signal-lab H26): 'Out of Business' inspection -> new food license / permit
+# --------------------------------------------------------------------------------------------------
+BT8_START, BT8_END = "2016-01-01", "2025-11-01"
+BT8_SPLIT = "2020-12-31"
+BT8_VIEWS = {
+    "license": "New retail food license, different business name (headline)",
+    "license_after30": "...issued 31+ days after the closure was recorded",
+    "license_any": "Any new retail food license, including the same name",
+    "permit": "Renovation, build-out or new-construction permit",
+}
+
+
+def _bt8_slim(m: dict) -> dict:
+    keys = (
+        "signals",
+        "conversion",
+        "baseline",
+        "lift",
+        "median_days",
+        "days_p25",
+        "days_p75",
+        "episodes_per_week",
+    )
+    return {k: m[k] for k in keys}
+
+
+def bt_closed_restaurant(con) -> dict:
+    full = closure_views(con, start=BT8_START, end=BT8_END)
+    later_start = (date.fromisoformat(BT8_SPLIT) + timedelta(days=1)).isoformat()
+    early = closure_views(con, start=BT8_START, end=BT8_SPLIT)
+    late = closure_views(con, start=later_start, end=BT8_END)
+    out = {
+        "period": f"{BT8_START} to {BT8_END}",
+        "split": f"{BT8_START} to {BT8_SPLIT} vs {later_start} to {BT8_END}",
+        "labels": BT8_VIEWS,
+        "views": {k: {**_bt8_slim(m), "by_year": m["by_year"]} for k, m in full.items()},
+        "stability": {k: {"early": _bt8_slim(early[k]), "late": _bt8_slim(late[k])} for k in BT8_VIEWS},
+        "closures_per_week": full["license"]["closures_per_week"],
+    }
+    return round_floats(out)
+
+
+# --------------------------------------------------------------------------------------------------
 # BT0: market sizing for owner-facing trades (who would buy marketing / leads)
 # --------------------------------------------------------------------------------------------------
 def bt_market(con) -> dict:
@@ -681,6 +725,11 @@ def bt_market(con) -> dict:
 # --------------------------------------------------------------------------------------------------
 def pct(x) -> str:
     return "—" if x is None else f"{100 * x:.1f}%"
+
+
+def rate_cell(x: dict) -> str:
+    lift = f"{x['lift']:.2f}x" if x["lift"] else "n/a"
+    return f"{pct(x['conversion'])} vs {pct(x['baseline'])} ({lift})"
 
 
 def render(r: dict) -> str:
@@ -871,6 +920,63 @@ def render(r: dict) -> str:
             cells.append(f"{row['signals']:,} / {pct(row['conversion'])}" if row else "—")
         a(f"| {yr} | " + " | ".join(cells) + " |")
 
+    t8 = r["closed_restaurant"]
+    a("\n## BT8 — Closed restaurant spaces (signal-lab H26)\n")
+    a(
+        "Signal: a restaurant inspection with result 'Out of Business' (first at the street address in 365 days). "
+        "Matched baseline: ordinary restaurant inspections (Pass, Pass w/ Conditions, Fail) at an address with no "
+        "closure in the prior 365 days, one per address per 365 days, standardized to the closures' inspection-type "
+        f"mix. Closures {t8['period']}; every window is complete. Matching is by street address, so another "
+        "tenant's or the landlord's license or permit counts for both groups. The license table holds retail food "
+        "establishments only, so reopenings as a bar, caterer or non-food tenant are missed and conversion is a "
+        "floor. The permit view is weak: most re-lets use the space as-is or a license without a permit. Same "
+        "definitions and period as signal-lab H26 (all four rows reproduce its numbers on "
+        "the same warehouse); 2025 closures run to the period end only. Closures/week counts episodes (first closure "
+        "at an address in 365 days) in the 52 weeks to the newest inspection on file.\n"
+    )
+    a(
+        "| Outcome within 365 days | Closures | Conversion | Matched baseline | Lift | Median days | Middle half (days) | Closures/week (last 52 weeks) |"
+    )
+    a("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    for key, label in t8["labels"].items():
+        x = t8["views"][key]
+        lift = f"{x['lift']:.2f}x" if x["lift"] else "n/a"
+        spread = f"{x['days_p25']:.0f}–{x['days_p75']:.0f}" if x["days_p25"] is not None else "—"
+        med = f"{x['median_days']:.0f}" if x["median_days"] is not None else "—"
+        a(
+            f"| {label} | {x['signals']:,} | {pct(x['conversion'])} | {pct(x['baseline'])} | {lift} | {med} | "
+            f"{spread} | {x['episodes_per_week']:.1f} |"
+        )
+    a(
+        "\nConversion by year of the closure (closure vs the raw rate after ordinary inspections that year, not "
+        "standardized to the inspection-type mix; pre-opening inspections lift the raw 'any license' rate):\n"
+    )
+    t8_columns = {
+        "license": "Different-name license",
+        "license_after30": "License 31+ days later",
+        "license_any": "Any license",
+        "permit": "Renovation permit",
+    }
+    a("| Year | Closures | " + " | ".join(t8_columns.values()) + " |")
+    a("| --- | --- | " + " | ".join("---" for _ in t8["labels"]) + " |")
+    yrs = sorted({y["year"] for x in t8["views"].values() for y in x["by_year"]})
+    for yr in yrs:
+        cells = []
+        for key in t8["labels"]:
+            row = next((y for y in t8["views"][key]["by_year"] if y["year"] == yr), None)
+            cells.append(f"{pct(row['conversion'])} vs {pct(row['control_conversion'])}" if row else "—")
+        first = next((y for y in t8["views"]["license"]["by_year"] if y["year"] == yr), None)
+        n = f"{first['signals']:,}" if first else "—"
+        a(f"| {yr} | {n} | " + " | ".join(cells) + " |")
+    a(f"\nOut-of-time stability ({t8['split']}): conversion vs matched baseline (lift).\n")
+    a("| Outcome | Closures (early / late) | Early period | Late period |")
+    a("| --- | --- | --- | --- |")
+    for key, label in t8["labels"].items():
+        early, late = t8["stability"][key]["early"], t8["stability"][key]["late"]
+        a(
+            f"| {label} | {early['signals']:,} / {late['signals']:,} | {rate_cell(early)} | {rate_cell(late)} |"
+        )
+
     a(
         "\n## BT0 — Market size: contractors active in owner-facing trades (last 12 months, non-major permits)\n"
     )
@@ -902,6 +1008,7 @@ def main() -> int:
         ("restaurant", bt_restaurant),
         ("composite", bt_composite),
         ("sr311", bt_311),
+        ("closed_restaurant", bt_closed_restaurant),
         ("market", bt_market),
     ]
     full = len(sys.argv) <= 1

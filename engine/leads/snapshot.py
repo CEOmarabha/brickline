@@ -19,6 +19,13 @@ from pathlib import Path
 
 import duckdb
 
+from engine.score.food import (
+    CLOSED,
+    NAME_KEY,
+    RENO_PREDICATE,
+    SAME_NAME,
+    closure_views,
+)
 from engine.score.signals import (
     INVESTOR_RE,
     MAJOR,
@@ -232,7 +239,8 @@ def as_of(con) -> dict:
         SELECT (SELECT max(issue_date) FROM permits) AS permits,
                (SELECT max(violation_date) FROM violations) AS violations,
                (SELECT max(sale_date) FROM sales) AS sales,
-               (SELECT max(created_date) FROM sr311) AS complaints
+               (SELECT max(created_date) FROM sr311) AS complaints,
+               (SELECT max(inspection_date) FROM food_inspections) AS foodInspections
     """,
     )
 
@@ -989,6 +997,169 @@ def vacant_leads(con, today: date, vmodel: dict) -> list[dict]:
 
 
 # ----------------------------------------------------------------------------------------------------------
+# Closed restaurant spaces (signal lab H26)
+# ----------------------------------------------------------------------------------------------------------
+CLOSED_START = "2016-01-01"
+CLOSED_LEAD_DAYS = 180
+
+
+def lift_label(lift: float | None) -> str:
+    """Plain-language strength of a lift, with the signal lab's verdict cut-offs (research/signal_lab/lab.py)."""
+    if lift is None:
+        return "no comparison available"
+    if lift < 1.25:
+        return "no real signal"
+    return "a weak signal" if lift < 1.8 else "a useful lift" if lift < 3 else "a strong lift"
+
+
+def closed_restaurant_model(con) -> dict:
+    """'Out of Business' restaurant inspections vs ordinary inspections (engine/score/food.py, signal lab H26).
+
+    The period ends 365 days before the newest of the three sources involved, so every window is complete and
+    the model moves forward as data arrives. Returns the three targets with sorted delays for time adjustment.
+    """
+    end = one(
+        con,
+        """
+        SELECT least((SELECT max(inspection_date) FROM food_inspections),
+                     (SELECT max(issue_date) FROM food_licenses),
+                     (SELECT max(issue_date) FROM p)) - 365 AS d
+    """,
+    )["d"]
+    views = closure_views(
+        con, start=CLOSED_START, end=str(end), only=("license", "license_after30", "permit")
+    )
+    lic = views["license"]
+    return {
+        "start": CLOSED_START,
+        "end": iso(end),
+        "period": years([{"d": lic["first_signal"]}, {"d": lic["last_signal"]}]),
+        "episodes": lic["signals"],
+        "closuresPerWeek": lic["episodes_per_week"],
+        **views,
+    }
+
+
+def closed_restaurant_leads(con, today: date, model: dict) -> list[dict]:
+    """Restaurants recorded 'Out of Business' in the last 180 days, one lead per address.
+
+    A closure starts an episode only if none was recorded at the address in the prior 365 days (the model's
+    definition). Addresses where a retail food license under a different business name has already been issued
+    after the closure are dropped: the space has found its next food tenant.
+    """
+    rows = q(
+        con,
+        f"""
+        WITH recent AS (
+          SELECT address_key AS k, inspection_date AS d, inspection_id, dba, license_no, lat, lon,
+            {NAME_KEY.format(x="dba")} AS nm
+          FROM food_inspections f
+          WHERE facility_type = 'Restaurant' AND address_key IS NOT NULL AND {CLOSED}
+            AND inspection_date > DATE '{today}' - INTERVAL {CLOSED_LEAD_DAYS} DAY
+            AND NOT EXISTS (
+              SELECT 1 FROM food_inspections h WHERE h.facility_type = 'Restaurant' AND h.address_key = f.address_key
+                AND h.{CLOSED} AND h.inspection_date < f.inspection_date
+                AND h.inspection_date >= f.inspection_date - INTERVAL 365 DAY)
+          QUALIFY row_number() OVER (PARTITION BY address_key ORDER BY inspection_date, inspection_id) = 1
+        ),
+        e AS (
+          SELECT * FROM recent r WHERE NOT EXISTS (
+            SELECT 1 FROM (
+              SELECT address_key AS k, issue_date AS d, {NAME_KEY.format(x="dba")} AS nm FROM food_licenses
+              WHERE address_key IS NOT NULL AND issue_date IS NOT NULL
+            ) t WHERE t.k = r.k AND t.d > r.d AND NOT {SAME_NAME.replace("e.nm", "r.nm")}
+          )
+        )
+        SELECT e.*, par.address, par.owner_name, par.owner_mailing, par.units, rc.year_built, rc.ext_wall,
+          coalesce(ca.community_area, aa.community_area, pa.community_area, za.community_area) AS community_area,
+          coalesce({COMPANY_SQL.format(col="par.owner_name")}, false) AS company,
+          (SELECT min(inspection_date) FROM food_inspections x WHERE x.address_key = e.k) AS first_inspection,
+          (SELECT count(DISTINCT coalesce(l.account_number::VARCHAR, {NAME_KEY.format(x="l.dba")}))
+             FROM food_licenses l WHERE l.address_key = e.k AND l.issue_date >= DATE '{CLOSED_START}') AS businesses,
+          (SELECT count(*) FROM p WHERE p.address_key = e.k AND {RENO_PREDICATE}
+             AND p.issue_date <= e.d AND p.issue_date > e.d - INTERVAL 730 DAY) AS reno_2y,
+          (SELECT count(*) FROM p WHERE p.address_key = e.k AND {RENO_PREDICATE} AND p.issue_date > e.d) AS reno_since
+        FROM e
+        LEFT JOIN addr_parcel ap ON ap.address_key = e.k
+        LEFT JOIN parcels par ON par.pin10 = ap.pin10
+        LEFT JOIN res_chars rc ON rc.pin10 = ap.pin10
+        LEFT JOIN ca_geom ca ON e.lat IS NOT NULL AND ST_Contains(ca.geom, ST_Point(e.lon, e.lat))
+        LEFT JOIN addr_area aa ON aa.address_key = e.k
+        LEFT JOIN pin_area pa ON pa.pin10 = ap.pin10
+        LEFT JOIN zip_area za ON za.zip = par.zip
+        QUALIFY row_number() OVER (PARTITION BY e.inspection_id ORDER BY ca.community_area NULLS LAST) = 1
+        ORDER BY e.d DESC, e.inspection_id
+    """,
+    )
+    lic, late, permit = model["license"], model["license_after30"], model["permit"]
+    spread = f"{late['days_p25']:.0f}–{late['days_p75']:.0f}"
+    leads = []
+    for r in rows:
+        age = (today - r["d"]).days
+        owner_type = "company" if r["company"] else "individual"
+        evidence = [
+            {"label": "Restaurant", "value": title(r["dba"]) or "—"},
+            {"label": "License number", "value": str(r["license_no"]) if r["license_no"] else "—"},
+            {"label": "Closure recorded", "value": iso(r["d"])},
+            {"label": "First food inspection on record", "value": iso(r["first_inspection"])},
+            {
+                "label": f"Food businesses licensed here since {CLOSED_START[:4]}",
+                "value": str(r["businesses"]),
+            },
+            {"label": "Renovation permits in the 2 years before", "value": str(r["reno_2y"])},
+        ]
+        if r["reno_since"]:
+            evidence.append({"label": "Renovation permits since the closure", "value": str(r["reno_since"])})
+        leads.append(
+            {
+                "id": f"cr-{r['inspection_id']}",
+                "kind": "closed_restaurant",
+                "trades": ["general"],
+                "trade": "general",
+                "title": "Restaurant space closed",
+                "address": title(r["address"] or r["k"]),
+                "communityArea": r["community_area"],
+                "signalDate": iso(r["d"]),
+                "ageDays": age,
+                "tier": "act_now" if age <= 30 else "this_week" if age <= 90 else "monitor",
+                "owner": {
+                    "name": title(r["owner_name"]),
+                    "type": owner_type,
+                    "mailing": title(r["owner_mailing"]),
+                    "units": r["units"],
+                },
+                "probability": round(remaining_probability(lic["conversion"], lic["delays"], age), 4),
+                "probabilityBasis": (
+                    f"{lic['conversion'] * 100:.1f}% of {lic['signals']:,} restaurant closures ({model['period']}) were "
+                    f"followed by a new food business license under a different name at the same address within a year, "
+                    f"vs {lic['baseline'] * 100:.1f}% after ordinary inspections ({lic['lift']:.1f}x). Counting only "
+                    f"licenses issued 31+ days after the closure: {late['conversion'] * 100:.1f}% vs "
+                    f"{late['baseline'] * 100:.1f}% ({late['lift']:.1f}x), median {late['median_days']:.0f} days, middle "
+                    f"half {spread} days; {adjusted(age)}. Renovation, build-out or new-construction permit within a "
+                    f"year: {permit['conversion'] * 100:.1f}% vs {permit['baseline'] * 100:.1f}% "
+                    f"({permit['lift']:.2f}x, {lift_label(permit['lift'])}), also adjusted."
+                ),
+                "tradeProbabilities": {
+                    "general": round(remaining_probability(permit["conversion"], permit["delays"], age), 4)
+                },
+                "evidence": [*evidence, *building_evidence(r)],
+                "action": owner_action(
+                    r,
+                    "Send a letter to the property owner's mailing address offering to prepare or build out the "
+                    "space for the next tenant; follow up at weeks 6, 12 and 24.",
+                )
+                + f" Most later food licenses arrive {spread} days after the closure (middle half of licenses issued 31+ days later).",
+                "sourceUrl": f"https://data.cityofchicago.org/resource/4ijn-s7e5.json?inspection_id={r['inspection_id']}",
+                "restaurant": {
+                    "name": title(r["dba"]),
+                    "licenseNo": r["license_no"] if r["license_no"] else None,
+                },
+            }
+        )
+    return leads
+
+
+# ----------------------------------------------------------------------------------------------------------
 # Block targeting (signal lab H03)
 # ----------------------------------------------------------------------------------------------------------
 def roofing_blocks(con, today: date) -> dict:
@@ -1326,6 +1497,9 @@ def build(out: Path) -> dict:
     c_leads = complaint_leads(con, dates["complaints"], cmodel)
     pr_leads = porch_request_leads(con, dates["complaints"], pmodel)
     vb_leads = vacant_leads(con, dates["complaints"], xmodel)
+    print("closed restaurant leads ...", flush=True)
+    rmodel = closed_restaurant_model(con)
+    cr_leads = closed_restaurant_leads(con, dates["foodInspections"], rmodel)
     print("roofing blocks ...", flush=True)
     blocks = roofing_blocks(con, today)
     print("pre-application projects ...", flush=True)
@@ -1359,6 +1533,14 @@ def build(out: Path) -> dict:
                 {
                     "name": "City of Chicago 311 service requests",
                     "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+                },
+                {
+                    "name": "City of Chicago food inspections",
+                    "url": "https://data.cityofchicago.org/d/4ijn-s7e5",
+                },
+                {
+                    "name": "City of Chicago business licenses (retail food establishments)",
+                    "url": "https://data.cityofchicago.org/d/r5kz-chrr",
                 },
             ],
             "assumptions": {"winRate": WIN_RATE, "margin": MARGIN},
@@ -1402,6 +1584,26 @@ def build(out: Path) -> dict:
                 "permitEpisodes": xmodel["trades"]["general"]["episodes"],
                 "pTrade730": {k: round(m["p"], 4) for k, m in xmodel["trades"].items()},
             },
+            "closedRestaurant": {
+                "period": rmodel["period"],
+                "episodes": rmodel["episodes"],
+                "closuresPerWeek": round(rmodel["closuresPerWeek"], 2),
+                **{
+                    name: {
+                        "p365": round(m["conversion"], 4),
+                        "baseline365": round(m["baseline"], 4),
+                        "lift": round(m["lift"], 4),
+                        "medianDays": round(m["median_days"], 1),
+                        "daysP25": round(m["days_p25"], 1),
+                        "daysP75": round(m["days_p75"], 1),
+                    }
+                    for name, m in (
+                        ("license", rmodel["license"]),
+                        ("licenseAfter30", rmodel["license_after30"]),
+                        ("permit", rmodel["permit"]),
+                    )
+                },
+            },
             "masonryAge": {
                 "useCells": vmodel["masonry"]["use_cells"],
                 "age": {
@@ -1415,7 +1617,7 @@ def build(out: Path) -> dict:
             },
         },
         "leads": sorted(
-            v_leads + s_leads + c_leads + pr_leads + vb_leads,
+            v_leads + s_leads + c_leads + pr_leads + vb_leads + cr_leads,
             key=lambda x: (x["signalDate"] or "", x["id"]),
             reverse=True,
         ),
@@ -1436,7 +1638,8 @@ def build(out: Path) -> dict:
     print(
         f"wrote {out} ({out.stat().st_size / 1e6:.1f} MB): {len(v_leads)} violation leads, "
         f"{len(s_leads)} investor leads, {len(c_leads)} complaint leads, {len(pr_leads)} porch request leads, "
-        f"{len(vb_leads)} vacant leads, {len(blocks['roofing'])} roofing blocks, "
+        f"{len(vb_leads)} vacant leads, {len(cr_leads)} closed restaurant leads, "
+        f"{len(blocks['roofing'])} roofing blocks, "
         f"{len(pre['projects'])} pre-application projects"
     )
     return snapshot

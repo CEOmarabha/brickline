@@ -1,4 +1,4 @@
-import { Building, DoorClosed, Hammer, House, MessageSquareWarning } from "lucide-react";
+import { Building, DoorClosed, Hammer, House, MessageSquareWarning, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { ProbabilityBar, StatusBadge, TierBadge } from "@/components/bits";
 import { ago, money, pct } from "@/lib/format";
@@ -10,6 +10,7 @@ const KIND_ICON = {
   complaint: MessageSquareWarning,
   porch_request: House,
   vacant: DoorClosed,
+  closed_restaurant: UtensilsCrossed,
   investor_purchase: Building,
 };
 
@@ -24,6 +25,8 @@ function subtitle(lead: Lead): string {
       return `${lead.title} · ${owner}`;
     case "vacant":
       return `${lead.title} · ${owner} · ${pct(lead.probability, 0)} chance it sells`;
+    case "closed_restaurant":
+      return `${lead.title} · ${lead.restaurant.name ?? "Restaurant"} · ${pct(lead.probability, 0)} chance of a new food business`;
     case "investor_purchase":
       return `${lead.title} · ${lead.buyer.name}${lead.buyer.purchases24m >= 3 ? ` · ${lead.buyer.purchases24m} buys in 2 yrs` : ""}`;
   }

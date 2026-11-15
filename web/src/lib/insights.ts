@@ -90,6 +90,19 @@ export function buildInsights(
     });
   }
 
+  const freshClosed = open.filter((l) => l.kind === "closed_restaurant" && l.ageDays <= 14);
+  if (freshClosed.length > 0 && trade === "general") {
+    const { closedRestaurant: m } = snap.models;
+    out.push({
+      id: "fresh-closed-restaurants",
+      kind: "opportunity",
+      title: `${count(freshClosed.length)} restaurant spaces were recorded closed in the last 2 weeks`,
+      detail: `Historically ${pct(m.license.p365)} get a new food business under another name within a year (${pct(m.licenseAfter30.p365)} 31+ days later, versus ${pct(m.licenseAfter30.baseline365)} for ordinary restaurants), but only ${pct(m.permit.p365)} pull a renovation or build-out permit (${m.permit.lift.toFixed(2)}x the baseline). Pilot list: the buyer audience is unproven.`,
+      href: "/leads?kind=closed_restaurant&tier=act_now",
+      cta: "Review closed spaces",
+    });
+  }
+
   const areaPool = snap.areas.filter((a) => ws.areas.length === 0 || ws.areas.includes(a.id));
   const metric = (a: (typeof areaPool)[number]) =>
     trade === "general"

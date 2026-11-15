@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContactValue, SourceLine } from "@/components/contact-bits";
 import { getLeadContacts } from "@/lib/contacts";
-import { ago, count, dateLabel, money, pct } from "@/lib/format";
+import { ago, count, dateLabel, liftLabel, money, pct } from "@/lib/format";
 import { draftOutreach } from "@/lib/outreach";
 import { getCloseRates } from "@/lib/outcomes";
 import { areaNames, closeRateFor, expectedValue, getSnapshot, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
@@ -20,7 +20,14 @@ import { getLeadHistory, getStatuses, getWorkspace, STATUS_LABEL } from "@/lib/w
 
 export const metadata: Metadata = { title: "Lead" };
 
-const DATE_LABELS = new Set(["First cited", "Complaint filed", "Inspection requested", "Vacancy reported"]);
+const DATE_LABELS = new Set([
+  "First cited",
+  "Complaint filed",
+  "Inspection requested",
+  "Vacancy reported",
+  "Closure recorded",
+  "First food inspection on record",
+]);
 
 /** The event this lead is waiting for (citation or sale), with the historical rate behind it. Other kinds have none. */
 function headlineFor(lead: Lead, snap: Snapshot): { label: string; note: string } | null {
@@ -36,6 +43,13 @@ function headlineFor(lead: Lead, snap: Snapshot): { label: string; note: string 
     return {
       label: "Chance it sells",
       note: `Within a year of the report. Based on ${count(m.episodes)} reports, ${m.period}.`,
+    };
+  }
+  if (lead.kind === "closed_restaurant") {
+    const m = snap.models.closedRestaurant;
+    return {
+      label: "Chance a new food business is licensed",
+      note: `A different business name at this address within a year of the closure. Based on ${count(m.episodes)} closures, ${m.period}.`,
     };
   }
   return null;
@@ -154,7 +168,9 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
               <CardDescription>
                 {lead.kind === "vacant"
                   ? `Share of reported properties that pulled a permit of that type within two years (${snap.models.vacant.permitPeriod}); not adjusted for time passed.`
-                  : `Share of complaints followed by a permit of that type at the same address within a year (${snap.models.complaint.period}), adjusted for time passed.`}
+                  : lead.kind === "closed_restaurant"
+                    ? `Share of closed restaurant addresses followed by a renovation, build-out or new-construction permit within a year (${snap.models.closedRestaurant.period}), adjusted for time passed. ${capitalize(liftLabel(snap.models.closedRestaurant.permit.lift))}: ${pct(snap.models.closedRestaurant.permit.p365)} vs ${pct(snap.models.closedRestaurant.permit.baseline365)} at ordinary restaurants.`
+                    : `Share of complaints followed by a permit of that type at the same address within a year (${snap.models.complaint.period}), adjusted for time passed.`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -178,6 +194,8 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
             </CardContent>
           </Card>
         )}
+
+        {lead.kind === "closed_restaurant" && <ClosedRestaurantBasis snap={snap} />}
 
         {lead.kind === "investor_purchase" && (
           <Card>
@@ -405,4 +423,50 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
       </div>
     </div>
   );
+}
+
+function ClosedRestaurantBasis({ snap }: { snap: Snapshot }) {
+  const m = snap.models.closedRestaurant;
+  const rows = [
+    { label: "New food business license, different name", note: "Within 365 days of the closure", o: m.license },
+    { label: "Same, issued 31+ days after the closure", note: "The usable lead time", o: m.licenseAfter30 },
+    { label: "Renovation, build-out or new-construction permit", note: `Within 365 days; ${liftLabel(m.permit.lift)}`, o: m.permit },
+  ];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>What happened at similar spaces</CardTitle>
+        <CardDescription>
+          {count(m.episodes)} restaurant closures recorded {m.period} (about {m.closuresPerWeek.toFixed(1)} a week lately),
+          compared with ordinary inspections of other restaurants at the same kind of address.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-3 text-sm">
+          {rows.map(({ label, note, o }) => (
+            <li key={label}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-medium">{label}</span>
+                <span className="tabular-nums">
+                  {pct(o.p365)} <span className="text-muted-foreground">vs {pct(o.baseline365)} · {o.lift.toFixed(2)}x</span>
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {note}. Median {o.medianDays.toFixed(0)} days after the closure, middle half {o.daysP25.toFixed(0)}–
+                {o.daysP75.toFixed(0)} days.
+              </p>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Matched on street address; licenses cover retail food establishments only, so reopenings as a bar or non-food
+          tenant are missed and rates are floors. Pilot list: the audience for it is unproven.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

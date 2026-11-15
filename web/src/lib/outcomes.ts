@@ -36,6 +36,8 @@ function segmentOf(lead: Lead, snap: Snapshot): { key: string; label: string } {
       return { key: `porch-request-${owner}`, label: `Porch inspection requests, ${owner}` };
     case "vacant":
       return { key: `vacant-${owner}`, label: `Vacant buildings, ${owner}` };
+    case "closed_restaurant":
+      return { key: `closed-restaurant-${owner}`, label: `Closed restaurant spaces, ${owner}` };
     case "violation":
       return { key: `violation-${lead.trade}-${owner}`, label: `${snap.trades[lead.trade].label} violations, ${owner}` };
   }
