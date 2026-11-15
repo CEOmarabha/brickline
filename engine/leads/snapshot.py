@@ -490,7 +490,7 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
                         *building_evidence(r),
                     ],
                     "action": (
-                        "Send a letter to the owner's mailing address this week, then follow up at weeks 6 and 12."
+                        "Send a letter to the owner's mailing address this week, then follow up at weeks 6, 12 and 24."
                         if owner_type == "individual"
                         else "Company-owned: look up the owner's business contact and call or email; mail as backup."
                     ),
@@ -893,7 +893,7 @@ def complaint_leads(con, today: date, cmodel: dict) -> list[dict]:
                 "action": owner_action(
                     r,
                     "Send a letter to the owner's mailing address now, before an inspector writes a citation; "
-                    f"follow up at weeks 6 and 12. When a citation follows, the median is {median_days(viol['delays'])} days after the complaint.",
+                    f"follow up at weeks 6, 12 and 24. When a citation follows, the median is {median_days(viol['delays'])} days after the complaint.",
                 ),
             }
         )
@@ -934,7 +934,7 @@ def porch_request_leads(con, today: date, pmodel: dict) -> list[dict]:
                 "action": owner_action(
                     r,
                     "Send a letter to the owner's mailing address this week and offer a free porch assessment; "
-                    "follow up at weeks 6 and 12.",
+                    "follow up at weeks 6, 12 and 24.",
                 ),
             }
         )
@@ -978,7 +978,7 @@ def vacant_leads(con, today: date, vmodel: dict) -> list[dict]:
                 "action": owner_action(
                     r,
                     "Send a letter to the owner of record offering to secure, repair or renovate the building, or to "
-                    "connect with a buyer; follow up at weeks 6 and 12.",
+                    "connect with a buyer; follow up at weeks 6, 12 and 24.",
                 ),
             }
         )

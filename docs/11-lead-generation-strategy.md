@@ -110,7 +110,7 @@ Use: rank GCs by `open_door × activity in the sub's size band × proximity` to 
 | Signal | Median days to first permit | p25 | p75 | Outreach schedule |
 | --- | --- | --- | --- | --- |
 | Property sale (single-family / 2–6 flat) | 93–96 | 38–42 | 187 | Contact in weeks 1–5 after sale; follow up at weeks 8 and 16 |
-| Porch / masonry violation | ~180–190 | — | — | Mail in week 1, then weeks 6 and 12; most permits come after 3 months |
+| Porch / masonry violation | ~180–190 | — | — | Mail in week 1, then weeks 6, 12 and 24; median citation → permit is ~172 days |
 | Electrical / plumbing violation | 120–132 | — | — | Faster: weeks 1, 4, 8 |
 | Restaurant build-out permit | 90 to license application | — | — | Distributors/equipment: contact within 30 days of permit |
 

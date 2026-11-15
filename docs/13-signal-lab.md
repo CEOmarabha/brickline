@@ -57,7 +57,7 @@ Verdict rules are unchanged. H21 and H22 are descriptive (no single baseline), s
 
 ### Product implications
 
-- **Follow-up cadence.** Letters on violation and complaint leads currently say "follow up at weeks 6 and 12". The data says permits arrive later: citation → permit median 172 days (97–257), i.e. weeks 14, 25 and 37 for the quartiles. Consider adding a touch near week 24 and keeping owners with an open citation on the list for up to a year. This is a recommendation; the app's copy is unchanged.
+- **Follow-up cadence (adopted).** Citation → permit takes a median 172 days (middle half 97–257, i.e. weeks 14–37), so lead actions now say "follow up at weeks 6, 12 and 24", and owners with an open citation should stay on the list for up to a year.
 - **Complaint-lead trade mix.** After a complaint, 17.6% reach a porch/masonry citation and about 6% a porch/masonry permit within a year, so complaint leads should keep being offered to repair trades generally (H07) and not be sold as porch/masonry-specific.
 - **Drop storm-proxy and rodent leads.** H19 and H20 do not support any new lead type.
 - **Repeat investors.** Show repeat-investor purchases as a relationship opportunity for rehab GCs (an investor tends to reuse its GC), not as higher-probability leads.
