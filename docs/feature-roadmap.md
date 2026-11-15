@@ -10,7 +10,9 @@
 | Historical backtests of lead signals (BT0–BT6) | Research | **Done** | Validated 5 signals, rejected 1 | `research/backtests/run_backtests.py` |
 | GC open-door score | M5 | **Validated** | 5–6x separation out of sample | Productize for Track 2 |
 | Composite pre-application parcel score | M5 | **Validated** | 56x base at top 100/half-year | Productize for Track 2 |
-| Weekly trigger lists (investor purchases, violations) | M7 | Planned (wk 1–2) | Pilot reply/appointment rates | Track 1 |
+| Weekly trigger lists (investor purchases, violations) | M7 | **Done** | Pilot reply/appointment rates | Client app, mail-merge CSV, print-ready letters, weekly report |
+| Client workspaces (one owner, many clients) | App | **Done** | Pilots run concurrently | Switcher in sidebar |
+| Measured close rates replace assumptions | M8 | **Done** | Calibration vs expected jobs | After 10 decided leads per owner type |
 | Contractor directory by trade from permits | M3 | Planned (wk 1–2) | Our own customer acquisition | Track 1 |
 | Incremental Chicago permit collector + raw archive | M1 | Planned (wk 1) | Freshness ≤ 48h; completeness ≥ 99% | Daily updates on top of the bulk warehouse |
 | Daily data health email | M1 | Planned (wk 1) | Zero silent failures | |
@@ -27,10 +29,10 @@
 | Second signal pipeline (per chosen buyer) | M1–M4 | Planned (wk 8) | Relevance of new-signal items | |
 | Pre-permit research spike | Research | Planned (wk 8) | Days earlier than permit | |
 | Daily "call today" alert | M7 | Planned (wk 10) | Time to first touch | |
-| Internal AI assistant (read-only tools) | Assistant | Planned (wk 11) | Research time per item | Internal only |
+| AI assistant with read-only tools over leads, areas, competitors, pipeline, results | Assistant | **Done** (v1) | Questions answered from data; time per item | Needs ANTHROPIC_API_KEY; quick answers work without it |
 | GC relationship graph view | M3/M7 | Proposed | Interview value for buyer A | High priority if A is chosen |
 | Thin web app (opportunity list + feedback buttons) | UI | Deferred until day-90 gate | Customers retained ≥ 3 months | |
-| Customer-facing AI advisor | Assistant | Deferred | Requires profiles + CRM outcomes | |
+| Client logins not tied to Cursor | App | Planned | Pilots self-serve | Next build step |
 | Predictive replacement scoring | C | Deferred | Requires outcome labels | |
 | Suburban coverage | M1 | Deferred | Retained Chicago customers asking for it | Buy data first |
 | Self-serve signup and billing | UI | Deferred | ≥ 80% automated report | |

@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  allowedDevOrigins: ["127.0.0.1"],
   partialPrefetching: true,
   serverExternalPackages: ["@electric-sql/pglite"],
   // The lead snapshot is read from disk at runtime; make sure it ships with the server build.

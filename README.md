@@ -45,6 +45,8 @@ npm run dev          # http://localhost:4317
 
 The app reads `web/data/snapshot.json`, produced by the engine. Lead statuses, notes and settings are stored in Postgres when `DATABASE_URL` is set, otherwise in an in-memory database that resets on restart. Each signed-in user can run several workspaces (one per client they manage).
 
+The **Assistant** answers questions about leads, neighborhoods, competitors and results by calling read-only tools over the same data (Claude via `ANTHROPIC_API_KEY`, model overridable with `ASSISTANT_MODEL`); without a key, its quick questions still answer directly from the data.
+
 Weekly operations: **Leads** exports a mail-merge CSV; **Weekly report** prints a client summary and one-letter-per-page mailings; **Results** turns won/lost leads into measured close rates that replace the default assumptions after 10 decided leads.
 
 To refresh the data (about 5 minutes, mostly downloads):

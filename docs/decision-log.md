@@ -49,7 +49,7 @@
 - **Reverse if:** Never for prospects; inbound consented leads handled separately.
 
 ### D-009 — Customer-facing AI advisor deferred; internal assistant at week 11
-- **Status:** Proposed.
+- **Status:** Superseded 2026-11-14: the assistant shipped early because it is a thin, read-only tool layer over data the app already shows (numbers always come from tools), and it doubles as the operator's research tool for pilots. Free-form chat requires an API key; deterministic quick answers work without one.
 - **Evidence:** NL search over permits is already offered by Shovels, Dodge, Building Radar [V]; the advisor is only as good as profiles + outcomes behind it.
 - **Reverse if:** Pilots strongly prefer a chat interface over a report.
 

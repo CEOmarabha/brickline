@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Building2, FileText, LayoutDashboard, ListChecks, Map, MenuIcon, Settings, Trophy } from "lucide-react";
+import { BarChart3, Bot, Building2, FileText, LayoutDashboard, ListChecks, Map, MenuIcon, Settings, Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: ListChecks },
+  { href: "/assistant", label: "Assistant", icon: Bot },
   { href: "/areas", label: "Neighborhoods", icon: Map },
   { href: "/market", label: "Market & competitors", icon: Trophy },
   { href: "/commercial", label: "Commercial", icon: Building2 },
