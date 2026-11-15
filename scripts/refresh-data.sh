@@ -2,18 +2,22 @@
 # Weekly data refresh: re-download public records, rebuild the warehouse, regenerate the app snapshot.
 #   scripts/refresh-data.sh            # refresh everything
 #   scripts/refresh-data.sh --backtest # also re-run the historical backtests
-# Then commit web/data/snapshot.json and web/data/prospects.json and republish the app.
+# Then commit web/data/snapshot.json, prospects.json and contacts.json and republish the app.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # Raw pages are cached for resumable downloads; clear them so this run fetches fresh data.
 rm -rf data/raw/permits data/raw/violations data/raw/sales data/raw/food_licenses data/raw/parcel_addresses \
-  data/raw/sr311 data/raw/benchmarking data/raw/res_chars data/raw/food_inspections
+  data/raw/sr311 data/raw/benchmarking data/raw/res_chars data/raw/food_inspections \
+  data/raw/biz_licenses data/raw/biz_owners
 
 uv run python -m engine.warehouse sync
 uv run python -m engine.warehouse build
 uv run python -m engine.leads.snapshot
 uv run python -m engine.leads.prospects --trades porch masonry roofing
+# Free contact suggestions (Overture, Chicago business licenses, company websites). Safe to rerun: website
+# results are cached in data/raw/web_contacts for 30 days, so only new or stale sites are fetched (~1.5 min cold).
+uv run python -m engine.enrich.contacts
 
 if [[ "${1:-}" == "--backtest" ]]; then
   uv run python research/signal_lab/lab.py

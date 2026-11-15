@@ -2,6 +2,7 @@
 
     uv run python -m engine.warehouse sync     # download raw CSV pages (resumable)
     uv run python -m engine.warehouse build    # (re)build normalized tables in data/warehouse.duckdb
+    uv run python -m engine.warehouse sync --only overture biz_licenses biz_owners   # free contact sources
 
 Raw pages are kept under data/raw/<dataset>/ so tables can be rebuilt without re-downloading.
 """
@@ -17,7 +18,7 @@ from pathlib import Path
 import duckdb
 
 from engine.classify.trades import PERMIT_TRADES, VIOLATION_TRADES, sql_flags
-from engine.collect import hmda, noaa, swdi
+from engine.collect import hmda, noaa, overture, swdi
 from engine.collect.socrata import export_csv
 
 DATA = Path("data")
@@ -89,6 +90,20 @@ DATASETS = [
         "pin,pin10,year,prop_address_full,prop_address_zipcode_1,owner_address_name,owner_address_full,"
         "owner_address_city_name,owner_address_state,owner_address_zipcode_1",
         "year = 2026 AND prop_address_city_name = 'CHICAGO'",
+    ),
+    Dataset(
+        "biz_licenses",
+        CHICAGO,
+        "uupf-x98q",
+        "license_id,account_number,site_number,legal_name,doing_business_as_name,address,zip_code,community_area,"
+        "license_description,business_activity,license_status,expiration_date,latitude,longitude",
+    ),
+    Dataset(
+        "biz_owners",
+        CHICAGO,
+        "ezma-pppn",
+        "account_number,doing_business_as_name,owner_first_name,owner_middle_initial,owner_last_name,"
+        "owner_name_suffix,owner_name,owner_title",
     ),
     Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community,the_geom"),
     Dataset("tracts_2010", CHICAGO, "74p9-q2aq", "geoid10,commarea,the_geom"),
@@ -190,6 +205,9 @@ def sync(names: list[str] | None = None) -> None:
     if not names or "swdi" in names:
         print("sync swdi hail detections")
         swdi.sync(RAW / "swdi")
+    if not names or "overture" in names:
+        print("sync overture places (Chicago metro)")
+        overture.sync(RAW / "overture")
 
 
 def _csv(name: str) -> str:
@@ -461,6 +479,42 @@ def build() -> None:
         FROM read_csv('{RAW / "swdi"}/nx3hail-*.csv', header=true, all_varchar=true, union_by_name=true)
     """)
 
+    print("build places")
+    chi_lat0, chi_lat1, chi_lon0, chi_lon1 = overture.CHICAGO_BBOX
+    con.execute(f"""
+        CREATE TABLE places AS
+        SELECT id, name, category, categories, phones, websites, emails, address, locality, postcode, region,
+            confidence, status, lat, lon,
+            lat BETWEEN {chi_lat0} AND {chi_lat1} AND lon BETWEEN {chi_lon0} AND {chi_lon1}
+                AND (upper(locality) = 'CHICAGO' OR (locality IS NULL AND postcode LIKE '606%'))
+                AS in_chicago,
+            release
+        FROM read_parquet('{RAW / "overture"}/places-*.parquet')
+    """)
+
+    print("build biz_licenses")
+    con.execute(f"""
+        CREATE TABLE biz_licenses AS
+        SELECT license_id, account_number, try_cast(site_number AS INTEGER) AS site_number,
+            legal_name, doing_business_as_name AS dba, address, {address_key_sql("address")} AS address_key,
+            zip_code AS zip, try_cast(community_area AS INTEGER) AS community_area,
+            license_description, business_activity, license_status,
+            try_cast(expiration_date AS TIMESTAMP)::DATE AS expiration_date,
+            try_cast(latitude AS DOUBLE) AS lat, try_cast(longitude AS DOUBLE) AS lon
+        FROM {_csv("biz_licenses")}
+    """)
+
+    print("build biz_owners")
+    con.execute(f"""
+        CREATE TABLE biz_owners AS
+        SELECT account_number, doing_business_as_name AS dba,
+            nullif(trim(owner_first_name), '') AS first_name,
+            nullif(trim(owner_middle_initial), '') AS middle,
+            nullif(trim(owner_last_name), '') AS last_name, nullif(trim(owner_name_suffix), '') AS suffix,
+            nullif(trim(owner_name), '') AS entity_name, nullif(trim(owner_title), '') AS title
+        FROM {_csv("biz_owners")}
+    """)
+
     for t in (
         "permits",
         "permit_parties",
@@ -477,6 +531,9 @@ def build() -> None:
         "tracts",
         "hmda_home_improvement",
         "hail_cells",
+        "places",
+        "biz_licenses",
+        "biz_owners",
     ):
         n = con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
         print(f"  {t}: {n:,} rows")
