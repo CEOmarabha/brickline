@@ -2,7 +2,7 @@
 # Weekly data refresh: re-download public records, rebuild the warehouse, regenerate the app snapshot.
 #   scripts/refresh-data.sh            # refresh everything
 #   scripts/refresh-data.sh --backtest # also re-run the historical backtests
-# Then commit web/data/snapshot.json, prospects.json and contacts.json and republish the app.
+# Then commit web/data/snapshot.json, pest.json, prospects.json and contacts.json and republish the app.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -14,6 +14,7 @@ rm -rf data/raw/permits data/raw/violations data/raw/sales data/raw/food_license
 uv run python -m engine.warehouse sync
 uv run python -m engine.warehouse build
 uv run python -m engine.leads.snapshot
+uv run python -m engine.leads.pest
 uv run python -m engine.leads.prospects --trades porch masonry roofing
 # Free contact suggestions (Overture, Chicago business licenses, company websites). Safe to rerun: website
 # results are cached in data/raw/web_contacts for 30 days, so only new or stale sites are fetched (~1.5 min cold).
