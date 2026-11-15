@@ -62,7 +62,7 @@
 - **Status:** Accepted 2026-11-14 (founder delegated the homeowner-trade decision).
 - **Decision:** Track 1 sells weekly trigger lists + done-for-you mail to owner-facing trades, starting with porch and masonry contractors. Track 2 builds and sells GC open-door rankings, relationship maps and pre-application predictions to commercial subs and suppliers from month 3–4.
 - **Alternatives:** Commercial-only (slower sales, no relationships); agency-only (no software asset); residential-only (lower ceiling).
-- **Evidence:** Investor purchases 7–14x permit lift with B2B-reachable buyers; violations 7.6–12x; ~1,100 active porch/masonry contractors reachable cold from permit data; validated commercial formulas (`docs/11-lead-generation-strategy.md`).
+- **Evidence:** Investor purchases 7–14x permit lift with B2B-reachable buyers; violations 7.6–14x; ~1,100 active porch/masonry contractors reachable cold from permit data; validated commercial formulas (`docs/11-lead-generation-strategy.md`).
 - **Reverse if:** Pilots show close rates too low for F2 economics, or commercial pilots convert faster than expected.
 
 ### D-012 — Lead formulas are accepted only on time-split backtests and re-fit quarterly

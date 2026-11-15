@@ -79,8 +79,8 @@ Episodes = first violation of that trade at an address with none in the prior ye
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | windows_doors | 49,744 | 68.3 | 0.4% | 0.8% | 1.6% | 0.6% | 2.9x | 175.0 |
 | masonry | 47,173 | 64.8 | 2.1% | 5.3% | 10.4% | 1.3% | 8.1x | 178.0 |
-| porch | 44,569 | 61.2 | 2.0% | 6.3% | 13.4% | 1.1% | 12.0x | 189.0 |
-| roofing | 17,664 | 24.3 | 0.4% | 1.0% | 2.1% | 0.5% | 4.2x | 181.0 |
+| porch | 38,091 | 52.3 | 2.3% | 7.2% | 15.3% | 1.1% | 14.2x | 188.0 |
+| roofing | 16,231 | 22.3 | 0.5% | 1.1% | 2.1% | 0.3% | 6.4x | 174.0 |
 | elevator | 15,334 | 21.1 | 5.7% | 9.9% | 15.5% | 10.7% | 1.5x | 133.0 |
 | hvac | 10,023 | 13.8 | 0.5% | 0.9% | 1.8% | 0.9% | 2.0x | 189.5 |
 | electrical | 9,026 | 12.4 | 11.3% | 19.5% | 28.7% | 3.8% | 7.6x | 120.0 |
@@ -91,12 +91,11 @@ Episodes = first violation of that trade at an address with none in the prior ye
 | masonry | COMPLAINT | 36,808 | 9.5% |
 | masonry | PERIODIC | 10,363 | 13.6% |
 | masonry | PERMIT | 2 | 0.0% |
-| porch | COMPLAINT | 36,378 | 14.1% |
-| porch | PERIODIC | 8,142 | 10.5% |
-| porch | PERMIT | 49 | 8.2% |
-| roofing | COMPLAINT | 14,663 | 2.0% |
-| roofing | PERIODIC | 2,693 | 2.6% |
-| roofing | PERMIT | 308 | 2.3% |
+| porch | COMPLAINT | 32,932 | 15.3% |
+| porch | PERIODIC | 5,115 | 15.8% |
+| porch | PERMIT | 44 | 6.8% |
+| roofing | COMPLAINT | 14,592 | 2.0% |
+| roofing | PERIODIC | 1,639 | 3.2% |
 | windows_doors | COMPLAINT | 39,063 | 1.4% |
 | windows_doors | PERIODIC | 10,676 | 2.3% |
 | windows_doors | PERMIT | 5 | 40.0% |
@@ -110,45 +109,45 @@ Top contractors on permits that followed porch/masonry violations (2022+):
 | masonry | MAGDIEL PILLADO | 45 |
 | masonry | EDMAR | 28 |
 | masonry | CHICAGO CONCRETE CREATIONS | 23 |
-| porch | FRACKIEL BUILDERS | 131 |
-| porch | MR PORCH | 54 |
+| porch | FRACKIEL BUILDERS | 129 |
+| porch | MR PORCH | 51 |
 | porch | GONZON CONSTRUCTION | 49 |
-| porch | SOLID REMODELERS | 42 |
+| porch | SOLID REMODELERS | 41 |
 | porch | EMTRAC CONSTRUCTION | 20 |
 
 ## BT4 — GC “open door”: does past sub rotation predict a new sub on the next job?
 
 Major permits (new construction/renovation ≥ $100k). Feature = share of a GC's prior jobs that used a sub new to that GC. Tested on jobs from 2022 on, GCs with ≥5 prior jobs.
 
-**electrical** — 12,910 test jobs; base rate of a new sub: 14.8%
+**electrical** — 12,910 test jobs; base rate of a new sub: 14.1%
 
 | Quintile of prior rotation | Prior-rate range | Jobs | Observed new-sub rate |
 | --- | --- | --- | --- |
-| 1 | 0.00–0.07 | 2,582 | 5.7% |
-| 2 | 0.07–0.12 | 2,582 | 7.0% |
-| 3 | 0.12–0.19 | 2,582 | 12.7% |
-| 4 | 0.19–0.31 | 2,582 | 17.5% |
-| 5 | 0.31–1.00 | 2,582 | 31.2% |
+| 1 | 0.00–0.06 | 2,582 | 5.6% |
+| 2 | 0.06–0.11 | 2,582 | 6.0% |
+| 3 | 0.11–0.18 | 2,582 | 11.9% |
+| 4 | 0.18–0.29 | 2,582 | 16.9% |
+| 5 | 0.29–1.00 | 2,582 | 29.9% |
 
-**plumbing** — 11,603 test jobs; base rate of a new sub: 13.8%
-
-| Quintile of prior rotation | Prior-rate range | Jobs | Observed new-sub rate |
-| --- | --- | --- | --- |
-| 1 | 0.00–0.06 | 2,321 | 5.7% |
-| 2 | 0.06–0.13 | 2,321 | 6.0% |
-| 3 | 0.13–0.20 | 2,321 | 10.9% |
-| 4 | 0.20–0.33 | 2,320 | 16.3% |
-| 5 | 0.33–1.00 | 2,320 | 30.1% |
-
-**hvac** — 11,119 test jobs; base rate of a new sub: 16.1%
+**plumbing** — 11,603 test jobs; base rate of a new sub: 13.3%
 
 | Quintile of prior rotation | Prior-rate range | Jobs | Observed new-sub rate |
 | --- | --- | --- | --- |
-| 1 | 0.00–0.08 | 2,224 | 5.7% |
-| 2 | 0.08–0.12 | 2,224 | 7.4% |
-| 3 | 0.12–0.21 | 2,224 | 13.1% |
-| 4 | 0.21–0.34 | 2,224 | 20.4% |
-| 5 | 0.34–1.00 | 2,223 | 34.1% |
+| 1 | 0.00–0.06 | 2,321 | 5.6% |
+| 2 | 0.06–0.12 | 2,321 | 5.4% |
+| 3 | 0.12–0.18 | 2,321 | 10.4% |
+| 4 | 0.18–0.30 | 2,320 | 15.6% |
+| 5 | 0.30–1.00 | 2,320 | 29.5% |
+
+**hvac** — 11,119 test jobs; base rate of a new sub: 15.6%
+
+| Quintile of prior rotation | Prior-rate range | Jobs | Observed new-sub rate |
+| --- | --- | --- | --- |
+| 1 | 0.00–0.07 | 2,224 | 5.6% |
+| 2 | 0.07–0.12 | 2,224 | 6.6% |
+| 3 | 0.12–0.20 | 2,224 | 12.5% |
+| 4 | 0.20–0.33 | 2,224 | 20.0% |
+| 5 | 0.33–1.00 | 2,223 | 33.3% |
 
 ## BT5 — Restaurant build-out permit → retail food license at the same address
 

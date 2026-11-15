@@ -518,23 +518,23 @@
       },
       {
         "trade": "porch",
-        "episodes": 44569,
-        "episodes_per_week": 61.2,
-        "permit_90d": 0.019677354214812988,
-        "permit_180d": 0.06271175031972896,
-        "permit_365d": 0.13408422894837219,
-        "baseline_same_address_prior_year": 0.011218559985640243,
-        "median_days_to_permit": 189.0
+        "episodes": 38091,
+        "episodes_per_week": 52.3,
+        "permit_90d": 0.022603764668819405,
+        "permit_180d": 0.07203801422908299,
+        "permit_365d": 0.15336956236381297,
+        "baseline_same_address_prior_year": 0.010763697461342574,
+        "median_days_to_permit": 188.0
       },
       {
         "trade": "roofing",
-        "episodes": 17664,
-        "episodes_per_week": 24.3,
-        "permit_90d": 0.004359148550724638,
-        "permit_180d": 0.010416666666666666,
-        "permit_365d": 0.020889945652173912,
-        "baseline_same_address_prior_year": 0.004981884057971014,
-        "median_days_to_permit": 181.0
+        "episodes": 16231,
+        "episodes_per_week": 22.3,
+        "permit_90d": 0.004559176883740989,
+        "permit_180d": 0.010905058221921015,
+        "permit_365d": 0.020885958967408046,
+        "baseline_same_address_prior_year": 0.0032653564167334113,
+        "median_days_to_permit": 174.0
       },
       {
         "trade": "elevator",
@@ -599,38 +599,32 @@
       {
         "trade": "porch",
         "inspection_category": "COMPLAINT",
-        "episodes": 36378,
-        "permit_365d": 0.14066193853427897
+        "episodes": 32932,
+        "permit_365d": 0.1528300740920685
       },
       {
         "trade": "porch",
         "inspection_category": "PERIODIC",
-        "episodes": 8142,
-        "permit_365d": 0.10501105379513632
+        "episodes": 5115,
+        "permit_365d": 0.15757575757575756
       },
       {
         "trade": "porch",
         "inspection_category": "PERMIT",
-        "episodes": 49,
-        "permit_365d": 0.08163265306122448
+        "episodes": 44,
+        "permit_365d": 0.06818181818181818
       },
       {
         "trade": "roofing",
         "inspection_category": "COMPLAINT",
-        "episodes": 14663,
-        "permit_365d": 0.019982268294346312
+        "episodes": 14592,
+        "permit_365d": 0.019668311403508772
       },
       {
         "trade": "roofing",
         "inspection_category": "PERIODIC",
-        "episodes": 2693,
-        "permit_365d": 0.025621982918678055
-      },
-      {
-        "trade": "roofing",
-        "inspection_category": "PERMIT",
-        "episodes": 308,
-        "permit_365d": 0.022727272727272728
+        "episodes": 1639,
+        "permit_365d": 0.03172666259914582
       },
       {
         "trade": "windows_doors",
@@ -680,12 +674,12 @@
       {
         "trade": "porch",
         "contractor": "FRACKIEL BUILDERS",
-        "permits": 131
+        "permits": 129
       },
       {
         "trade": "porch",
         "contractor": "MR PORCH",
-        "permits": 54
+        "permits": 51
       },
       {
         "trade": "porch",
@@ -695,7 +689,7 @@
       {
         "trade": "porch",
         "contractor": "SOLID REMODELERS",
-        "permits": 42
+        "permits": 41
       },
       {
         "trade": "porch",
@@ -708,114 +702,114 @@
     "electrical": {
       "base": {
         "test_jobs": 12910,
-        "base_rate": 0.14833462432223082
+        "base_rate": 0.1407436096049574
       },
       "quintiles": [
         {
           "quintile": 1,
-          "prior_rate_range": "0.00\u20130.07",
+          "prior_rate_range": "0.00\u20130.06",
           "jobs": 2582,
-          "observed_new_sub_rate": 0.05731990704879938
+          "observed_new_sub_rate": 0.05615801704105345
         },
         {
           "quintile": 2,
-          "prior_rate_range": "0.07\u20130.12",
+          "prior_rate_range": "0.06\u20130.11",
           "jobs": 2582,
-          "observed_new_sub_rate": 0.0704879938032533
+          "observed_new_sub_rate": 0.060418280402788536
         },
         {
           "quintile": 3,
-          "prior_rate_range": "0.12\u20130.19",
+          "prior_rate_range": "0.11\u20130.18",
           "jobs": 2582,
-          "observed_new_sub_rate": 0.12664601084430674
+          "observed_new_sub_rate": 0.11890007745933386
         },
         {
           "quintile": 4,
-          "prior_rate_range": "0.19\u20130.31",
+          "prior_rate_range": "0.18\u20130.29",
           "jobs": 2582,
-          "observed_new_sub_rate": 0.17505809450038728
+          "observed_new_sub_rate": 0.168861347792409
         },
         {
           "quintile": 5,
-          "prior_rate_range": "0.31\u20131.00",
+          "prior_rate_range": "0.29\u20131.00",
           "jobs": 2582,
-          "observed_new_sub_rate": 0.31216111541440744
+          "observed_new_sub_rate": 0.29938032532920217
         }
       ]
     },
     "plumbing": {
       "base": {
         "test_jobs": 11603,
-        "base_rate": 0.13798155649401017
+        "base_rate": 0.13306903387055072
       },
       "quintiles": [
         {
           "quintile": 1,
           "prior_rate_range": "0.00\u20130.06",
           "jobs": 2321,
-          "observed_new_sub_rate": 0.05687203791469194
+          "observed_new_sub_rate": 0.05644118914261095
         },
         {
           "quintile": 2,
-          "prior_rate_range": "0.06\u20130.13",
+          "prior_rate_range": "0.06\u20130.12",
           "jobs": 2321,
-          "observed_new_sub_rate": 0.05988797931925894
+          "observed_new_sub_rate": 0.05385609651012495
         },
         {
           "quintile": 3,
-          "prior_rate_range": "0.13\u20130.20",
+          "prior_rate_range": "0.12\u20130.18",
           "jobs": 2321,
-          "observed_new_sub_rate": 0.10900473933649289
+          "observed_new_sub_rate": 0.10426540284360189
         },
         {
           "quintile": 4,
-          "prior_rate_range": "0.20\u20130.33",
+          "prior_rate_range": "0.18\u20130.30",
           "jobs": 2320,
-          "observed_new_sub_rate": 0.1629310344827586
+          "observed_new_sub_rate": 0.1560344827586207
         },
         {
           "quintile": 5,
-          "prior_rate_range": "0.33\u20131.00",
+          "prior_rate_range": "0.30\u20131.00",
           "jobs": 2320,
-          "observed_new_sub_rate": 0.30129310344827587
+          "observed_new_sub_rate": 0.29482758620689653
         }
       ]
     },
     "hvac": {
       "base": {
         "test_jobs": 11119,
-        "base_rate": 0.1614353808795755
+        "base_rate": 0.15585933986869321
       },
       "quintiles": [
         {
           "quintile": 1,
-          "prior_rate_range": "0.00\u20130.08",
+          "prior_rate_range": "0.00\u20130.07",
           "jobs": 2224,
-          "observed_new_sub_rate": 0.05710431654676259
+          "observed_new_sub_rate": 0.05620503597122302
         },
         {
           "quintile": 2,
-          "prior_rate_range": "0.08\u20130.12",
+          "prior_rate_range": "0.07\u20130.12",
           "jobs": 2224,
-          "observed_new_sub_rate": 0.0737410071942446
+          "observed_new_sub_rate": 0.06564748201438848
         },
         {
           "quintile": 3,
-          "prior_rate_range": "0.12\u20130.21",
+          "prior_rate_range": "0.12\u20130.20",
           "jobs": 2224,
-          "observed_new_sub_rate": 0.13084532374100719
+          "observed_new_sub_rate": 0.125
         },
         {
           "quintile": 4,
-          "prior_rate_range": "0.21\u20130.34",
+          "prior_rate_range": "0.20\u20130.33",
           "jobs": 2224,
-          "observed_new_sub_rate": 0.20413669064748202
+          "observed_new_sub_rate": 0.19964028776978418
         },
         {
           "quintile": 5,
-          "prior_rate_range": "0.34\u20131.00",
+          "prior_rate_range": "0.33\u20131.00",
           "jobs": 2223,
-          "observed_new_sub_rate": 0.34143049932523617
+          "observed_new_sub_rate": 0.3328834907782276
         }
       ]
     }

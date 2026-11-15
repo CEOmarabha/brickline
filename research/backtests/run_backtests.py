@@ -327,13 +327,10 @@ def bt_rotation(con) -> dict:
         """)
         con.execute("""
             CREATE OR REPLACE TEMP TABLE seq AS
-            WITH firsts AS (
-              SELECT gc, sub, min(issue_date) AS first_date FROM jobs GROUP BY gc, sub
-            ),
-            j AS (
-              SELECT j.*, row_number() OVER (PARTITION BY j.gc ORDER BY j.issue_date, j.id) AS k,
-                     (f.first_date = j.issue_date) AS is_new
-              FROM jobs j JOIN firsts f USING (gc, sub)
+            WITH j AS (
+              SELECT jobs.*, row_number() OVER (PARTITION BY gc ORDER BY issue_date, id) AS k,
+                     row_number() OVER (PARTITION BY gc, sub ORDER BY issue_date, id) = 1 AS is_new
+              FROM jobs
             )
             SELECT *,
               -- prior novelty rate excluding the GC's first job (always "new")

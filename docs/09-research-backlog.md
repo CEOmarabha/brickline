@@ -12,7 +12,7 @@
 | 5 | What review time per item is achievable, and how much research is shared across customers? | P1 | High (unit economics) | Low | Open | Time-track the first 4 weekly reports |
 | 6 | Are Chicago permit names mostly the legal entity, DBA, or truncated variants, and what ER precision can rules + fuzzy matching reach? | P1 | High | Medium | In progress — truncation and spelling variants confirmed ([probe](../research/findings/chicago-signal-probe-2026-11-14.md)) | Label 300 name pairs; measure |
 | 7 | How understated is `reported_cost`? Is it usable for value bands and trade-value estimates? | P1 | Medium | Medium | Open | Compare against assessor amounts, public project announcements; ask pilots |
-| 8 | How often do GCs rotate subs (the "open door" signal), by GC size? | P1 | Medium–high (A) | Low | Answered — base 14–16% new-sub rate; top quintile 30–34% vs 6% ([backtests](../research/findings/backtests-2026-11-15.md)); size-band split still open | — |
+| 8 | How often do GCs rotate subs (the "open door" signal), by GC size? | P1 | Medium–high (A) | Low | Answered — base 13–16% new-sub rate; top quintile 30–33% vs 5.6% ([backtests](../research/findings/backtests-2026-11-15.md)); size-band split still open | — |
 | 9 | Do suppliers/rental reps already know about projects before permits issue? | P1 | High (B) | Low | Open | Interviews |
 | 10 | Shovels coverage and freshness for collar counties (DuPage, Lake, Will, Kane, McHenry) | P2 | Medium | Low | Open | Free-tier queries; compare to known municipal data |
 | 11 | Should the agency standardize on HighLevel (client portal, white-label) or HubSpot? | P2 | Medium | Low | Open | Depends on agency plans; trial both with one pilot |

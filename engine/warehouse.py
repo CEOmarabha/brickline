@@ -81,7 +81,7 @@ DATASETS = [
         "owner_address_city_name,owner_address_state,owner_address_zipcode_1",
         "year = 2026 AND prop_address_city_name = 'CHICAGO'",
     ),
-    Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community"),
+    Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community,the_geom"),
 ]
 
 # Address key: "<number> <dir> <street words up to and including the suffix>", unit/floor text dropped.
@@ -264,7 +264,8 @@ def build() -> None:
         CREATE TABLE community_areas AS
         SELECT try_cast(area_numbe AS INTEGER) AS community_area,
             array_to_string(list_transform(string_split(lower(community), ' '),
-                lambda w: upper(w[1]) || w[2:]), ' ') AS name
+                lambda w: upper(w[1]) || w[2:]), ' ') AS name,
+            the_geom AS geom_wkt
         FROM {_csv("community_areas")}
     """)
 

@@ -9,8 +9,8 @@ We tested seven lead formulas against 20 years of Chicago permits, 1.5M building
 | Signal / formula | Result | Who it's for | Verdict |
 | --- | --- | --- | --- |
 | **Investor / company purchase** of a house or 2–6 flat | 30–38% pull a permit within 12 months (7–14x their own baseline); 8–13% start a ≥$100k renovation (16–28x); ~63 purchases/week | GCs/rehab, porch, masonry, roofing, plumbing, electrical, windows | **Strongest residential signal — and the buyer is a business (B2B outreach allowed)** |
-| **Building violation** (porch, masonry, plumbing, electrical) | 10–29% followed by a permitted repair within a year (7.6–12x baseline); ~45 porch + ~53 masonry addresses/week | Porch, masonry, plumbing, electrical contractors | **Strong compelled-demand signal**; owner outreach by mail |
-| **GC "open door" score** (past sub rotation) | Top-quintile GCs use a new sub on 30–34% of jobs vs 6% for bottom quintile (5–6x), out of sample | Commercial electrical, plumbing, HVAC subs | **Validated** — the core of the commercial product |
+| **Building violation** (porch, masonry, plumbing, electrical) | 10–29% followed by a permitted repair within a year (7.6–14x baseline); ~37 porch + ~53 masonry addresses/week | Porch, masonry, plumbing, electrical contractors | **Strong compelled-demand signal**; owner outreach by mail |
+| **GC "open door" score** (past sub rotation) | Top-quintile GCs use a new sub on 30–33% of jobs vs 5.6% for bottom quintile (5–6x), out of sample | Commercial electrical, plumbing, HVAC subs | **Validated** — the core of the commercial product |
 | **Composite parcel score** (signal combinations) | Top 100 parcels/half-year: 25% apply for a ≥$100k project within 180 days (56x base); top 500: 19% (41x) | Commercial subs, suppliers, GCs (pre-application leads) | **Validated** — genuinely *before* the permit application |
 | **Restaurant build-out permit → food license** | 29% followed by a new food license; median 90 days before license application, 174 days before license issue | Food distributors, kitchen equipment, cleaning, pest, POS, insurance | **Useful early signal**, modest coverage (12% of new licenses) |
 | Individual (owner-occupant) home purchase | 9–17% pull a permit within a year (2–2.5x baseline); ~214/week | Roofing, electrical, windows, solar | **Weak per lead**; profitable only for cheap channels |
@@ -69,7 +69,7 @@ EV(lead) = P(job | signal) × P(win | contacted) × job value × contractor marg
 
 | Lead type (illustrative) | P(job) | P(win) [H] | Job value | EV gross profit | Contact cost | Worth it? |
 | --- | --- | --- | --- | --- | --- | --- |
-| Porch violation → porch contractor | 13.4% | 5% | $20,000 | ~$40 | ~$3 | Yes |
+| Porch violation → porch contractor | 15.3% | 5% | $20,000 | ~$46 | ~$3 | Yes |
 | Masonry violation → mason | 10.4% | 5% | $20,000 | ~$31 | ~$3 | Yes |
 | Investor purchase, 2–6 flat → GC/rehab | 38.4% (any permit) | 10% | $20,000 | ~$230 | ~$3 + call time | Yes, best |
 | Investor purchase, single-family → porch | 8.2% | 10% | $20,000 | ~$49 | ~$3 | Yes |
@@ -99,9 +99,9 @@ Validated calibration [V], jobs from 2022 on, GCs with ≥5 prior jobs:
 
 | Trade | Bottom quintile | Top quintile | Base rate |
 | --- | --- | --- | --- |
-| Electrical | 5.7% | 31.2% | 14.8% |
-| Plumbing | 5.7% | 30.1% | 13.8% |
-| HVAC | 5.7% | 34.1% | 16.1% |
+| Electrical | 5.6% | 29.9% | 14.1% |
+| Plumbing | 5.6% | 29.5% | 13.3% |
+| HVAC | 5.6% | 33.3% | 15.6% |
 
 Use: rank GCs by `open_door × activity in the sub's size band × proximity` to build a sub's target list. Next refinements: recency weighting, size-band matching, "lost sub" events (a GC's regular sub disappears).
 
@@ -136,7 +136,7 @@ score_t = score_0 × S(t)      S(t) = share of eventual conversions not yet happ
 | Product line | Weekly volume [V] | Delivered as | Primary buyers |
 | --- | --- | --- | --- |
 | Investor purchases (houses, 2–6 flats) with buyer entity, repeat-buyer flag, purchase history | ~63/week; 233 repeat buyers | List + company contact research + call/email script | GCs/rehab, porch, masonry, roofing, plumbing, electrical |
-| Porch & masonry violations | ~45 porch + ~53 masonry addresses/week | Mail-ready list + 3-touch mail sequence | Porch builders, masons |
+| Porch & masonry violations | ~37 porch + ~53 masonry addresses/week | Mail-ready list + 3-touch mail sequence | Porch builders, masons |
 | Plumbing/electrical violations | ~12 each/week (episodes) | Mail-ready list | Plumbers, electricians |
 | Pre-application major projects (composite score) | ~19/week at 19% precision | Ranked list with reasons | Commercial subs, suppliers, GCs |
 | GC open-door ranking + relationship map | 627 active GCs | Monthly target list per sub | Commercial subs |
