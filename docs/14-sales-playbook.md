@@ -97,9 +97,16 @@ Each refresh (`scripts/refresh-data.sh`, step `engine.enrich.contacts`) matches 
 
 **Coverage on 2026-11-13 data** (`research/findings/contact-enrichment-2026-11-13.md`): 28% of all 1,343 prospects have at least one suggestion (21% phone, 19% website, 11% email, 12% contact name) and 19.5% of the 215 best-fit prospects; only 3% of the 1,873 company owners and buyers, because most are single-property LLCs without a public listing. That is why the founder still researches by hand for the rest. Revisit paid enrichment only if these rates stay too low for the weekly send volume.
 
+## 5d. Two extra pilot lists (non-trade buyers)
+
+These are for buyers outside the porch/masonry track. Both are pilots: say plainly that you are testing the list and want their outcomes.
+
+- **Pest control (`/pilots/pest`).** Restaurants whose newest inspection shows a fresh pest finding, which is the first one at that license in 180 days. The latest week's list is small at first because inspections post late; the 28-day list gives a first batch. The page lists Chicago pest-control companies to pitch (Overture Maps) and has a cold-email draft. Offer one company a free 4-week list in exchange for filling in the `date_contacted`, `outcome` and `notes` columns of the CSV (`/export/pest`). Don't quote a chance of winning: none has been measured. Rows marked "general mention only" are a generic "pests" citation (often entry points), weaker than a rodent or roach finding. They call or visit the restaurants themselves (business lines, manual dialing only).
+- **Closed restaurant spaces (`/commercial`, bottom section).** Addresses that just lost their restaurant and have no new food license yet. Use the computed rates on the page when pitching: about one in seven gets a new food business 31+ days after the closure, five times the rate at ordinary restaurants. Only about one in nine pulls a build-out permit, a weak signal, so don't promise construction work. Test it with build-out GCs, kitchen-equipment dealers, signage shops and commercial brokers. Each lead's letter goes to the property owner and never mentions the closure, the inspection or the City.
+
 ## 6. Weekly pilot operations (about 2–3 hours per pilot per week at the start) [E]
 
-1. **Refresh the data:** `scripts/refresh-data.sh` (about 5 minutes, mostly downloads). Commit `web/data/snapshot.json`, `web/data/prospects.json` and `web/data/contacts.json`, republish. Until the scheduled refresh exists (HANDOFF next tasks), do this manually each Monday.
+1. **Refresh the data:** `scripts/refresh-data.sh` (about 5 minutes, mostly downloads). Commit `web/data/snapshot.json`, `web/data/pest.json`, `web/data/prospects.json` and `web/data/contacts.json`, republish. The agent's weekly timer (HANDOFF next tasks) does this on Monday mornings; run it by hand if the timer isn't active.
 2. **Open the client's workspace** (switcher in the sidebar) and check Settings: trade, neighborhoods, business name, phone, mailing address.
 3. **Review the weekly report** (`/report`): scan the act-now leads, drop anything that looks wrong, read the recommendations.
 4. **Send it:** print the summary or export as PDF and send to the client; send the mail-merge CSV if they want to do the mailing; or print the letters (`/report?view=letters`) for the client to sign and mail.

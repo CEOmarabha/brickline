@@ -91,3 +91,13 @@
 - **Evidence:** `research/findings/contact-enrichment-2026-11-13.md`: 28.4% of prospects (19.5% of best-fit) and 3.0% of company owners get at least one suggestion.
 - **Reverse if:** Free coverage is too low for the weekly send volume (then test a paid provider on unmatched best-fit prospects), or Overture's terms or a site owner's objection require removing a source.
 
+### D-017 — Closed-restaurant spaces ship as a lead kind and pilot list; pest control stays a pilot without a probability
+- **Status:** Accepted 2026-11-15.
+- **Decision:** H26 becomes the `closed_restaurant` lead kind (general-contracting trade, letter to the property owner) and a citywide pilot list on `/commercial`. The headline chance is a new differently named food license at the address (time-adjusted), and the trade chance is the weaker build-out permit rate, labelled weak. H23 ships only as a weekly targeting list for one pest-control pilot client (`/pilots/pest`), with descriptive counts and no chance of work, until that client's win rate is measured.
+- **Evidence:** BT8 (`research/findings/backtests-2026-11-15.md`): new license 10.2× and 31+ days 5.0×, stable 2016–2020 vs 2021–2025; build-out permit only 1.78×. H23 is weak by the conservative measure (1.5×) and 37% of recent pest flags are a generic "pests" mention.
+- **Reverse if:** No buyer pays for the closed-restaurant list after a fair pilot (then drop it from `/commercial` and the lead list), or a pest-control pilot shows a measurable win rate (then add a pest lead kind with that measured rate).
+
+### D-018 — Strength words follow the signal lab's verdict cut-offs
+- **Status:** Accepted 2026-11-15.
+- **Decision:** Wherever the app or snapshot calls a lift weak, useful or strong, the word is computed from the lift with the lab's cut-offs (below 1.25× no real signal, below 1.8× weak, below 3× useful, otherwise strong). Copy never hardcodes a strength word that the data could contradict later.
+
