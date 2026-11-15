@@ -68,11 +68,12 @@ Warehouse tables: `permits`, `permit_parties` (role, name_key), `violations`, `s
 
 ## Next tasks (in order)
 
-1. **Client logins not tied to Cursor** so pilots self-serve (security-sensitive: a public app must not expose `data/snapshot.json`, now ~8 MB; consider moving lead data behind authenticated routes or into the DB; magic-link email needs a provider secret). **Also gate `/prospects` to admins/founders before clients can sign in**: it is our sales list, not client data.
-2. **Automated weekly refresh** (scheduled job running `scripts/refresh-data.sh`, committing the snapshot, republishing).
-3. **Contact enrichment** for company owners/investors (Apollo or similar; bind the API key as a secret; cache results; never fabricate).
-4. **Contact research for prospects** (website, email, phone fields are blank; follow `docs/14-sales-playbook.md` §1) and a CRM import; track replies and pilots per the playbook's metrics.
-5. **Re-validation and new signals:** add the 311 lead types to `research/backtests` so they re-validate on refresh; block-level solar lists (H01) if a solar trade is added; signal lab round 3 from `docs/13-signal-lab.md` "Next ideas" (radar hail swaths, HMDA home-improvement loans, food inspections for pest control).
+1. **Prospect pipeline (CRM-lite) on `/prospects`** so khaled can run the cold-outreach plan in `docs/14-sales-playbook.md`: per-prospect status (not contacted → emailed → replied → meeting → pilot → paying / not interested), contact fields entered by hand (website, email, phone, contact name), notes, sequence step and next follow-up date (day 0/4/10 per the playbook), a "due today" view, and pipeline counts on the prospects page. Stored in Postgres (additive migration), keyed by the owner (founder), never visible to client workspaces. Also a CSV export of the pipeline.
+2. **Re-validation:** add the 311 lead types (complaint → citation, porch request → porch permit, vacant → sale) to `research/backtests/run_backtests.py` so they are re-checked on every refresh.
+3. **Automated weekly refresh:** run `scripts/refresh-data.sh`, commit `web/data/*.json`, republish. Needs a scheduler: a Cursor Automation (set up by khaled in the dashboard) is the likely route.
+4. **Contact enrichment** for prospects and company owners (Apollo or similar; key as a bound secret; cache; never fabricate).
+5. **Client logins not tied to Cursor (deferred until pilots pay).** Blocker: Cursor's host may serve any shipped file, so a *public* app would expose `web/data/snapshot.json` and `prospects.json` (owner names and mailing addresses). Before client logins: move lead data out of shipped files (e.g. load it into the app's Postgres from a private source, or encrypt at rest with a key the app holds) and gate `/prospects` to the founder. Until then, pilots are served by khaled (weekly report, letters, CSV).
+6. **Signal lab round 3** (`docs/13-signal-lab.md` "Next ideas": radar hail swaths, HMDA home-improvement loans, food inspections for pest control).
 
 ## Working agreements
 
