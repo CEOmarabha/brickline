@@ -94,10 +94,17 @@ def remaining_probability(p: float, points: list[float], age: float) -> float:
     return max(0.0, p * (1 - f) / denom) if denom > 0 else 0.0
 
 
+UPPER_WORDS = {"LLC", "LLP", "LP", "II", "III", "IV", "USA", "CTA", "HVAC", "JV", "PC"}
+
+
 def title(s: str | None) -> str | None:
     if not s:
         return s
-    return re.sub(r"\b([A-Z])([A-Z']*)\b", lambda m: m.group(1) + m.group(2).lower(), s)
+    return re.sub(
+        r"\b([A-Z])([A-Z']*)\b",
+        lambda m: m.group(0) if m.group(0) in UPPER_WORDS else m.group(1) + m.group(2).lower(),
+        s,
+    )
 
 
 def iso(d) -> str | None:
@@ -390,7 +397,7 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
     return leads, won
 
 
-def investor_leads(con, today_sales: date, smodel: dict) -> list[dict]:
+def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[dict]:
     rows = q(
         con,
         f"""
@@ -441,12 +448,13 @@ def investor_leads(con, today_sales: date, smodel: dict) -> list[dict]:
         m = smodel.get(r["segment"])
         if not m:
             continue
-        age = (today_sales - r["sale_date"]).days
+        # Elapsed time is measured to today: permits are current even though sales publish late.
+        age = (today - r["sale_date"]).days
         started = bool(r["permits_since"])
         p_any = 1.0 if started else remaining_probability(m["p_any"], m["delays"], age)
         repeat = r["purchases_24m"] or 1
         tier = (
-            "act_now" if repeat >= 3 and age <= 150 else "this_week" if age <= 120 or started else "monitor"
+            "act_now" if repeat >= 3 and not started else "this_week" if age <= 180 or started else "monitor"
         )
         trade_probs = {k: round(v, 4) for k, v in m["p_trade"].items()}
         leads.append(
@@ -774,7 +782,7 @@ def build(out: Path) -> dict:
     print("violation leads ...", flush=True)
     v_leads, won = violation_leads(con, dates["violations"], vmodel, values)
     print("investor leads ...", flush=True)
-    s_leads = investor_leads(con, dates["sales"], smodel)
+    s_leads = investor_leads(con, today, dates["sales"], smodel)
     print("pre-application projects ...", flush=True)
     pre = preapp_projects(con, today)
     print("gc targets, competitors, areas ...", flush=True)

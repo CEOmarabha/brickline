@@ -32,6 +32,23 @@ This repo contains the plan, the evidence behind it, and the first pieces of the
 
 Evidence labels used throughout: **[V]** verified, **[V3]** third-party reported, **[E]** estimate, **[H]** hypothesis, **[S]** speculative.
 
+## Client app (Brickline)
+
+`web/` is the client-facing product: a Next.js app where a contractor picks a trade and neighborhoods and gets ranked leads (violations and investor purchases) with the evidence, historical chance of work, expected value, a drafted letter or email, and status tracking. It also has neighborhood trends, competitor share, and a commercial preview (pre-application projects and general contractors who rotate subs).
+
+```bash
+cd web
+npm install
+npm run dev          # http://localhost:4317
+```
+
+The app reads `web/data/snapshot.json`, produced by the engine. Lead statuses, notes and settings are stored in Postgres when `DATABASE_URL` is set, otherwise in an in-memory database that resets on restart. To refresh the data:
+
+```bash
+uv run python -m engine.warehouse sync && uv run python -m engine.warehouse build
+uv run python -m engine.leads.snapshot     # rewrites web/data/snapshot.json
+```
+
 ## Building the warehouse and running backtests
 
 Requires Python 3.11+, [uv](https://docs.astral.sh/uv/) and internet access. The first sync downloads ~850 MB of public CSVs into `data/` (git-ignored) and takes a few minutes; it resumes if interrupted.
