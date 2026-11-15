@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Bot, Building2, FileText, LayoutDashboard, ListChecks, Map, MenuIcon, Settings, Target, Trophy } from "lucide-react";
+import { BarChart3, Bot, Bug, Building2, FileText, LayoutDashboard, ListChecks, Map, MenuIcon, Settings, Target, Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, Suspense, useState } from "react";
@@ -18,6 +18,7 @@ const ITEMS: { href: string; label: string; icon: typeof Map; section?: string }
   { href: "/results", label: "Results", icon: BarChart3 },
   { href: "/report", label: "Weekly report", icon: FileText },
   { href: "/prospects", label: "Prospects", icon: Target, section: "Our sales" },
+  { href: "/pilots/pest", label: "Pest pilot", icon: Bug },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
