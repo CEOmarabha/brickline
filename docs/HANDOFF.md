@@ -59,16 +59,16 @@ Warehouse tables: `permits`, `permit_parties` (role, name_key), `violations`, `s
 - Strategy and research docs complete (`docs/00`–`13`), decisions D-001…D-015.
 - Validated signals (backtests): violations → permits (porch 15.3%/14×, masonry 10%/8×), investor purchases (30–38% any permit), GC open-door (5–6× separation), composite pre-application score (top 100 ≈ 26%, 56×), restaurant build-out → food license (~90 days ahead).
 - Signal lab round 1 (`docs/13-signal-lab.md`): winners H07 (311 building complaint → citation, 32-day head start), H08 (porch inspection request, 11×), H09 (vacant complaint → sale, 2.5×), H13 (pre-1910 masonry, 2.9×), H01/H03 (solar/reroof neighbors ~2.2–2.4×); storms, basement water, lead kits, energy score, no-A/C failed.
+- Productized signal-lab winners (snapshot kinds `complaint`, `porch_request`, `vacant`; masonry pre-1910 split on violation leads; `blocks.roofing` + `blocks.roofingModel`). Every probability and case count is computed in `engine/leads/snapshot.py` and cited in `snap.models` (`complaint`, `porchRequest`, `vacant`, `masonryAge`); 311 data starts mid-2018, so those models cover 2018 onward. Letters for these kinds never mention the 311 report.
 - App (`web/`): dashboard + suggested moves, leads (filters, CSV/mail-merge export), lead detail (evidence, draft, status), neighborhoods, market, commercial preview, results (measured close rates), weekly report + print-ready letters, assistant, settings, client workspaces.
 - Publish: proposed as "brickline", **awaiting khaled's confirmation** (recommend Private). After it's live, republish after each change.
 
 ## Next tasks (in order)
 
-1. **Productize signal-lab winners** into `engine/leads/snapshot.py` and the app (new lead kinds for 311 building complaints, porch inspection requests, vacant-building complaints; masonry age as an evidence item/score boost; block-level solar and roofing lists). Each new kind needs a historical rate computed in the snapshot (no hardcoded numbers), evidence, an action, a draft, filters, and assistant tool coverage.
-2. **Client logins not tied to Cursor** so pilots self-serve (security-sensitive: a public app must not expose `data/snapshot.json`; consider moving lead data behind authenticated routes or into the DB; magic-link email needs a provider secret).
-3. **Automated weekly refresh** (scheduled job running `scripts/refresh-data.sh`, committing the snapshot, republishing).
-4. **Contact enrichment** for company owners/investors (Apollo or similar; bind the API key as a secret; cache results; never fabricate).
-5. **Signal lab round 2** (`docs/13-signal-lab.md` "Next ideas").
+1. **Client logins not tied to Cursor** so pilots self-serve (security-sensitive: a public app must not expose `data/snapshot.json`, now ~8 MB; consider moving lead data behind authenticated routes or into the DB; magic-link email needs a provider secret).
+2. **Automated weekly refresh** (scheduled job running `scripts/refresh-data.sh`, committing the snapshot, republishing).
+3. **Contact enrichment** for company owners/investors (Apollo or similar; bind the API key as a secret; cache results; never fabricate).
+4. **Signal lab round 2** (`docs/13-signal-lab.md` "Next ideas"); also block-level solar lists (H01) and adding the 311 lead types to `research/backtests` so they re-validate on refresh.
 
 ## Working agreements
 

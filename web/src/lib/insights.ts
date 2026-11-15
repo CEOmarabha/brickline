@@ -63,6 +63,33 @@ export function buildInsights(
     });
   }
 
+  const freshComplaints = open.filter((l) => l.kind === "complaint" && l.ageDays <= 14);
+  if (freshComplaints.length > 0) {
+    const { complaint } = snap.models;
+    const chance = complaint.pTrade365[trade];
+    out.push({
+      id: "fresh-complaints",
+      kind: "opportunity",
+      title: `${count(freshComplaints.length)} buildings drew 311 complaints in the last 2 weeks and have no citation yet`,
+      detail: `Historically ${pct(complaint.pViolation120)} of these get a city violation within 120 days${complaint.medianDaysToViolation === null ? "" : `, a median of ${complaint.medianDaysToViolation} days after the complaint`}. ${chance === undefined ? "" : `${pct(chance)} pulled a ${tradeLabel} permit within a year. `}Mailing owners now puts you ahead of contractors who wait for the violation record.`,
+      href: "/leads?kind=complaint&tier=act_now",
+      cta: "Review new complaints",
+    });
+  }
+
+  const freshPorch = open.filter((l) => l.kind === "porch_request" && l.ageDays <= 14);
+  if (freshPorch.length > 0) {
+    const { porchRequest } = snap.models;
+    out.push({
+      id: "fresh-porch-requests",
+      kind: "opportunity",
+      title: `${count(freshPorch.length)} owners asked the City to inspect their porch in the last 2 weeks`,
+      detail: `Historically ${pct(porchRequest.pPorch365)} of these properties pulled a porch permit within a year, and the request comes before any citation. Offer a free porch assessment by mail.`,
+      href: "/leads?kind=porch_request&tier=act_now",
+      cta: "Review porch requests",
+    });
+  }
+
   const areaPool = snap.areas.filter((a) => ws.areas.length === 0 || ws.areas.includes(a.id));
   const metric = (a: (typeof areaPool)[number]) =>
     trade === "general"

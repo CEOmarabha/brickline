@@ -2,10 +2,11 @@ import "server-only";
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import type { LeadKindKey } from "@/lib/kinds";
 
 export type TradeKey = "porch" | "masonry" | "roofing" | "plumbing" | "electrical" | "general";
 export type Tier = "act_now" | "this_week" | "monitor";
-export type LeadKind = "violation" | "investor_purchase";
+export type LeadKind = LeadKindKey;
 
 export interface Evidence {
   label: string;
@@ -37,15 +38,33 @@ interface LeadBase {
   evidence: Evidence[];
   action: string;
   sourceUrl: string;
+  /** Chance of work per trade for kinds that cover several trades (already time-adjusted unless noted in the basis). */
+  tradeProbabilities?: Partial<Record<TradeKey, number>>;
 }
 
 export interface ViolationLead extends LeadBase {
   kind: "violation";
   trade: TradeKey;
-  lat: number | null;
-  lon: number | null;
   expectedValue: number;
   jobValue: number;
+}
+
+/** 311 building complaint with no city violation yet; `probability` is the chance it gets cited. */
+export interface ComplaintLead extends LeadBase {
+  kind: "complaint";
+  tradeProbabilities: Partial<Record<TradeKey, number>>;
+}
+
+/** 311 porch inspection request with no porch permit yet; `probability` is the chance of a porch permit. */
+export interface PorchRequestLead extends LeadBase {
+  kind: "porch_request";
+  trade: "porch";
+}
+
+/** 311 vacant/abandoned building complaint with no sale yet; `probability` is the chance it sells. */
+export interface VacantLead extends LeadBase {
+  kind: "vacant";
+  tradeProbabilities: Partial<Record<TradeKey, number>>;
 }
 
 export interface PermitSummary {
@@ -70,7 +89,7 @@ export interface InvestorLead extends LeadBase {
   permitsSince: PermitSummary[];
 }
 
-export type Lead = ViolationLead | InvestorLead;
+export type Lead = ViolationLead | ComplaintLead | PorchRequestLead | VacantLead | InvestorLead;
 
 export interface Area {
   id: number;
@@ -125,10 +144,29 @@ export interface GcTarget {
   areas: number[];
 }
 
+export interface RoofingBlock {
+  id: string;
+  communityArea: number | null;
+  recentReroofs: number;
+  lastPermit: string;
+  residentialParcels: number;
+  addresses: string[];
+}
+
+export interface RoofingBlockModel {
+  exposedRate: number;
+  baseRate: number;
+  lift: number;
+  exposedCases: number;
+  baseCases: number;
+  horizonDays: number;
+  period: string;
+}
+
 export interface Snapshot {
   meta: {
     generatedAt: string;
-    dataAsOf: { permits: string; violations: string; sales: string };
+    dataAsOf: { permits: string; violations: string; sales: string; complaints: string };
     sources: { name: string; url: string }[];
     assumptions: { winRate: { individual: number; company: number }; margin: number };
   };
@@ -139,11 +177,33 @@ export interface Snapshot {
       string,
       { purchases: number; pAny: number; pMajor: number; pTrade: Record<TradeKey, number> }
     >;
+    complaint: {
+      period: string;
+      episodes: number;
+      pViolation120: number;
+      medianDaysToViolation: number | null;
+      pTrade365: Partial<Record<TradeKey, number>>;
+    };
+    porchRequest: { period: string; episodes: number; pPorch365: number };
+    vacant: {
+      period: string;
+      episodes: number;
+      pSale365: number;
+      permitPeriod: string;
+      permitEpisodes: number;
+      pTrade730: Record<TradeKey, number>;
+    };
+    masonryAge: {
+      useCells: boolean;
+      age: Record<"pre1910" | "other", { episodes: number; p365: number }>;
+      cells: Record<string, { episodes: number; p365: number }>;
+    };
   };
   leads: Lead[];
   recentWins: RecentWin[];
   competitors: Record<TradeKey, { contractors: Competitor[]; violationJobsWon: { name: string; jobs: number }[] }>;
   areas: Area[];
+  blocks: { roofing: RoofingBlock[]; roofingModel: RoofingBlockModel };
   commercial: {
     preApplication: { baseRate: number; projects: PreAppProject[] };
     gcTargets: Record<"electrical" | "plumbing" | "hvac", GcTarget[]>;
@@ -172,8 +232,15 @@ export interface CloseRates {
   company: number | null;
 }
 
+/** Investor and vacant-building leads are worked like company leads (business contact, not homeowner mail). */
+export function ownerTypeFor(lead: Lead): "individual" | "company" {
+  return lead.kind === "investor_purchase" || lead.kind === "vacant" || lead.owner.type === "company"
+    ? "company"
+    : "individual";
+}
+
 export function closeRateFor(lead: Lead, snap: Snapshot, rates?: CloseRates): { rate: number; measured: boolean } {
-  const ownerType = lead.kind === "investor_purchase" || lead.owner.type === "company" ? "company" : "individual";
+  const ownerType = ownerTypeFor(lead);
   const measured = rates?.[ownerType] ?? null;
   return measured === null
     ? { rate: snap.meta.assumptions.winRate[ownerType], measured: false }
@@ -186,19 +253,20 @@ export function expectedValue(lead: Lead, trade: TradeKey, snap: Snapshot, rates
   return tradeProbability(lead, trade, snap) * rate * snap.trades[trade].jobValue * snap.meta.assumptions.margin;
 }
 
-/** Probability that this lead turns into work for `trade` (historical rate, time-adjusted). */
+/** Probability that this lead turns into work for `trade` (historical rate, time-adjusted where the kind allows). */
 export function tradeProbability(lead: Lead, trade: TradeKey, snap: Snapshot): number {
-  if (lead.kind === "violation") return lead.probability;
-  const model = snap.models.investorPurchase[lead.segment];
-  const timeLeft = model ? Math.min(1, lead.probability / model.pAny) : 1;
-  return lead.tradeProbabilities[trade] * timeLeft;
+  if (lead.kind === "investor_purchase") {
+    const model = snap.models.investorPurchase[lead.segment];
+    const timeLeft = model ? Math.min(1, lead.probability / model.pAny) : 1;
+    return lead.tradeProbabilities[trade] * timeLeft;
+  }
+  if (lead.tradeProbabilities) return lead.tradeProbabilities[trade] ?? 0;
+  return lead.probability;
 }
 
 export function leadsForWorkspace(snap: Snapshot, trade: TradeKey, areas: number[]): Lead[] {
   const inArea = (a: number | null) => areas.length === 0 || (a !== null && areas.includes(a));
-  return snap.leads.filter(
-    (l) => inArea(l.communityArea) && (l.kind === "investor_purchase" || l.trade === trade),
-  );
+  return snap.leads.filter((l) => inArea(l.communityArea) && l.trades.includes(trade));
 }
 
 export function areaNames(snap: Snapshot): Map<number, string> {

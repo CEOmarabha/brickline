@@ -37,7 +37,7 @@ Evidence labels used throughout: **[V]** verified, **[V3]** third-party reported
 
 ## Client app (Brickline)
 
-`web/` is the client-facing product: a Next.js app where a contractor picks a trade and neighborhoods and gets ranked leads (violations and investor purchases) with the evidence, historical chance of work, expected value, a drafted letter or email, and status tracking. It also has neighborhood trends, competitor share, and a commercial preview (pre-application projects and general contractors who rotate subs).
+`web/` is the client-facing product: a Next.js app where a contractor picks a trade and neighborhoods and gets ranked leads (building violations, 311 building complaints, porch inspection requests, vacant buildings, and investor purchases, plus roofing block lists) with the evidence, historical chance of work, expected value, a drafted letter or email, and status tracking. It also has neighborhood trends, competitor share, and a commercial preview (pre-application projects and general contractors who rotate subs).
 
 ```bash
 cd web

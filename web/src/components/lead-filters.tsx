@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KIND_LABEL } from "@/lib/kinds";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface FilterValues {
@@ -16,7 +17,7 @@ export interface FilterValues {
   q: string;
 }
 
-const KIND = { all: "All signals", violation: "Violations", investor_purchase: "Investor purchases" };
+const KIND = { all: "All signals", ...KIND_LABEL };
 const TIER = { all: "Any priority", act_now: "Act now", this_week: "This week", monitor: "Monitor" };
 const STATUS = {
   all: "Any status",

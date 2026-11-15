@@ -70,4 +70,4 @@ NOAA's Storm Events are spotter **points** with coordinates rounded to ~1 km, an
 3. Show it in the client app with its evidence and the "why" sentence.
 4. Measure real close rates in Results; drop it if pilots don't convert.
 
-Round-1 winners queued for the product: H07 (complaint → citation), H08 (porch inspection requests), H09 (vacant complaint → sale), H13 (masonry age filter), H01/H03 (block lists for solar and roofing).
+Round-1 winners in the product (2026-11-15): H07 (complaint leads), H08 (porch inspection request leads), H09 (vacant-building leads), H13 (masonry age split on violation leads), H03 (roofing block list). Still queued: H01 (solar block lists).

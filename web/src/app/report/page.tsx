@@ -54,14 +54,14 @@ async function Report({ searchParams }: { searchParams: PageProps<"/report">["se
 
   if (view === "letters") {
     const letters = open
-      .filter((l) => l.kind === "violation" && l.owner.mailing && l.tier !== "monitor")
+      .filter((l) => l.kind !== "investor_purchase" && l.owner.mailing && l.tier !== "monitor")
       .slice(0, MAX_LETTERS);
     return (
       <>
         <div className="print:hidden">
           <PageHeader
             title="Print-ready letters"
-            description={`One letter per page for ${count(letters.length)} not-yet-contacted violation leads (act now and this week) with a mailing address. Print, sign, and mail; then mark them Contacted.`}
+            description={`One letter per page for ${count(letters.length)} not-yet-contacted owner leads (act now and this week) with a mailing address. Print, sign, and mail; then mark them Contacted.`}
             actions={<PrintButton label="Print letters" />}
           />
           {tabs}

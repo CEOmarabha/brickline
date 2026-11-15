@@ -10,6 +10,34 @@ export interface Draft {
   compliance: string[];
 }
 
+interface LetterContext {
+  address: string;
+  business: string;
+  phone: string;
+  noun: string;
+  where: string;
+}
+
+/** Body paragraphs for owner letters triggered by 311 signals. They never mention the 311 report itself. */
+function ownerLetterBody(kind: "complaint" | "porch_request" | "vacant", c: LetterContext): string[] {
+  if (kind === "porch_request") {
+    return [
+      `${c.business} is a local porch and deck contractor serving properties${c.where}. Porches take a beating from Chicago weather, and small problems with posts, stairs and railings are much cheaper to fix early.`,
+      `We're offering owners near ${c.address} a free porch assessment: we walk the porch, tell you plainly what it needs (including nothing, if that's the case), and send a written estimate. We handle the permit paperwork too.`,
+    ];
+  }
+  if (kind === "vacant") {
+    return [
+      `${c.business} helps owners of Chicago properties${c.where} secure, repair and renovate buildings that aren't in regular use. ${c.address} may be one of them, so we wanted to reach you directly.`,
+      `If you'd like help with ${c.noun} work, securing the building, or a full renovation, we can walk the property this week and give you a written estimate at no cost. If you're thinking about selling instead, we're glad to talk through what repairs are worth doing first.`,
+    ];
+  }
+  return [
+    `${c.business} is a local contractor serving properties${c.where}. Older Chicago buildings often need ${c.noun} attention before it becomes urgent, and fixing it early costs less.`,
+    `We're offering owners near ${c.address} a free exterior check: we look at the property, tell you plainly what needs work and what doesn't, and send a written estimate. We handle the permit paperwork too.`,
+  ];
+}
+
 /** A first-touch draft for a human to review and send. Never auto-sent. */
 export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaName: string | null): Draft {
   const business = ws.businessName || "[Your company]";
@@ -41,6 +69,31 @@ export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaNam
       compliance: [
         "Mail only for individual owners; don't cold-call or text personal numbers.",
         "Keep the not-affiliated-with-the-City line and an opt-out.",
+      ],
+    };
+  }
+
+  if (lead.kind !== "investor_purchase") {
+    const greeting = lead.owner.name ? `Dear ${lead.owner.name},` : "Dear Property Owner,";
+    const lines = ownerLetterBody(lead.kind, { address: lead.address, business, phone, noun, where });
+    return {
+      channel: "letter",
+      body: [
+        greeting,
+        "",
+        ...lines.flatMap((line) => [line, ""]),
+        `Call ${phone} to schedule a visit, or keep this letter for when you're ready.`,
+        "",
+        "Sincerely,",
+        business,
+        address,
+        "",
+        `${business} is a private contractor and is not affiliated with the City of Chicago. To stop receiving mail from us, call ${phone}.`,
+      ].join("\n"),
+      compliance: [
+        "Mail only for individual owners; don't cold-call or text personal numbers.",
+        "Keep the not-affiliated-with-the-City line and an opt-out.",
+        "Don't mention the 311 report or the property's records; the letter stands on its own offer.",
       ],
     };
   }

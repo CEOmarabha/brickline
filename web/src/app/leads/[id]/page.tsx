@@ -9,13 +9,35 @@ import { LeadStatusPanel } from "@/components/lead-status-panel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ago, dateLabel, money, pct } from "@/lib/format";
+import { ago, count, dateLabel, money, pct } from "@/lib/format";
 import { draftOutreach } from "@/lib/outreach";
 import { getCloseRates } from "@/lib/outcomes";
-import { areaNames, closeRateFor, expectedValue, getSnapshot, tradeProbability } from "@/lib/snapshot";
+import { areaNames, closeRateFor, expectedValue, getSnapshot, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
+import { cn } from "@/lib/utils";
 import { getLeadHistory, getStatuses, getWorkspace, STATUS_LABEL } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Lead" };
+
+const DATE_LABELS = new Set(["First cited", "Complaint filed", "Inspection requested", "Vacancy reported"]);
+
+/** The event this lead is waiting for (citation or sale), with the historical rate behind it. Other kinds have none. */
+function headlineFor(lead: Lead, snap: Snapshot): { label: string; note: string } | null {
+  if (lead.kind === "complaint") {
+    const m = snap.models.complaint;
+    return {
+      label: "Chance it gets cited",
+      note: `Within 120 days of the complaint${m.medianDaysToViolation === null ? "" : `; when a citation comes, the median is ${m.medianDaysToViolation} days after it`}. Based on ${count(m.episodes)} complaints, ${m.period}.`,
+    };
+  }
+  if (lead.kind === "vacant") {
+    const m = snap.models.vacant;
+    return {
+      label: "Chance it sells",
+      note: `Within a year of the report. Based on ${count(m.episodes)} reports, ${m.period}.`,
+    };
+  }
+  return null;
+}
 
 export default function LeadPage({ params }: PageProps<"/leads/[id]">) {
   return (
@@ -52,6 +74,8 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
   const draft = draftOutreach(lead, ws, snap, area);
   const { margin } = snap.meta.assumptions;
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lead.address}, Chicago, IL`)}`;
+  const headline = headlineFor(lead, snap);
+  const byTrade = lead.tradeProbabilities && lead.kind !== "investor_purchase" ? Object.entries(lead.tradeProbabilities) : [];
   const companyName = lead.kind === "investor_purchase" ? lead.buyer.name : lead.owner.type === "company" ? lead.owner.name : null;
 
   return (
@@ -79,7 +103,19 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
             <CardTitle>Why this lead</CardTitle>
             <CardDescription>{lead.probabilityBasis}</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-6 sm:grid-cols-2">
+          <CardContent className={cn("grid gap-6 sm:grid-cols-2", headline && "lg:grid-cols-3")}>
+            {headline && (
+              <div>
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-muted-foreground">{headline.label}</span>
+                  <span className="text-lg font-semibold tabular-nums">{pct(lead.probability)}</span>
+                </div>
+                <div className="mt-2">
+                  <ProbabilityBar value={lead.probability} />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">{headline.note}</p>
+              </div>
+            )}
             <div>
               <div className="flex items-baseline justify-between text-sm">
                 <span className="text-muted-foreground">Chance of {snap.trades[ws.trade].label.toLowerCase()} work</span>
@@ -107,6 +143,38 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
             </div>
           </CardContent>
         </Card>
+
+        {byTrade.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Chance of work by trade</CardTitle>
+              <CardDescription>
+                {lead.kind === "vacant"
+                  ? `Share of reported properties that pulled a permit of that type within two years (${snap.models.vacant.permitPeriod}); not adjusted for time passed.`
+                  : `Share of complaints followed by a permit of that type at the same address within a year (${snap.models.complaint.period}), adjusted for time passed.`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                {byTrade
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([trade, prob]) => (
+                    <li key={trade}>
+                      <div className="flex items-baseline justify-between">
+                        <span className={trade === ws.trade ? "font-medium" : "text-muted-foreground"}>
+                          {snap.trades[trade as TradeKey].label}
+                        </span>
+                        <span className="tabular-nums">{pct(prob)}</span>
+                      </div>
+                      <div className="mt-1.5">
+                        <ProbabilityBar value={prob} />
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {lead.kind === "investor_purchase" && (
           <Card>
@@ -177,7 +245,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
               {lead.evidence.map((e, i) => (
                 <div key={`${e.label}-${i}`}>
                   <dt className="text-xs text-muted-foreground">{e.label}</dt>
-                  <dd>{e.label.toLowerCase().includes("date") || e.label === "First cited" ? dateLabel(e.value) : e.value}</dd>
+                  <dd>{e.label.toLowerCase().includes("date") || DATE_LABELS.has(e.label) ? dateLabel(e.value) : e.value}</dd>
                 </div>
               ))}
             </dl>

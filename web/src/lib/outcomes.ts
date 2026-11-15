@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
-import { type CloseRates, getSnapshot, type Lead, type Snapshot, tradeProbability } from "@/lib/snapshot";
+import { type CloseRates, getSnapshot, type Lead, ownerTypeFor, type Snapshot, tradeProbability } from "@/lib/snapshot";
 import { getEvents, getStatuses, getWorkspace, type LeadStatus } from "@/lib/workspace";
 
 /** Decided outcomes (won + lost) needed before a measured close rate replaces the assumption. */
@@ -29,7 +29,16 @@ function segmentOf(lead: Lead, snap: Snapshot): { key: string; label: string } {
       : { key: "investor", label: "Investor purchases" };
   }
   const owner = lead.owner.type === "company" ? "company-owned" : "individual-owned";
-  return { key: `violation-${lead.trade}-${owner}`, label: `${snap.trades[lead.trade].label} violations, ${owner}` };
+  switch (lead.kind) {
+    case "complaint":
+      return { key: `complaint-${owner}`, label: `311 building complaints, ${owner}` };
+    case "porch_request":
+      return { key: `porch-request-${owner}`, label: `Porch inspection requests, ${owner}` };
+    case "vacant":
+      return { key: `vacant-${owner}`, label: `Vacant buildings, ${owner}` };
+    case "violation":
+      return { key: `violation-${lead.trade}-${owner}`, label: `${snap.trades[lead.trade].label} violations, ${owner}` };
+  }
 }
 
 function median(xs: number[]): number | null {
@@ -91,7 +100,7 @@ export const getOutcomes = cache(async () => {
       const signal = new Date(`${lead.signalDate}T12:00:00`);
       row.delays.push(Math.max(0, Math.round((contact.getTime() - signal.getTime()) / 86_400_000)));
     }
-    const ownerType = lead.kind === "investor_purchase" || lead.owner.type === "company" ? "company" : "individual";
+    const ownerType = ownerTypeFor(lead);
     if (st.status === "won" || st.status === "lost") {
       ownerTotals[ownerType][st.status]++;
       ownerTotals[ownerType].expectedJobs += tradeProbability(lead, ws.trade, snap);

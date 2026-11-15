@@ -1,9 +1,33 @@
-import { Building, Hammer } from "lucide-react";
+import { Building, DoorClosed, Hammer, House, MessageSquareWarning } from "lucide-react";
 import Link from "next/link";
 import { ProbabilityBar, StatusBadge, TierBadge } from "@/components/bits";
 import { ago, money, pct } from "@/lib/format";
 import { type CloseRates, expectedValue, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
 import { type LeadStatusRow, STATUS_LABEL } from "@/lib/workspace";
+
+const KIND_ICON = {
+  violation: Hammer,
+  complaint: MessageSquareWarning,
+  porch_request: House,
+  vacant: DoorClosed,
+  investor_purchase: Building,
+};
+
+function subtitle(lead: Lead): string {
+  const owner = lead.owner.name ?? "Owner of record";
+  switch (lead.kind) {
+    case "violation":
+      return `${lead.title} · ${lead.evidence.find((e) => e.label === "Violation")?.value ?? ""}`;
+    case "complaint":
+      return `${lead.title} · ${owner} · ${pct(lead.probability, 0)} chance of a citation`;
+    case "porch_request":
+      return `${lead.title} · ${owner}`;
+    case "vacant":
+      return `${lead.title} · ${owner} · ${pct(lead.probability, 0)} chance it sells`;
+    case "investor_purchase":
+      return `${lead.title} · ${lead.buyer.name}${lead.buyer.purchases24m >= 3 ? ` · ${lead.buyer.purchases24m} buys in 2 yrs` : ""}`;
+  }
+}
 
 export function LeadList({
   leads,
@@ -25,7 +49,7 @@ export function LeadList({
       {leads.map((lead) => {
         const status = statuses.get(lead.id);
         const p = tradeProbability(lead, trade, snap);
-        const Icon = lead.kind === "violation" ? Hammer : Building;
+        const Icon = KIND_ICON[lead.kind];
         return (
           <li key={lead.id}>
             <Link
@@ -42,9 +66,7 @@ export function LeadList({
                   {status && <StatusBadge status={status.status} label={STATUS_LABEL[status.status]} />}
                 </div>
                 <div className="mt-0.5 truncate text-sm text-muted-foreground">
-                  {lead.kind === "violation"
-                    ? `${lead.title} · ${lead.evidence.find((e) => e.label === "Violation")?.value ?? ""}`
-                    : `${lead.title} · ${lead.buyer.name}${lead.buyer.purchases24m >= 3 ? ` · ${lead.buyer.purchases24m} buys in 2 yrs` : ""}`}
+                  {subtitle(lead)}
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
                   {lead.communityArea ? areaNames.get(lead.communityArea) : "Area unknown"} · {ago(lead.ageDays)}

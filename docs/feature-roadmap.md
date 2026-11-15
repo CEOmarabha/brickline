@@ -11,6 +11,10 @@
 | GC open-door score | M5 | **Validated** | 5–6x separation out of sample | Productize for Track 2 |
 | Composite pre-application parcel score | M5 | **Validated** | 56x base at top 100/half-year | Productize for Track 2 |
 | Weekly trigger lists (investor purchases, violations) | M7 | **Done** | Pilot reply/appointment rates | Client app, mail-merge CSV, print-ready letters, weekly report |
+| 311 lead types: building complaints (cited weeks later), porch inspection requests, vacant-building reports | App / engine | **Done** | Historical rates computed in each snapshot (complaint → citation, request → porch permit, report → sale) | Signal lab H07/H08/H09; time-adjusted chance of work per trade |
+| Masonry building-age split (walls built before 1910) on violation leads, Year built / Exterior walls evidence | Engine | **Done** | Rate computed per age segment in the snapshot | Signal lab H13 |
+| Roofing block targeting (blocks with 2+ recent re-roofs) | App | **Done** | Neighbor lift computed in the snapshot | Signal lab H03; shown on Neighborhoods for roofing workspaces |
+| Block-level solar target lists | App | Proposed | Signal lab H01 (2.4× for 2+ solar neighbors) | Confounded by income and canvassing |
 | Client workspaces (one owner, many clients) | App | **Done** | Pilots run concurrently | Switcher in sidebar |
 | Measured close rates replace assumptions | M8 | **Done** | Calibration vs expected jobs | After 10 decided leads per owner type |
 | Contractor directory by trade from permits | M3 | Planned (wk 1–2) | Our own customer acquisition | Track 1 |

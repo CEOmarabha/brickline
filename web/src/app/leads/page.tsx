@@ -23,7 +23,7 @@ export default function LeadsPage({ searchParams }: PageProps<"/leads">) {
     <>
       <PageHeader
         title="Leads"
-        description="Property owners ordered to make repairs, and investors who just bought. Ranked by priority and how often signals like these turned into permitted work."
+        description="Owners ordered to make repairs or reported to 311 (building complaints, porch inspections, vacant buildings), and investors who just bought. Ranked by priority and how often signals like these turned into permitted work."
       />
       <Suspense fallback={<LeadsSkeleton />}>
         <Leads searchParams={searchParams} />

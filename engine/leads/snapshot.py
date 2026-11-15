@@ -58,7 +58,12 @@ TRADES = {
         "role": "gc",
     },
 }
+OWNERS = ("individual", "company")
 COMMERCIAL_SUB_TRADES = ("electrical", "plumbing", "hvac")
+COMPLAINT_TRADES = ("porch", "masonry", "roofing", "general")
+CELL_LAT, CELL_LON = 0.0015, 0.002  # ~160 m blocks, same grid as research/signal_lab/lab.py
+RESI_CLASSES = "('202','203','204','205','206','207','208','209','210','234','278','295','211','212')"
+MIN_CELL = 300  # minimum historical episodes per cell before a finer split is used
 
 # Assumptions surfaced in the UI (replace with pilot data).
 WIN_RATE = {"individual": 0.05, "company": 0.10}
@@ -109,6 +114,13 @@ def title(s: str | None) -> str | None:
     )
     s = re.sub(r"(\d)(ST|ND|RD|TH)\b", lambda m: m.group(1) + m.group(2).lower(), s)
     return re.sub(r"\b([A-Z][a-z])(\s+\d{5}(?:-\d{4})?)$", lambda m: m.group(1).upper() + m.group(2), s)
+
+
+def adjusted(age: int) -> str:
+    """Closing clause of a probability basis: the rate is conditioned on the time already passed."""
+    if age == 0:
+        return "signal is from today, so no time adjustment"
+    return f"adjusted for the {age} day{'' if age == 1 else 's'} already passed"
 
 
 def iso(d) -> str | None:
@@ -174,6 +186,27 @@ def prepare(con) -> date:
         SELECT a.address_key, a.pin10 FROM addr_pin a
         WHERE NOT EXISTS (SELECT 1 FROM parcels x WHERE x.address_key = a.address_key)
     """)
+    # Block grid: one point per address, per parcel, and the residential parcels in each cell.
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE addr_pt AS
+        SELECT address_key, median(lat) AS lat, median(lon) AS lon FROM (
+          SELECT address_key, lat, lon FROM permits WHERE lat IS NOT NULL
+          UNION ALL SELECT address_key, lat, lon FROM violations WHERE lat IS NOT NULL
+          UNION ALL SELECT address_key, lat, lon FROM sr311 WHERE lat IS NOT NULL
+        ) WHERE address_key IS NOT NULL AND lat BETWEEN 41.6 AND 42.1 AND lon BETWEEN -87.95 AND -87.5
+        GROUP BY 1
+    """)
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE resi AS
+        SELECT r.pin10, pt.cy, pt.cx FROM res_chars r JOIN (
+          SELECT x.pin10, floor(median(a.lat) / {CELL_LAT})::BIGINT AS cy, floor(median(a.lon) / {CELL_LON})::BIGINT AS cx
+          FROM (
+            SELECT pin10, address_key FROM parcels WHERE address_key IS NOT NULL
+            UNION ALL SELECT pin10, address_key FROM addr_pin
+          ) x JOIN addr_pt a USING (address_key) GROUP BY 1
+        ) pt USING (pin10)
+        WHERE r.class IN {RESI_CLASSES}
+    """)
     return one(con, "SELECT max(issue_date) AS d FROM permits")["d"]
 
 
@@ -183,14 +216,25 @@ def as_of(con) -> dict:
         """
         SELECT (SELECT max(issue_date) FROM permits) AS permits,
                (SELECT max(violation_date) FROM violations) AS violations,
-               (SELECT max(sale_date) FROM sales) AS sales
+               (SELECT max(sale_date) FROM sales) AS sales,
+               (SELECT max(created_date) FROM sr311) AS complaints
     """,
     )
 
 
 # ----------------------------------------------------------------------------------------------------------
+def summarize(days: list[int | None]) -> dict:
+    """Episode count, conversion rate and sorted delays (days) for one outcome; None = no conversion."""
+    delays = cdf_points(days)
+    return {"episodes": len(days), "p": len(delays) / len(days) if days else 0.0, "delays": delays}
+
+
 def violation_model(con) -> dict:
-    """Per trade and owner type: P(matching permit within 365 days) and delay distribution, 2012–2025."""
+    """Per trade and owner type: P(matching permit within 365 days) and delay distribution, 2012–2025.
+
+    Masonry is also split by building age (masonry walls built before 1910 vs other): `age` holds that split and
+    `cells` the owner x age split, which is used only when every cell has at least MIN_CELL episodes.
+    """
     model = {}
     for key, t in TRADES.items():
         vt = t["violation"]
@@ -208,26 +252,40 @@ def violation_model(con) -> dict:
               ) WHERE prev IS NULL OR violation_date - prev > 365
             ),
             o AS (
-              SELECT ep.*, coalesce({COMPANY_SQL.format(col="par.owner_name")}, false) AS company
+              SELECT ep.*, coalesce({COMPANY_SQL.format(col="par.owner_name")}, false) AS company,
+                coalesce(rc.ext_wall = 'Masonry' AND rc.year_built < 1910, false) AS old_masonry
               FROM ep LEFT JOIN addr_parcel ap ON ap.address_key = ep.address_key
               LEFT JOIN parcels par ON par.pin10 = ap.pin10
+              LEFT JOIN res_chars rc ON rc.pin10 = ap.pin10
             )
-            SELECT o.company,
+            SELECT o.company, o.old_masonry,
               min(p.issue_date - o.violation_date) AS days
             FROM o LEFT JOIN p ON p.address_key = o.address_key AND p.t_{t["permit"]}
               AND p.issue_date > o.violation_date AND p.issue_date <= o.violation_date + INTERVAL 365 DAY
-            GROUP BY o.address_key, o.violation_date, o.company
+            GROUP BY o.address_key, o.violation_date, o.company, o.old_masonry
         """,
         )
-        entry = {}
-        for owner in ("individual", "company"):
-            sub = [r for r in rows if r["company"] == (owner == "company")]
-            conv = [r["days"] for r in sub if r["days"] is not None]
-            entry[owner] = {
-                "episodes": len(sub),
-                "p365": len(conv) / len(sub) if sub else 0.0,
-                "delays": conv,
+        entry = {
+            owner: summarize([r["days"] for r in rows if r["company"] == (owner == "company")])
+            for owner in ("individual", "company")
+        }
+        if key == "masonry":
+            ages = (("pre1910", True), ("other", False))
+            entry["age"] = {
+                age: summarize([r["days"] for r in rows if r["old_masonry"] == f]) for age, f in ages
             }
+            entry["cells"] = {
+                (owner, age): summarize(
+                    [
+                        r["days"]
+                        for r in rows
+                        if r["old_masonry"] == f and r["company"] == (owner == "company")
+                    ]
+                )
+                for owner in ("individual", "company")
+                for age, f in ages
+            }
+            entry["use_cells"] = all(c["episodes"] >= MIN_CELL for c in entry["cells"].values())
         model[key] = entry
     return model
 
@@ -286,6 +344,22 @@ def job_values(con, today: date) -> dict:
 
 
 # ----------------------------------------------------------------------------------------------------------
+AGE_SEGMENT = {
+    "pre1910": "buildings with masonry walls built before 1910",
+    "other": "other buildings (frame, newer or unknown construction)",
+}
+
+
+def building_evidence(r: dict) -> list[dict]:
+    """Assessor facts (year built, exterior walls) when the parcel has them."""
+    out = []
+    if r.get("year_built"):
+        out.append({"label": "Year built", "value": str(r["year_built"])})
+    if r.get("ext_wall"):
+        out.append({"label": "Exterior walls", "value": r["ext_wall"]})
+    return out
+
+
 def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[dict], list[dict]]:
     leads, won = [], []
     for key, t in TRADES.items():
@@ -314,6 +388,7 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
                   AND v.violation_date < ep.first_date AND v.violation_date >= ep.first_date - INTERVAL 365 DAY)
             )
             SELECT f.*, par.address, par.owner_name, par.owner_mailing, par.units, par.pin10,
+              rc.year_built, rc.ext_wall,
               coalesce(ca.community_area, aa.community_area, pa.community_area, za.community_area)
                 AS community_area,
               coalesce({COMPANY_SQL.format(col="par.owner_name")}, false) AS company,
@@ -326,6 +401,7 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
             FROM fresh f
             LEFT JOIN addr_parcel ap ON ap.address_key = f.address_key
             LEFT JOIN parcels par ON par.pin10 = ap.pin10
+            LEFT JOIN res_chars rc ON rc.pin10 = ap.pin10
             LEFT JOIN ca_geom ca ON f.lat IS NOT NULL AND ST_Contains(ca.geom, ST_Point(f.lon, f.lat))
             LEFT JOIN addr_area aa ON aa.address_key = f.address_key
             LEFT JOIN pin_area pa ON pa.pin10 = ap.pin10
@@ -335,6 +411,16 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
         for r in rows:
             owner_type = "company" if r["company"] else "individual"
             m = vmodel[key][owner_type]
+            segment = f"{owner_type}-owned properties"
+            if key == "masonry":
+                old = r["ext_wall"] == "Masonry" and r["year_built"] is not None and r["year_built"] < 1910
+                age_key = "pre1910" if old else "other"
+                if vmodel[key]["use_cells"]:
+                    m = vmodel[key]["cells"][(owner_type, age_key)]
+                    segment = f"{owner_type}-owned " + AGE_SEGMENT[age_key]
+                else:
+                    m = vmodel[key]["age"][age_key]
+                    segment = AGE_SEGMENT[age_key]
             age = (today - r["first_date"]).days
             base = {
                 "trade": key,
@@ -354,7 +440,7 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
                 continue
             if not r["any_open"]:
                 continue
-            p_rem = remaining_probability(m["p365"], m["delays"], age)
+            p_rem = remaining_probability(m["p"], m["delays"], age)
             ev = p_rem * WIN_RATE[owner_type] * values[key] * MARGIN
             tier = "act_now" if age <= 14 else "this_week" if age <= 45 else "monitor"
             leads.append(
@@ -364,15 +450,13 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
                     "kind": "violation",
                     "trades": [key],
                     "title": f"{TRADES[key]['label']} repair ordered",
-                    "lat": r["lat"],
-                    "lon": r["lon"],
                     "ageDays": age,
                     "tier": tier,
                     "probability": round(p_rem, 4),
                     "probabilityBasis": (
-                        f"{m['p365'] * 100:.1f}% of similar {TRADES[key]['label'].lower()} violations at "
-                        f"{owner_type}-owned properties led to a permitted repair within a year "
-                        f"({m['episodes']:,} cases, 2012–2025); adjusted for {age} days already passed."
+                        f"{m['p'] * 100:.1f}% of similar {TRADES[key]['label'].lower()} violations at "
+                        f"{segment} led to a permitted repair within a year "
+                        f"({m['episodes']:,} cases, 2012–2025); {adjusted(age)}."
                     ),
                     "expectedValue": round(ev, 2),
                     "jobValue": values[key],
@@ -387,6 +471,7 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
                         {"label": "Citations in last 150 days", "value": str(r["citations"])},
                         {"label": "Inspection type", "value": title(r["category"]) or "—"},
                         *[{"label": "Violation", "value": d.capitalize()} for d in r["descriptions"][:3]],
+                        *building_evidence(r),
                     ],
                     "action": (
                         "Send a letter to the owner's mailing address this week, then follow up at weeks 6 and 12."
@@ -478,7 +563,7 @@ def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[di
                     "A permit has already been issued since the purchase."
                     if started
                     else f"{m['p_any'] * 100:.1f}% of company purchases of {r['segment']} properties pulled a permit "
-                    f"within a year ({m['purchases']:,} purchases, 2012–2025); adjusted for {age} days already passed."
+                    f"within a year ({m['purchases']:,} purchases, 2012–2025); {adjusted(age)}."
                 ),
                 "tradeProbabilities": trade_probs,
                 "majorProbability": round(m["p_major"], 4),
@@ -534,6 +619,428 @@ def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[di
             }
         )
     return leads
+
+
+# ----------------------------------------------------------------------------------------------------------
+# 311 signals (signal lab H07, H08, H09)
+# ----------------------------------------------------------------------------------------------------------
+def sr_signal(sr_type: str, by_pin: bool = False) -> str:
+    """(k, d) rows for one 311 request type, keyed by address or by parcel (addr_pin)."""
+    if by_pin:
+        return (
+            f"SELECT a.pin10 AS k, s.created_date AS d FROM sr311 s JOIN addr_pin a USING (address_key) "
+            f"WHERE s.sr_type = '{sr_type}' AND NOT s.duplicate"
+        )
+    return (
+        f"SELECT address_key AS k, created_date AS d FROM sr311 "
+        f"WHERE sr_type = '{sr_type}' AND NOT duplicate AND address_key IS NOT NULL"
+    )
+
+
+def episodes_sql(signal_sql: str, start: str, end: str) -> str:
+    """One episode (k, d) per key whenever 365+ days passed since its previous signal, as in the signal lab."""
+    return f"""
+        SELECT k, d FROM (
+          SELECT k, d, lag(d) OVER (PARTITION BY k ORDER BY d) AS prev
+          FROM (SELECT DISTINCT k, d FROM ({signal_sql}) WHERE k IS NOT NULL AND d BETWEEN DATE '{start}' AND DATE '{end}')
+        ) WHERE prev IS NULL OR d - prev > 365
+    """
+
+
+def years(rows: list[dict]) -> str:
+    return f"{min(r['d'] for r in rows).year}–{max(r['d'] for r in rows).year}"
+
+
+def median_days(delays: list[int]) -> int | None:
+    return int(delays[len(delays) // 2]) if delays else None
+
+
+def complaint_model(con) -> dict:
+    """'Building Violation' 311 complaints: P(violation within 120 days) and P(trade permit within 365 days)."""
+    flags = ", ".join(
+        f"min(p.issue_date - e.d) FILTER (WHERE p.t_{TRADES[k]['permit']}) AS {k}" for k in COMPLAINT_TRADES
+    )
+    rows = q(
+        con,
+        f"""
+        WITH e AS ({episodes_sql(sr_signal("Building Violation"), "2016-01-01", "2025-06-30")}),
+        v AS (
+          SELECT e.k, e.d, min(x.violation_date - e.d) AS violation FROM e
+          JOIN violations x ON x.address_key = e.k AND x.violation_date > e.d
+            AND x.violation_date <= e.d + INTERVAL 120 DAY GROUP BY ALL
+        ),
+        pm AS (
+          SELECT e.k, e.d, {flags} FROM e
+          JOIN p ON p.address_key = e.k AND p.issue_date > e.d AND p.issue_date <= e.d + INTERVAL 365 DAY
+          GROUP BY ALL
+        )
+        SELECT e.d, v.violation, pm.* EXCLUDE (k, d) FROM e
+        LEFT JOIN v USING (k, d) LEFT JOIN pm USING (k, d)
+    """,
+    )
+    return {
+        "period": years(rows),
+        "violation": summarize([r["violation"] for r in rows]),
+        "trades": {k: summarize([r[k] for r in rows]) for k in COMPLAINT_TRADES},
+    }
+
+
+def porch_request_model(con) -> dict:
+    rows = q(
+        con,
+        f"""
+        WITH e AS ({episodes_sql(sr_signal("Porch Inspection Request"), "2016-01-01", "2025-06-30")})
+        SELECT e.d, min(p.issue_date - e.d) AS days FROM e
+        LEFT JOIN p ON p.address_key = e.k AND p.t_porch AND p.issue_date > e.d
+          AND p.issue_date <= e.d + INTERVAL 365 DAY
+        GROUP BY e.k, e.d
+    """,
+    )
+    return {"period": years(rows), "porch": summarize([r["days"] for r in rows])}
+
+
+def vacant_model(con, permit_end: str = "2024-10-31") -> dict:
+    """Vacant/abandoned complaints per parcel: P(sale within 365 days), P(trade permit within 730 days).
+
+    Permit outcomes only use episodes old enough (`permit_end`) for the 730-day window to be observed.
+    """
+    flags = ", ".join(
+        f"min(p.issue_date - e.d) FILTER (WHERE p.t_{t['permit']}) AS {k}" for k, t in TRADES.items()
+    )
+    rows = q(
+        con,
+        f"""
+        WITH e AS ({episodes_sql(sr_signal("Vacant/Abandoned Building Complaint", by_pin=True), "2016-01-01", "2025-06-30")}),
+        sl AS (
+          SELECT e.k, e.d, min(s.sale_date - e.d) AS sale FROM e
+          JOIN sales s ON s.pin10 = e.k AND NOT s.filtered_out AND s.sale_date > e.d
+            AND s.sale_date <= e.d + INTERVAL 365 DAY GROUP BY ALL
+        ),
+        pm AS (
+          SELECT e.k, e.d, {flags} FROM e
+          JOIN p ON p.pin10 = e.k AND p.issue_date > e.d AND p.issue_date <= e.d + INTERVAL 730 DAY
+          GROUP BY ALL
+        )
+        SELECT e.d, sl.sale, pm.* EXCLUDE (k, d) FROM e
+        LEFT JOIN sl USING (k, d) LEFT JOIN pm USING (k, d)
+    """,
+    )
+    mature = [r for r in rows if r["d"] <= date.fromisoformat(permit_end)]
+    return {
+        "period": years(rows),
+        "sale": summarize([r["sale"] for r in rows]),
+        "permitPeriod": years(mature),
+        "trades": {k: summarize([r[k] for r in mature]) for k in TRADES},
+    }
+
+
+def sr_rows(
+    con, sr_type: str, today: date, days: int, skip: str, extra: str = "", by_pin: bool = False
+) -> list[dict]:
+    """Recent 311 requests of one type, one row per address (or parcel) that is still unresolved.
+
+    A request starts an episode only if none came in the prior 365 days (the model's definition). `skip` is a
+    SQL condition on `f` that drops leads where the follow-up event already happened.
+    """
+    join = "JOIN addr_pin a USING (address_key)" if by_pin else ""
+    k = "a.pin10" if by_pin else "s.address_key"
+    return q(
+        con,
+        f"""
+        WITH recent AS (
+          SELECT {k} AS k, s.address_key, s.created_date, s.sr_number, s.status, s.lat, s.lon
+          FROM sr311 s {join}
+          WHERE s.sr_type = '{sr_type}' AND NOT s.duplicate AND s.address_key IS NOT NULL
+            AND s.created_date > DATE '{today}' - INTERVAL {days} DAY
+        ),
+        history AS ({sr_signal(sr_type, by_pin)}),
+        ep AS (
+          SELECT k, first(address_key ORDER BY created_date, sr_number) AS address_key,
+                 min(created_date) AS first_date, count(*) AS requests,
+                 first(sr_number ORDER BY created_date, sr_number) AS sr_number,
+                 first(status ORDER BY created_date, sr_number) AS status, avg(lat) AS lat, avg(lon) AS lon
+          FROM recent GROUP BY k
+        ),
+        f AS (
+          SELECT ep.* FROM ep WHERE NOT EXISTS (
+            SELECT 1 FROM history h WHERE h.k = ep.k AND h.d < ep.first_date AND h.d >= ep.first_date - INTERVAL 365 DAY)
+        )
+        SELECT f.*, par.address, par.owner_name, par.owner_mailing, par.units, rc.year_built, rc.ext_wall,
+          coalesce(ca.community_area, aa.community_area, pa.community_area, za.community_area) AS community_area,
+          coalesce({COMPANY_SQL.format(col="par.owner_name")}, false) AS company
+          {extra}
+        FROM f
+        LEFT JOIN addr_parcel ap ON ap.address_key = f.address_key
+        LEFT JOIN parcels par ON par.pin10 = ap.pin10
+        LEFT JOIN res_chars rc ON rc.pin10 = ap.pin10
+        LEFT JOIN ca_geom ca ON f.lat IS NOT NULL AND ST_Contains(ca.geom, ST_Point(f.lon, f.lat))
+        LEFT JOIN addr_area aa ON aa.address_key = f.address_key
+        LEFT JOIN pin_area pa ON pa.pin10 = ap.pin10
+        LEFT JOIN zip_area za ON za.zip = par.zip
+        WHERE {skip}
+        ORDER BY f.first_date DESC, f.sr_number
+    """,
+    )
+
+
+def requests_evidence(r: dict, days: int) -> list[dict]:
+    """Repeat requests are a stronger signal; a single request is implied by the lead itself."""
+    return (
+        [{"label": f"311 requests (last {days} days)", "value": str(r["requests"])}]
+        if r["requests"] > 1
+        else []
+    )
+
+
+def sr_lead(r: dict, today: date, kind: str, id_prefix: str, tiers: tuple[int, int]) -> dict:
+    """Fields shared by all 311-based leads."""
+    age = (today - r["first_date"]).days
+    owner_type = "company" if r["company"] else "individual"
+    return {
+        "id": f"{id_prefix}-{r['sr_number']}",
+        "kind": kind,
+        "address": title(r["address"] or r["address_key"]),
+        "communityArea": r["community_area"],
+        "signalDate": iso(r["first_date"]),
+        "ageDays": age,
+        "tier": "act_now" if age <= tiers[0] else "this_week" if age <= tiers[1] else "monitor",
+        "owner": {
+            "name": title(r["owner_name"]),
+            "type": owner_type,
+            "mailing": title(r["owner_mailing"]),
+            "units": r["units"],
+        },
+        "sourceUrl": f"https://data.cityofchicago.org/resource/v6vf-nfxy.json?sr_number={r['sr_number']}",
+    }
+
+
+def owner_action(r: dict, individual: str) -> str:
+    if not r["owner_mailing"]:
+        return "No owner mailing address on file: look the owner up in Cook County records before mailing."
+    if r["company"]:
+        return "Company-owned: look up the owner's business contact and call or email; mail as backup."
+    return individual
+
+
+def complaint_leads(con, today: date, cmodel: dict) -> list[dict]:
+    permit_flags = ", ".join(
+        f"EXISTS (SELECT 1 FROM p WHERE p.address_key = f.address_key AND p.t_{TRADES[k]['permit']} "
+        f"AND p.issue_date > f.first_date) AS done_{k}"
+        for k in COMPLAINT_TRADES
+    )
+    rows = sr_rows(
+        con,
+        "Building Violation",
+        today,
+        60,
+        "NOT EXISTS (SELECT 1 FROM violations v WHERE v.address_key = f.address_key AND v.violation_date > f.first_date)",
+        extra=f""",
+          (SELECT count(*) FROM violations v WHERE v.address_key = f.address_key
+             AND v.violation_date <= f.first_date AND v.violation_date > f.first_date - INTERVAL 730 DAY)
+            AS violations_2y, {permit_flags}""",
+    )
+    viol = cmodel["violation"]
+    history = ", ".join(f"{k} {cmodel['trades'][k]['p'] * 100:.1f}%" for k in COMPLAINT_TRADES)
+    leads = []
+    for r in rows:
+        lead = sr_lead(r, today, "complaint", "c", (14, 45))
+        age = lead["ageDays"]
+        open_trades = [k for k in COMPLAINT_TRADES if not r[f"done_{k}"]]
+        if not open_trades:
+            continue
+        leads.append(
+            lead
+            | {
+                "trades": open_trades,
+                "trade": None,
+                "title": "Building complaint filed, no citation yet",
+                "probability": round(remaining_probability(viol["p"], viol["delays"], age), 4),
+                "probabilityBasis": (
+                    f"{viol['p'] * 100:.1f}% of 311 building complaints were followed by a city building violation at "
+                    f"the same address within 120 days ({viol['episodes']:,} complaints, {cmodel['period']}); "
+                    f"{adjusted(age)}. Same-trade permit within a year: {history} (also adjusted)."
+                ),
+                "tradeProbabilities": {
+                    k: round(
+                        remaining_probability(cmodel["trades"][k]["p"], cmodel["trades"][k]["delays"], age), 4
+                    )
+                    for k in open_trades
+                },
+                "evidence": [
+                    {"label": "Complaint filed", "value": iso(r["first_date"])},
+                    *requests_evidence(r, 60),
+                    {"label": "311 status", "value": r["status"] or "—"},
+                    {"label": "City violations in prior 2 years", "value": str(r["violations_2y"])},
+                    *building_evidence(r),
+                ],
+                "action": owner_action(
+                    r,
+                    "Send a letter to the owner's mailing address now, before an inspector writes a citation; "
+                    f"follow up at weeks 6 and 12. When a citation follows, the median is {median_days(viol['delays'])} days after the complaint.",
+                ),
+            }
+        )
+    return leads
+
+
+def porch_request_leads(con, today: date, pmodel: dict) -> list[dict]:
+    rows = sr_rows(
+        con,
+        "Porch Inspection Request",
+        today,
+        120,
+        "NOT EXISTS (SELECT 1 FROM p WHERE p.address_key = f.address_key AND p.t_porch AND p.issue_date > f.first_date)",
+    )
+    m = pmodel["porch"]
+    leads = []
+    for r in rows:
+        lead = sr_lead(r, today, "porch_request", "pr", (14, 45))
+        age = lead["ageDays"]
+        leads.append(
+            lead
+            | {
+                "trades": ["porch"],
+                "trade": "porch",
+                "title": "Porch inspection requested",
+                "probability": round(remaining_probability(m["p"], m["delays"], age), 4),
+                "probabilityBasis": (
+                    f"{m['p'] * 100:.1f}% of 311 porch inspection requests were followed by a porch permit at the "
+                    f"same address within a year ({m['episodes']:,} requests, {pmodel['period']}); "
+                    f"{adjusted(age)}."
+                ),
+                "evidence": [
+                    {"label": "Inspection requested", "value": iso(r["first_date"])},
+                    *requests_evidence(r, 120),
+                    {"label": "311 status", "value": r["status"] or "—"},
+                    *building_evidence(r),
+                ],
+                "action": owner_action(
+                    r,
+                    "Send a letter to the owner's mailing address this week and offer a free porch assessment; "
+                    "follow up at weeks 6 and 12.",
+                ),
+            }
+        )
+    return leads
+
+
+def vacant_leads(con, today: date, vmodel: dict) -> list[dict]:
+    rows = sr_rows(
+        con,
+        "Vacant/Abandoned Building Complaint",
+        today,
+        180,
+        "NOT EXISTS (SELECT 1 FROM sales s WHERE s.pin10 = f.k AND NOT s.filtered_out AND s.sale_date > f.first_date)",
+        by_pin=True,
+    )
+    sale, trades = vmodel["sale"], vmodel["trades"]
+    leads = []
+    for r in rows:
+        lead = sr_lead(r, today, "vacant", "vb", (30, 90))
+        age = lead["ageDays"]
+        leads.append(
+            lead
+            | {
+                "trades": list(TRADES),
+                "trade": None,
+                "title": "Vacant building reported",
+                "probability": round(remaining_probability(sale["p"], sale["delays"], age), 4),
+                "probabilityBasis": (
+                    f"{sale['p'] * 100:.1f}% of properties with a 311 vacant/abandoned-building complaint sold within "
+                    f"a year ({sale['episodes']:,} complaints, {vmodel['period']}); "
+                    f"{adjusted(age)}. Chance of work by trade is the share that pulled a permit of that type within two years "
+                    f"({trades['general']['episodes']:,} complaints, {vmodel['permitPeriod']}); not adjusted for time passed."
+                ),
+                "tradeProbabilities": {k: round(trades[k]["p"], 4) for k in TRADES},
+                "evidence": [
+                    {"label": "Vacancy reported", "value": iso(r["first_date"])},
+                    *requests_evidence(r, 180),
+                    {"label": "311 status", "value": r["status"] or "—"},
+                    *building_evidence(r),
+                ],
+                "action": owner_action(
+                    r,
+                    "Send a letter to the owner of record offering to secure, repair or renovate the building, or to "
+                    "connect with a buyer; follow up at weeks 6 and 12.",
+                ),
+            }
+        )
+    return leads
+
+
+# ----------------------------------------------------------------------------------------------------------
+# Block targeting (signal lab H03)
+# ----------------------------------------------------------------------------------------------------------
+def roofing_blocks(con, today: date) -> dict:
+    """Blocks (~160 m cells) with 2+ reroof permits in the last 90 days, plus the historical neighbor lift."""
+    rows = q(
+        con,
+        """
+        WITH snap AS (SELECT unnest(generate_series(DATE '2016-01-01', DATE '2025-01-01', INTERVAL 3 MONTH))::DATE AS d),
+        rr AS (SELECT pin10, issue_date FROM p WHERE t_roofing AND pin10 IS NOT NULL),
+        cell_prior AS (
+          SELECT s.d, r.cy, r.cx, count(DISTINCT rr.pin10) AS n
+          FROM snap s JOIN rr ON rr.issue_date > s.d - INTERVAL 90 DAY AND rr.issue_date <= s.d
+          JOIN resi r ON r.pin10 = rr.pin10 GROUP BY ALL
+        ),
+        u AS (
+          SELECT r.pin10, coalesce(c.n, 0) AS n,
+            EXISTS (SELECT 1 FROM rr x WHERE x.pin10 = r.pin10 AND x.issue_date > s.d - INTERVAL 90 DAY
+                    AND x.issue_date <= s.d) AS self_recent,
+            EXISTS (SELECT 1 FROM rr x WHERE x.pin10 = r.pin10 AND x.issue_date > s.d
+                    AND x.issue_date <= s.d + INTERVAL 180 DAY) AS y
+          FROM snap s CROSS JOIN resi r LEFT JOIN cell_prior c ON c.d = s.d AND c.cy = r.cy AND c.cx = r.cx
+        )
+        SELECT CASE WHEN n = 0 THEN 'base' WHEN n >= 2 THEN 'exposed' END AS grp, count(*) AS cases, avg(y::INT) AS rate
+        FROM u WHERE NOT self_recent AND n <> 1 GROUP BY 1
+    """,
+    )
+    g = {r["grp"]: r for r in rows}
+    model = {
+        "exposedRate": round(g["exposed"]["rate"], 4),
+        "baseRate": round(g["base"]["rate"], 4),
+        "lift": round(g["exposed"]["rate"] / g["base"]["rate"], 2),
+        "exposedCases": g["exposed"]["cases"],
+        "baseCases": g["base"]["cases"],
+        "horizonDays": 180,
+        "period": "2016–2025",
+    }
+    cells = q(
+        con,
+        f"""
+        WITH rr AS (
+          SELECT r.cy, r.cx, r.pin10, max(p.issue_date) AS last_date,
+                 any_value(coalesce(par.address, p.address_key)) AS address
+          FROM p JOIN resi r USING (pin10)
+          LEFT JOIN (SELECT pin10, first(address) AS address FROM parcels GROUP BY 1) par ON par.pin10 = r.pin10
+          WHERE p.t_roofing AND p.issue_date > DATE '{today}' - INTERVAL 90 DAY GROUP BY r.cy, r.cx, r.pin10
+        ),
+        top AS (
+          SELECT cy, cx, count(*) AS recent, max(last_date) AS last_date,
+                 list(address ORDER BY last_date DESC, pin10)[:5] AS addresses,
+                 list(pin10) AS pins
+          FROM rr GROUP BY cy, cx HAVING count(*) >= 2 ORDER BY recent DESC, cy, cx LIMIT 100
+        )
+        SELECT t.cy, t.cx, t.recent, t.last_date, t.addresses,
+          (SELECT count(*) FROM resi r WHERE r.cy = t.cy AND r.cx = t.cx) AS parcels,
+          (SELECT first(community_area ORDER BY n DESC, community_area) FROM (
+             SELECT pa.community_area, count(*) AS n FROM pin_area pa WHERE list_contains(t.pins, pa.pin10)
+             GROUP BY 1)) AS community_area
+        FROM top t ORDER BY t.recent DESC, t.cy, t.cx
+    """,
+    )
+    blocks = [
+        {
+            "id": f"{c['cy']}:{c['cx']}",
+            "communityArea": c["community_area"],
+            "recentReroofs": c["recent"],
+            "lastPermit": iso(c["last_date"]),
+            "residentialParcels": c["parcels"],
+            "addresses": [title(a) for a in c["addresses"]],
+        }
+        for c in cells
+    ]
+    return {"roofing": blocks, "roofingModel": model}
 
 
 def preapp_projects(con, today: date) -> dict:
@@ -787,6 +1294,13 @@ def build(out: Path) -> dict:
     v_leads, won = violation_leads(con, dates["violations"], vmodel, values)
     print("investor leads ...", flush=True)
     s_leads = investor_leads(con, today, dates["sales"], smodel)
+    print("311 leads ...", flush=True)
+    cmodel, pmodel, xmodel = complaint_model(con), porch_request_model(con), vacant_model(con)
+    c_leads = complaint_leads(con, dates["complaints"], cmodel)
+    pr_leads = porch_request_leads(con, dates["complaints"], pmodel)
+    vb_leads = vacant_leads(con, dates["complaints"], xmodel)
+    print("roofing blocks ...", flush=True)
+    blocks = roofing_blocks(con, today)
     print("pre-application projects ...", flush=True)
     pre = preapp_projects(con, today)
     print("gc targets, competitors, areas ...", flush=True)
@@ -811,13 +1325,25 @@ def build(out: Path) -> dict:
                     "name": "Cook County Assessor parcel addresses",
                     "url": "https://datacatalog.cookcountyil.gov/d/3723-97qp",
                 },
+                {
+                    "name": "Cook County Assessor residential characteristics",
+                    "url": "https://datacatalog.cookcountyil.gov/d/x54s-btds",
+                },
+                {
+                    "name": "City of Chicago 311 service requests",
+                    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+                },
             ],
             "assumptions": {"winRate": WIN_RATE, "margin": MARGIN},
         },
         "trades": {k: {"label": t["label"], "jobValue": values[k]} for k, t in TRADES.items()},
         "models": {
             "violation": {
-                k: {o: {"episodes": m["episodes"], "p365": round(m["p365"], 4)} for o, m in v.items()}
+                k: {
+                    o: {"episodes": m["episodes"], "p365": round(m["p"], 4)}
+                    for o, m in v.items()
+                    if o in OWNERS
+                }
                 for k, v in vmodel.items()
             },
             "investorPurchase": {
@@ -829,18 +1355,58 @@ def build(out: Path) -> dict:
                 }
                 for seg, m in smodel.items()
             },
+            "complaint": {
+                "period": cmodel["period"],
+                "episodes": cmodel["violation"]["episodes"],
+                "pViolation120": round(cmodel["violation"]["p"], 4),
+                "medianDaysToViolation": median_days(cmodel["violation"]["delays"]),
+                "pTrade365": {k: round(m["p"], 4) for k, m in cmodel["trades"].items()},
+            },
+            "porchRequest": {
+                "period": pmodel["period"],
+                "episodes": pmodel["porch"]["episodes"],
+                "pPorch365": round(pmodel["porch"]["p"], 4),
+            },
+            "vacant": {
+                "period": xmodel["period"],
+                "episodes": xmodel["sale"]["episodes"],
+                "pSale365": round(xmodel["sale"]["p"], 4),
+                "permitPeriod": xmodel["permitPeriod"],
+                "permitEpisodes": xmodel["trades"]["general"]["episodes"],
+                "pTrade730": {k: round(m["p"], 4) for k, m in xmodel["trades"].items()},
+            },
+            "masonryAge": {
+                "useCells": vmodel["masonry"]["use_cells"],
+                "age": {
+                    a: {"episodes": m["episodes"], "p365": round(m["p"], 4)}
+                    for a, m in vmodel["masonry"]["age"].items()
+                },
+                "cells": {
+                    f"{o}-{a}": {"episodes": m["episodes"], "p365": round(m["p"], 4)}
+                    for (o, a), m in vmodel["masonry"]["cells"].items()
+                },
+            },
         },
-        "leads": sorted(v_leads + s_leads, key=lambda x: x["signalDate"] or "", reverse=True),
+        "leads": sorted(
+            v_leads + s_leads + c_leads + pr_leads + vb_leads,
+            key=lambda x: x["signalDate"] or "",
+            reverse=True,
+        ),
         "recentWins": sorted(won, key=lambda x: x["permitDate"], reverse=True)[:400],
         "competitors": competitors(con, today, won),
         "areas": areas(con, today, dates["sales"]),
+        "blocks": blocks,
         "commercial": {"preApplication": pre, "gcTargets": gc_targets(con, today)},
     }
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(snapshot, default=str, separators=(",", ":")))
+    out.write_text(
+        json.dumps(snapshot, default=str, separators=(",", ":"), ensure_ascii=False), encoding="utf-8"
+    )
     print(
         f"wrote {out} ({out.stat().st_size / 1e6:.1f} MB): {len(v_leads)} violation leads, "
-        f"{len(s_leads)} investor leads, {len(pre['projects'])} pre-application projects"
+        f"{len(s_leads)} investor leads, {len(c_leads)} complaint leads, {len(pr_leads)} porch request leads, "
+        f"{len(vb_leads)} vacant leads, {len(blocks['roofing'])} roofing blocks, "
+        f"{len(pre['projects'])} pre-application projects"
     )
     return snapshot
 

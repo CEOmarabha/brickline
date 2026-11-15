@@ -10,6 +10,7 @@ import {
   expectedValue,
   type Lead,
   leadsForWorkspace,
+  ownerTypeFor,
   type Snapshot,
   tradeProbability,
 } from "@/lib/snapshot";
@@ -28,11 +29,14 @@ export const TOOL_DEFS = [
   {
     name: "search_leads",
     description:
-      "Search this workspace's leads (violations and investor purchases) in its trade and neighborhoods. Returns up to `limit` leads with chance of work and expected value.",
+      "Search this workspace's leads (violations, 311 complaints, porch inspection requests, vacant buildings and investor purchases) in its trade and neighborhoods. Returns up to `limit` leads with chance of work and expected value.",
     input_schema: {
       type: "object",
       properties: {
-        kind: { type: "string", enum: ["all", "violation", "investor_purchase"] },
+        kind: {
+          type: "string",
+          enum: ["all", "violation", "complaint", "porch_request", "vacant", "investor_purchase"],
+        },
         tier: { type: "string", enum: ["all", "act_now", "this_week", "monitor"] },
         neighborhood: { type: "string", description: "Community area name, e.g. 'Logan Square'" },
         status: { type: "string", enum: ["all", "open", "contacted", "meeting", "won", "lost", "not_relevant"] },
@@ -100,10 +104,18 @@ function areaIdByName(snap: Snapshot, name: string | undefined): number | undefi
   return snap.areas.find((a) => a.name.toLowerCase() === n)?.id ?? snap.areas.find((a) => a.name.toLowerCase().includes(n))?.id;
 }
 
+/** The headline chance for kinds whose signal is not itself a job (cited, sold). */
+function headlineChance(l: Lead): Record<string, string> {
+  if (l.kind === "complaint") return { chance_it_gets_cited_120d: pct(l.probability) };
+  if (l.kind === "vacant") return { chance_it_sells_within_a_year: pct(l.probability) };
+  return {};
+}
+
 function compactLead(l: Lead, ctx: ToolContext) {
   const names = areaNames(ctx.snap);
   return {
     id: l.id,
+    kind: l.kind,
     link: `/leads/${encodeURIComponent(l.id)}`,
     address: l.address,
     neighborhood: l.communityArea ? names.get(l.communityArea) : null,
@@ -113,11 +125,17 @@ function compactLead(l: Lead, ctx: ToolContext) {
     priority: l.tier,
     status: STATUS_LABEL[ctx.statuses.get(l.id)?.status ?? "new"],
     chance_of_work: pct(tradeProbability(l, ctx.ws.trade, ctx.snap)),
+    ...headlineChance(l),
     expected_value_usd: Math.round(expectedValue(l, ctx.ws.trade, ctx.snap, ctx.rates)),
     contact:
       l.kind === "investor_purchase"
         ? { buyer: l.buyer.name, purchases_last_2y: l.buyer.purchases24m }
-        : { owner: l.owner.name, owner_type: l.owner.type, has_mailing_address: Boolean(l.owner.mailing) },
+        : {
+            owner: l.owner.name,
+            owner_type: l.owner.type,
+            has_mailing_address: Boolean(l.owner.mailing),
+            approach: ownerTypeFor(l) === "company" ? "business contact, mail as backup" : "mail",
+          },
   };
 }
 
@@ -155,6 +173,13 @@ export function runTool(name: string, input: Input, ctx: ToolContext): unknown {
         evidence: l.evidence,
         owner_mailing: l.owner.mailing,
         next_step: l.action,
+        ...(l.tradeProbabilities
+          ? {
+              chance_of_work_by_trade: Object.fromEntries(
+                Object.entries(l.tradeProbabilities).map(([k, v]) => [k, pct(v)]),
+              ),
+            }
+          : {}),
         note: statuses.get(l.id)?.note ?? "",
         ...(l.kind === "investor_purchase"
           ? {

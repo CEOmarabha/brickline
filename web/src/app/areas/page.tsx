@@ -5,8 +5,8 @@ import { PageHeader, Trend } from "@/components/bits";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { count, money } from "@/lib/format";
-import { getSnapshot, leadsForWorkspace } from "@/lib/snapshot";
+import { count, dateLabel, money, pct } from "@/lib/format";
+import { areaNames, getSnapshot, leadsForWorkspace, type Snapshot } from "@/lib/snapshot";
 import { getStatuses, getWorkspace } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
@@ -154,6 +154,58 @@ async function Areas({ searchParams }: { searchParams: PageProps<"/areas">["sear
           </tbody>
         </table>
       </Card>
+      <BlockTargeting snap={snap} roofing={trade === "roofing"} />
     </>
+  );
+}
+
+function BlockTargeting({ snap, roofing }: { snap: Snapshot; roofing: boolean }) {
+  const { roofing: blocks, roofingModel: m } = snap.blocks;
+  const names = areaNames(snap);
+  return (
+    <section className="mt-8">
+      <h2 className="text-lg font-semibold tracking-tight">Block targeting</h2>
+      {!roofing ? (
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Block lists are available for roofing workspaces: street blocks where several neighbors just re-roofed. Change
+          the trade in Settings to see them.
+        </p>
+      ) : (
+        <>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+            Blocks (about 160 m squares) with 2 or more re-roof permits in the last 90 days. Historically, homes on such
+            blocks pulled a roofing permit within {m.horizonDays} days {pct(m.exposedRate, 2)} of the time, versus{" "}
+            {pct(m.baseRate, 2)} on blocks with none: {m.lift.toFixed(1)}× the rate ({m.period}, {count(m.exposedCases)}{" "}
+            home-quarters on exposed blocks). Good for door hangers and mail to the whole block.
+          </p>
+          <Card className="mt-4 overflow-x-auto py-0">
+            <table className="w-full min-w-[40rem] text-sm">
+              <thead className="border-b text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">Neighborhood</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Re-roofs, 90 days</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Homes on block</th>
+                  <th className="px-4 py-2.5 font-medium">Latest permit</th>
+                  <th className="px-4 py-2.5 font-medium">Permitted addresses</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {blocks.map((b) => (
+                  <tr key={b.id} className="align-top">
+                    <td className="px-4 py-2.5 font-medium">
+                      {b.communityArea ? (names.get(b.communityArea) ?? "Chicago") : "Chicago"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{count(b.recentReroofs)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{count(b.residentialParcels)}</td>
+                    <td className="px-4 py-2.5 whitespace-nowrap">{dateLabel(b.lastPermit)}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{b.addresses.join(" · ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </>
+      )}
+    </section>
   );
 }

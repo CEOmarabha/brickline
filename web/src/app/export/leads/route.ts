@@ -1,4 +1,5 @@
 import { splitMailing, toCsv } from "@/lib/csv";
+import { KIND_LABEL } from "@/lib/kinds";
 import { parseFilters, queryLeads } from "@/lib/lead-query";
 import { getCloseRates } from "@/lib/outcomes";
 import { draftOutreach } from "@/lib/outreach";
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
       ],
       leads.map((l) => [
         l.id,
-        l.kind,
+        KIND_LABEL[l.kind],
         l.tier,
         STATUS_LABEL[statuses.get(l.id)?.status ?? "new"],
         l.address,
