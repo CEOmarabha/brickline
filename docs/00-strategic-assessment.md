@@ -15,7 +15,7 @@ Evidence labels used everywhere in this repo:
 
 Founder answers: building mostly with AI tools, full time, Chicago-based, no existing industry contacts, agrees with the reframe, wants the software to be the priority but generating real cash flow within a year.
 
-Backtests on 20 years of Chicago records (`docs/11-lead-generation-strategy.md`, `research/findings/backtests-2026-11-14.md`) changed the plan:
+Backtests on 20 years of Chicago records (`docs/11-lead-generation-strategy.md`, `research/findings/backtests-2026-11-15.md`) changed the plan:
 
 - **Validated:** GC "open door" scoring for commercial subs (5–6x separation, out of sample); a composite pre-application score (top 100 parcels/half-year: 25% start a ≥$100k project within 180 days, 56x base); investor/company home purchases (30–38% pull permits within a year, 7–14x baseline); porch/masonry/plumbing/electrical violations (10–29% permitted repairs within a year, 7.6–12x); restaurant build-out permits (~90 days ahead of food-license applications).
 - **Failed:** demolition permits as an early signal for new construction (they arrive together with the new-construction permit).

@@ -73,6 +73,15 @@ DATASETS = [
         "application_type,application_created_date,date_issued,license_start_date,latitude,longitude",
         "license_description = 'Retail Food Establishment' AND application_type = 'ISSUE'",
     ),
+    Dataset(
+        "parcel_addresses",
+        COOK,
+        "3723-97qp",
+        "pin,pin10,year,prop_address_full,prop_address_zipcode_1,owner_address_name,owner_address_full,"
+        "owner_address_city_name,owner_address_state,owner_address_zipcode_1",
+        "year = 2026 AND prop_address_city_name = 'CHICAGO'",
+    ),
+    Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community"),
 ]
 
 # Address key: "<number> <dir> <street words up to and including the suffix>", unit/floor text dropped.
@@ -233,7 +242,41 @@ def build() -> None:
         FROM {_csv("food_licenses")}
     """)
 
-    for t in ("permits", "permit_parties", "violations", "sales", "food_licenses"):
+    print("build parcels")
+    con.execute(f"""
+        CREATE TABLE parcels AS
+        SELECT pin10,
+            arg_max(prop_address_full, pin) AS address,
+            {address_key_sql("arg_max(prop_address_full, pin)")} AS address_key,
+            arg_max(prop_address_zipcode_1, pin) AS zip,
+            arg_max(owner_address_name, pin) AS owner_name,
+            arg_max(owner_address_full || ', ' || coalesce(owner_address_city_name, '') || ' '
+                    || coalesce(owner_address_state, '') || ' ' || coalesce(owner_address_zipcode_1, ''), pin)
+                AS owner_mailing,
+            count(*) AS units
+        FROM {_csv("parcel_addresses")}
+        WHERE pin10 IS NOT NULL
+        GROUP BY pin10
+    """)
+
+    print("build community_areas")
+    con.execute(f"""
+        CREATE TABLE community_areas AS
+        SELECT try_cast(area_numbe AS INTEGER) AS community_area,
+            array_to_string(list_transform(string_split(lower(community), ' '),
+                lambda w: upper(w[1]) || w[2:]), ' ') AS name
+        FROM {_csv("community_areas")}
+    """)
+
+    for t in (
+        "permits",
+        "permit_parties",
+        "violations",
+        "sales",
+        "food_licenses",
+        "parcels",
+        "community_areas",
+    ):
         n = con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
         print(f"  {t}: {n:,} rows")
     con.close()

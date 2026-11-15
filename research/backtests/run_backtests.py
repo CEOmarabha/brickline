@@ -19,48 +19,24 @@ from pathlib import Path
 
 import duckdb
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from engine.score.signals import (  # noqa: E402
+    INVESTOR_RE,
+    MAJOR,
+    PARCEL_FEATURES,
+    build_parcel_features,
+    fit_combo_rates,
+    one,
+    prepare_base,
+    q,
+)
+
 DB = Path("data/warehouse.duckdb")
 OUT = Path("research/findings")
 
 TRADES_SHARED = ["roofing", "masonry", "porch", "windows_doors", "electrical", "plumbing", "hvac"]
-INVESTOR_RE = (
-    r"\b(LLC|L L C|INC|CORP|TRUST|PROPERT|HOLDING|INVEST|CAPITAL|REALTY|HOMES|DEVELOP|PARTNERS|FUND|BANK)\b"
-)
-MAJOR = (
-    "(permit_type IN ('PERMIT - NEW CONSTRUCTION', 'PERMIT - RENOVATION/ALTERATION') "
-    "AND reported_cost >= 100000)"
-)
-
-
-def q(con: duckdb.DuckDBPyConnection, sql: str) -> list[dict]:
-    cur = con.execute(sql)
-    cols = [d[0] for d in cur.description]
-    return [dict(zip(cols, row, strict=True)) for row in cur.fetchall()]
-
-
-def one(con: duckdb.DuckDBPyConnection, sql: str) -> dict:
-    return q(con, sql)[0]
-
-
-def prepare(con: duckdb.DuckDBPyConnection) -> None:
-    """Helper tables shared by several backtests."""
-    # Most common parcel per address, so address-only records (violations, licenses, older permits)
-    # can join to parcels.
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE addr_pin AS
-        SELECT address_key, arg_max(pin10, n) AS pin10 FROM (
-            SELECT address_key, pin10, count(*) AS n FROM permits
-            WHERE pin10 IS NOT NULL AND address_key IS NOT NULL GROUP BY ALL
-        ) GROUP BY address_key
-    """)
-    # Permits with parcel filled from address where missing; "prop" falls back to the address itself.
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE p AS
-        SELECT permits.* REPLACE (coalesce(permits.pin10, a.pin10) AS pin10),
-               coalesce(permits.pin10, a.pin10, 'A:' || permits.address_key) AS prop
-        FROM permits LEFT JOIN addr_pin a USING (address_key)
-        WHERE issue_date IS NOT NULL
-    """)
+FEATURES = PARCEL_FEATURES
 
 
 # --------------------------------------------------------------------------------------------------
@@ -238,7 +214,7 @@ def bt_sale(con) -> dict:
                quantile_cont(first_days, 0.25) AS p25, quantile_cont(first_days, 0.75) AS p75
         FROM s_win WHERE win = 'post' AND first_days IS NOT NULL
           AND segment IN ('single-family','2-6 unit flat','apartment 7+','commercial/industrial')
-        GROUP BY 1
+        GROUP BY 1 ORDER BY 1
     """,
     )
     volume = one(
@@ -271,7 +247,8 @@ def bt_violation(con) -> dict:
         SELECT * FROM (
           SELECT address_key, trade, violation_date, inspection_category,
                  lag(violation_date) OVER (PARTITION BY address_key, trade ORDER BY violation_date) AS prev
-          FROM (SELECT DISTINCT address_key, trade, violation_date, inspection_category FROM v_all)
+          FROM (SELECT address_key, trade, violation_date, min(inspection_category) AS inspection_category
+                FROM v_all GROUP BY ALL)
         ) WHERE prev IS NULL OR violation_date - prev > 365
     """)
     case = " ".join(f"WHEN '{t}' THEN p.t_{t}" for t in vt)
@@ -370,7 +347,7 @@ def bt_rotation(con) -> dict:
         buckets = q(
             con,
             f"""
-            SELECT ntile(5) OVER (ORDER BY prior_rate) AS quintile, prior_rate, is_new FROM seq WHERE {test}
+            SELECT ntile(5) OVER (ORDER BY prior_rate, id) AS quintile, prior_rate, is_new FROM seq WHERE {test}
         """,
         )
         agg: dict[int, list] = {}
@@ -446,83 +423,11 @@ def bt_restaurant(con) -> dict:
 # --------------------------------------------------------------------------------------------------
 # BT6: composite parcel score — naive-Bayes combination of signals, trained 2016-2019, tested 2022-2024
 # --------------------------------------------------------------------------------------------------
-FEATURES = {
-    "sold_365": "recent sale (365d)",
-    "investor_sold_365": "recent sale to company/investor buyer (365d)",
-    "demo_365": "demolition permit (365d)",
-    "violations_365": "any building violation (365d)",
-    "violations3_365": "3+ building violations (365d)",
-    "vacant_viol_730": "vacant-building / board-up violation (730d)",
-    "small_permit_180": "any non-major permit (180d)",
-    "major_permit_1095": "major permit already in last 3 years",
-}
-
-
 def bt_composite(con) -> dict:
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE snap AS
-        SELECT unnest(generate_series(DATE '2016-01-01', DATE '2024-07-01', INTERVAL 6 MONTH))::DATE AS d
-    """)
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE v_pin AS
-        SELECT a.pin10, v.violation_date,
-               regexp_matches(v.description, 'VACANT|BOARD|SECURE') AS vacant
-        FROM violations v JOIN addr_pin a USING (address_key)
-    """)
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE universe AS
-        SELECT DISTINCT pin10 FROM (
-          SELECT pin10 FROM permits WHERE pin10 IS NOT NULL UNION ALL SELECT pin10 FROM sales
-        )
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE feat AS
-        WITH
-        sale_f AS (
-          SELECT sn.d, s.pin10, true AS sold_365,
-                 bool_or(regexp_matches(upper(coalesce(s.buyer_name,'')), '{INVESTOR_RE}')) AS investor_sold_365
-          FROM snap sn JOIN sales s ON s.sale_date > sn.d - INTERVAL 365 DAY AND s.sale_date <= sn.d
-          WHERE NOT s.filtered_out GROUP BY ALL
-        ),
-        perm_f AS (
-          SELECT sn.d, p.pin10,
-            bool_or(p.permit_type = 'PERMIT - WRECKING/DEMOLITION' AND p.issue_date > sn.d - INTERVAL 365 DAY)
-              AS demo_365,
-            bool_or(NOT {MAJOR} AND p.issue_date > sn.d - INTERVAL 180 DAY) AS small_permit_180,
-            bool_or({MAJOR}) AS major_permit_1095
-          FROM snap sn JOIN p ON p.pin10 IS NOT NULL
-           AND p.issue_date > sn.d - INTERVAL 1095 DAY AND p.issue_date <= sn.d
-          GROUP BY ALL
-        ),
-        viol_f AS (
-          SELECT sn.d, v.pin10,
-            count(*) FILTER (WHERE v.violation_date > sn.d - INTERVAL 365 DAY) AS n365,
-            bool_or(v.vacant) AS vacant_viol_730
-          FROM snap sn JOIN v_pin v ON v.violation_date > sn.d - INTERVAL 730 DAY AND v.violation_date <= sn.d
-          GROUP BY ALL
-        ),
-        target AS (
-          SELECT sn.d, p.pin10, true AS y
-          FROM snap sn JOIN p ON p.pin10 IS NOT NULL AND {MAJOR}
-           AND p.application_date > sn.d AND p.application_date <= sn.d + INTERVAL 180 DAY
-          GROUP BY ALL
-        )
-        SELECT sn.d, u.pin10,
-          coalesce(sale_f.sold_365, false) AS sold_365,
-          coalesce(sale_f.investor_sold_365, false) AS investor_sold_365,
-          coalesce(perm_f.demo_365, false) AS demo_365,
-          coalesce(viol_f.n365, 0) >= 1 AS violations_365,
-          coalesce(viol_f.n365, 0) >= 3 AS violations3_365,
-          coalesce(viol_f.vacant_viol_730, false) AS vacant_viol_730,
-          coalesce(perm_f.small_permit_180, false) AS small_permit_180,
-          coalesce(perm_f.major_permit_1095, false) AS major_permit_1095,
-          coalesce(target.y, false) AS y
-        FROM snap sn CROSS JOIN universe u
-        LEFT JOIN sale_f ON sale_f.d = sn.d AND sale_f.pin10 = u.pin10
-        LEFT JOIN perm_f ON perm_f.d = sn.d AND perm_f.pin10 = u.pin10
-        LEFT JOIN viol_f ON viol_f.d = sn.d AND viol_f.pin10 = u.pin10
-        LEFT JOIN target ON target.d = sn.d AND target.pin10 = u.pin10
-    """)
+    build_parcel_features(
+        con,
+        "SELECT unnest(generate_series(DATE '2016-01-01', DATE '2024-07-01', INTERVAL 6 MONTH))::DATE AS d",
+    )
     train = "d BETWEEN DATE '2016-01-01' AND DATE '2019-07-01'"
     test = "d BETWEEN DATE '2022-01-01' AND DATE '2024-07-01'"
     prior = one(con, f"SELECT avg(y::INT) AS base_rate, count(*) AS rows FROM feat WHERE {train}")
@@ -590,13 +495,7 @@ def bt_composite(con) -> dict:
     # shrunk toward the base rate (m pseudo-observations). Handles correlated signals that naive Bayes
     # double-counts, and every score is a directly explainable historical rate.
     cols = ", ".join(FEATURES)
-    m = 200
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE combo AS
-        SELECT {cols}, count(*) AS n, sum(y::INT) AS hits,
-               (sum(y::INT) + {m} * {prior["base_rate"]}) / (count(*) + {m}) AS rate
-        FROM feat WHERE {train} GROUP BY ALL
-    """)
+    fit_combo_rates(con, train)
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE scored_combo AS
         SELECT f.d, f.pin10, f.y, coalesce(c.rate, {prior["base_rate"]}) AS s
@@ -867,7 +766,7 @@ def main() -> int:
         return 1
     con = duckdb.connect(str(DB), read_only=True)
     con.execute("SET memory_limit = '8GB'")
-    prepare(con)
+    prepare_base(con)
     results = {"generated_on": date.today().isoformat()}
     for name, fn in [
         ("demolition", bt_demolition),

@@ -1,6 +1,6 @@
 # Lead Generation Strategy — What the Data Can Predict, Formulas, and Backtests
 
-*v1, 2026-11-14. Evidence: `research/findings/backtests-2026-11-14.md` (reproducible with `research/backtests/run_backtests.py`). Labels: [V] measured on Chicago history, [E] estimate, [H] hypothesis to test with customers.*
+*v1, 2026-11-14. Evidence: `research/findings/backtests-2026-11-15.md` (reproducible with `research/backtests/run_backtests.py`). Labels: [V] measured on Chicago history, [E] estimate, [H] hypothesis to test with customers.*
 
 ## 1. Summary
 
@@ -101,7 +101,7 @@ Validated calibration [V], jobs from 2022 on, GCs with ≥5 prior jobs:
 | --- | --- | --- | --- |
 | Electrical | 5.7% | 31.2% | 14.8% |
 | Plumbing | 5.7% | 30.1% | 13.8% |
-| HVAC | 5.8% | 34.1% | 16.1% |
+| HVAC | 5.7% | 34.1% | 16.1% |
 
 Use: rank GCs by `open_door × activity in the sub's size band × proximity` to build a sub's target list. Next refinements: recency weighting, size-band matching, "lost sub" events (a GC's regular sub disappears).
 
