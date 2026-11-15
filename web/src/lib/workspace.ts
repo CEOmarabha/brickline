@@ -1,6 +1,7 @@
 import "server-only";
 
 import { headers } from "next/headers";
+import { connection } from "next/server";
 import { sql } from "@/lib/db";
 import type { TradeKey } from "@/lib/snapshot";
 import { getIdentity } from "../../cursor/identity";
@@ -10,6 +11,7 @@ import { getIdentity } from "../../cursor/identity";
  * production data. Returns null when no verified viewer is on the request.
  */
 export async function viewerWorkspaceId(): Promise<string | null> {
+  await connection();
   const identity = await getIdentity(await headers());
   if (!identity.verified) return null;
   return `${identity.stage}:${identity.sub}`;
