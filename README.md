@@ -43,12 +43,17 @@ npm install
 npm run dev          # http://localhost:4317
 ```
 
-The app reads `web/data/snapshot.json`, produced by the engine. Lead statuses, notes and settings are stored in Postgres when `DATABASE_URL` is set, otherwise in an in-memory database that resets on restart. To refresh the data:
+The app reads `web/data/snapshot.json`, produced by the engine. Lead statuses, notes and settings are stored in Postgres when `DATABASE_URL` is set, otherwise in an in-memory database that resets on restart. Each signed-in user can run several workspaces (one per client they manage).
+
+Weekly operations: **Leads** exports a mail-merge CSV; **Weekly report** prints a client summary and one-letter-per-page mailings; **Results** turns won/lost leads into measured close rates that replace the default assumptions after 10 decided leads.
+
+To refresh the data (about 5 minutes, mostly downloads):
 
 ```bash
-uv run python -m engine.warehouse sync && uv run python -m engine.warehouse build
-uv run python -m engine.leads.snapshot     # rewrites web/data/snapshot.json
+scripts/refresh-data.sh          # add --backtest to re-run the backtests
 ```
+
+Then commit `web/data/snapshot.json` and republish.
 
 ## Building the warehouse and running backtests
 

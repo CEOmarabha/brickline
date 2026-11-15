@@ -11,7 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ago, dateLabel, money, pct } from "@/lib/format";
 import { draftOutreach } from "@/lib/outreach";
-import { areaNames, expectedValue, getSnapshot, tradeProbability } from "@/lib/snapshot";
+import { getCloseRates } from "@/lib/outcomes";
+import { areaNames, closeRateFor, expectedValue, getSnapshot, tradeProbability } from "@/lib/snapshot";
 import { getLeadHistory, getStatuses, getWorkspace, STATUS_LABEL } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Lead" };
@@ -32,11 +33,12 @@ export default function LeadPage({ params }: PageProps<"/leads/[id]">) {
 async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params"] }) {
   const { id } = await params;
   const leadId = decodeURIComponent(id);
-  const [snap, ws, statuses, history] = await Promise.all([
+  const [snap, ws, statuses, history, rates] = await Promise.all([
     getSnapshot(),
     getWorkspace(),
     getStatuses(),
     getLeadHistory(leadId),
+    getCloseRates(),
   ]);
   const lead = snap.leads.find((l) => l.id === leadId);
   if (!lead) notFound();
@@ -45,9 +47,10 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
   const area = lead.communityArea ? (names.get(lead.communityArea) ?? null) : null;
   const status = statuses.get(lead.id);
   const p = tradeProbability(lead, ws.trade, snap);
-  const ev = expectedValue(lead, ws.trade, snap);
+  const ev = expectedValue(lead, ws.trade, snap, rates);
+  const close = closeRateFor(lead, snap, rates);
   const draft = draftOutreach(lead, ws, snap, area);
-  const { winRate, margin } = snap.meta.assumptions;
+  const { margin } = snap.meta.assumptions;
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lead.address}, Chicago, IL`)}`;
   const companyName = lead.kind === "investor_purchase" ? lead.buyer.name : lead.owner.type === "company" ? lead.owner.name : null;
 
@@ -95,9 +98,11 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                 <span className="text-lg font-semibold tabular-nums">{money(ev)}</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Chance of work × {pct(lead.owner.type === "company" || lead.kind === "investor_purchase" ? winRate.company : winRate.individual, 0)} close
-                rate × {money(snap.trades[ws.trade].jobValue)} typical job × {pct(margin, 0)} margin. Close rate is an
-                assumption until we measure yours.
+                Chance of work × {pct(close.rate, 0)} close rate × {money(snap.trades[ws.trade].jobValue)} typical job ×{" "}
+                {pct(margin, 0)} margin.{" "}
+                {close.measured
+                  ? "Close rate measured from your own won and lost leads."
+                  : "Close rate is an assumption until you've recorded 10+ won or lost leads."}
               </p>
             </div>
           </CardContent>

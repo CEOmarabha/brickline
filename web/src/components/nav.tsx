@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, LayoutDashboard, ListChecks, Map, MenuIcon, Settings, Trophy } from "lucide-react";
+import { BarChart3, Building2, FileText, LayoutDashboard, ListChecks, Map, MenuIcon, Settings, Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -14,6 +14,8 @@ const ITEMS = [
   { href: "/areas", label: "Neighborhoods", icon: Map },
   { href: "/market", label: "Market & competitors", icon: Trophy },
   { href: "/commercial", label: "Commercial", icon: Building2 },
+  { href: "/results", label: "Results", icon: BarChart3 },
+  { href: "/report", label: "Weekly report", icon: FileText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -54,19 +56,27 @@ function SidebarLinks({ isActive }: { isActive: (href: string) => boolean }) {
   );
 }
 
-export function MobileNav({ brand }: { brand: React.ReactNode }) {
+export function MobileNav({ brand, footer }: { brand: React.ReactNode; footer?: React.ReactNode }) {
   return (
-    <Suspense fallback={<MobileMenu brand={brand} isActive={() => false} />}>
-      <ActiveMobileMenu brand={brand} />
+    <Suspense fallback={<MobileMenu brand={brand} footer={footer} isActive={() => false} />}>
+      <ActiveMobileMenu brand={brand} footer={footer} />
     </Suspense>
   );
 }
 
-function ActiveMobileMenu({ brand }: { brand: React.ReactNode }) {
-  return <MobileMenu brand={brand} isActive={useActive()} />;
+function ActiveMobileMenu({ brand, footer }: { brand: React.ReactNode; footer?: React.ReactNode }) {
+  return <MobileMenu brand={brand} footer={footer} isActive={useActive()} />;
 }
 
-function MobileMenu({ brand, isActive }: { brand: React.ReactNode; isActive: (href: string) => boolean }) {
+function MobileMenu({
+  brand,
+  footer,
+  isActive,
+}: {
+  brand: React.ReactNode;
+  footer?: React.ReactNode;
+  isActive: (href: string) => boolean;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -93,6 +103,7 @@ function MobileMenu({ brand, isActive }: { brand: React.ReactNode; isActive: (hr
             </Link>
           ))}
         </nav>
+        {footer && <div className="mt-auto border-t border-sidebar-border p-4">{footer}</div>}
       </SheetContent>
     </Sheet>
   );

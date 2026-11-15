@@ -2,23 +2,25 @@ import "server-only";
 
 import { headers } from "next/headers";
 import { connection } from "next/server";
+import { cache } from "react";
 import { sql } from "@/lib/db";
 import type { TradeKey } from "@/lib/snapshot";
 import { getIdentity } from "../../cursor/identity";
 
 /**
- * Each signed-in viewer gets their own workspace. The stage prefix keeps preview sessions out of
- * production data. Returns null when no verified viewer is on the request.
+ * The signed-in owner, as `<stage>:<sub>`. The stage prefix keeps preview sessions out of production data.
+ * Returns null when no verified viewer is on the request.
  */
-export async function viewerWorkspaceId(): Promise<string | null> {
+export const viewerId = cache(async (): Promise<string | null> => {
   await connection();
   const identity = await getIdentity(await headers());
   if (!identity.verified) return null;
   return `${identity.stage}:${identity.sub}`;
-}
+});
 
 export interface Workspace {
   id: string;
+  name: string;
   businessName: string;
   trade: TradeKey;
   areas: number[];
@@ -26,6 +28,11 @@ export interface Workspace {
   mailingAddress: string;
   configured: boolean;
   signedIn: boolean;
+}
+
+export interface WorkspaceSummary {
+  id: string;
+  label: string;
 }
 
 export const LEAD_STATUSES = ["new", "contacted", "meeting", "won", "lost", "not_relevant"] as const;
@@ -47,31 +54,68 @@ export interface LeadStatusRow {
   updatedAt: Date;
 }
 
-export async function getWorkspace(): Promise<Workspace> {
-  const wsId = await viewerWorkspaceId();
-  const rows = await sql<{
-    id: string;
-    business_name: string;
-    trade: TradeKey;
-    areas: number[];
-    phone: string;
-    mailing_address: string;
-  }>("select * from workspace where id = $1", [wsId ?? ""]);
-  const r = wsId ? rows[0] : undefined;
-  if (!r) {
-    return {
-      id: wsId ?? "",
-      businessName: "",
-      trade: "porch",
-      areas: [],
-      phone: "",
-      mailingAddress: "",
-      configured: false,
-      signedIn: wsId !== null,
-    };
-  }
+interface WorkspaceRow {
+  id: string;
+  name: string;
+  business_name: string;
+  trade: TradeKey;
+  areas: number[];
+  phone: string;
+  mailing_address: string;
+}
+
+export function workspaceLabel(r: { name: string; business_name?: string; businessName?: string }): string {
+  return r.name || r.business_name || r.businessName || "My business";
+}
+
+export async function listWorkspaces(owner: string): Promise<WorkspaceSummary[]> {
+  const rows = await sql<WorkspaceRow>(
+    "select * from workspace where owner_id = $1 order by created_at, id",
+    [owner],
+  );
+  return rows.map((r) => ({ id: r.id, label: workspaceLabel(r) }));
+}
+
+/** Id of the workspace the owner is working in: their saved choice, else their first, else their default id. */
+export async function currentWorkspaceId(owner: string): Promise<string> {
+  const rows = await sql<{ id: string }>(
+    `select w.id from workspace w
+     left join viewer_state v on v.owner_id = w.owner_id and v.current_workspace = w.id
+     where w.owner_id = $1
+     order by (v.owner_id is null), w.created_at, w.id
+     limit 1`,
+    [owner],
+  );
+  // An owner with no saved workspace yet works in a default one whose id is their owner id.
+  return rows[0]?.id ?? owner;
+}
+
+export async function ownsWorkspace(owner: string, workspaceId: string): Promise<boolean> {
+  if (workspaceId === owner) return true;
+  const rows = await sql("select 1 from workspace where id = $1 and owner_id = $2", [workspaceId, owner]);
+  return rows.length > 0;
+}
+
+export const getWorkspace = cache(async (): Promise<Workspace> => {
+  const owner = await viewerId();
+  const empty: Workspace = {
+    id: owner ?? "",
+    name: "",
+    businessName: "",
+    trade: "porch",
+    areas: [],
+    phone: "",
+    mailingAddress: "",
+    configured: false,
+    signedIn: owner !== null,
+  };
+  if (!owner) return empty;
+  const id = await currentWorkspaceId(owner);
+  const r = (await sql<WorkspaceRow>("select * from workspace where id = $1 and owner_id = $2", [id, owner]))[0];
+  if (!r) return { ...empty, id };
   return {
     id: r.id,
+    name: r.name,
     businessName: r.business_name,
     trade: r.trade,
     areas: r.areas ?? [],
@@ -80,14 +124,14 @@ export async function getWorkspace(): Promise<Workspace> {
     configured: true,
     signedIn: true,
   };
-}
+});
 
-export async function getStatuses(): Promise<Map<string, LeadStatusRow>> {
-  const wsId = await viewerWorkspaceId();
-  if (!wsId) return new Map();
+export const getStatuses = cache(async (): Promise<Map<string, LeadStatusRow>> => {
+  const ws = await getWorkspace();
+  if (!ws.signedIn) return new Map();
   const rows = await sql<{ lead_id: string; status: LeadStatus; note: string; updated_at: Date }>(
     "select lead_id, status, note, updated_at from lead_status where workspace_id = $1",
-    [wsId],
+    [ws.id],
   );
   return new Map(
     rows.map((r) => [
@@ -95,13 +139,30 @@ export async function getStatuses(): Promise<Map<string, LeadStatusRow>> {
       { leadId: r.lead_id, status: r.status, note: r.note, updatedAt: new Date(r.updated_at) },
     ]),
   );
-}
+});
 
 export async function getLeadHistory(leadId: string) {
-  const wsId = await viewerWorkspaceId();
-  if (!wsId) return [];
+  const ws = await getWorkspace();
+  if (!ws.signedIn) return [];
   return sql<{ status: LeadStatus; note: string; created_at: Date }>(
     "select status, note, created_at from lead_event where workspace_id = $1 and lead_id = $2 order by created_at desc",
-    [wsId, leadId],
+    [ws.id, leadId],
   );
+}
+
+export interface OutcomeEvent {
+  leadId: string;
+  status: LeadStatus;
+  createdAt: Date;
+}
+
+/** Every status change in the current workspace, oldest first (for measured conversion rates). */
+export async function getEvents(): Promise<OutcomeEvent[]> {
+  const ws = await getWorkspace();
+  if (!ws.signedIn) return [];
+  const rows = await sql<{ lead_id: string; status: LeadStatus; created_at: Date }>(
+    "select lead_id, status, created_at from lead_event where workspace_id = $1 order by created_at, id",
+    [ws.id],
+  );
+  return rows.map((r) => ({ leadId: r.lead_id, status: r.status, createdAt: new Date(r.created_at) }));
 }

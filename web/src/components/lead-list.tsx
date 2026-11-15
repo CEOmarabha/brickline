@@ -2,7 +2,7 @@ import { Building, Hammer } from "lucide-react";
 import Link from "next/link";
 import { ProbabilityBar, StatusBadge, TierBadge } from "@/components/bits";
 import { ago, money, pct } from "@/lib/format";
-import { expectedValue, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
+import { type CloseRates, expectedValue, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
 import { type LeadStatusRow, STATUS_LABEL } from "@/lib/workspace";
 
 export function LeadList({
@@ -11,7 +11,9 @@ export function LeadList({
   trade,
   statuses,
   areaNames,
+  rates,
 }: {
+  rates?: CloseRates;
   leads: Lead[];
   snap: Snapshot;
   trade: TradeKey;
@@ -59,7 +61,7 @@ export function LeadList({
               </div>
               <div className="col-start-2 text-left sm:col-start-auto sm:text-right">
                 <div className="text-xs text-muted-foreground">Expected value</div>
-                <div className="font-medium tabular-nums">{money(expectedValue(lead, trade, snap))}</div>
+                <div className="font-medium tabular-nums">{money(expectedValue(lead, trade, snap, rates))}</div>
               </div>
             </Link>
           </li>

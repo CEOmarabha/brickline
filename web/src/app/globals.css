@@ -128,3 +128,11 @@
     @apply font-sans;
   }
 }
+@media print {
+  [data-app-chrome] {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}

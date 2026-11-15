@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { count, money } from "@/lib/format";
 import { buildInsights, type Insight } from "@/lib/insights";
+import { getCloseRates } from "@/lib/outcomes";
 import { areaNames, expectedValue, getSnapshot, leadsForWorkspace, TIER_ORDER } from "@/lib/snapshot";
 import { getStatuses, getWorkspace } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
@@ -21,7 +22,12 @@ export default function DashboardPage() {
 }
 
 async function Dashboard() {
-  const [snap, ws, statuses] = await Promise.all([getSnapshot(), getWorkspace(), getStatuses()]);
+  const [snap, ws, statuses, rates] = await Promise.all([
+    getSnapshot(),
+    getWorkspace(),
+    getStatuses(),
+    getCloseRates(),
+  ]);
   const names = areaNames(snap);
   const tradeLabel = snap.trades[ws.trade].label;
   const leads = leadsForWorkspace(snap, ws.trade, ws.areas);
@@ -30,11 +36,11 @@ async function Dashboard() {
   const top = [...open]
     .sort(
       (a, b) =>
-        TIER_ORDER[a.tier] - TIER_ORDER[b.tier] || expectedValue(b, ws.trade, snap) - expectedValue(a, ws.trade, snap),
+        TIER_ORDER[a.tier] - TIER_ORDER[b.tier] || expectedValue(b, ws.trade, snap, rates) - expectedValue(a, ws.trade, snap, rates),
     )
     .slice(0, 6);
   const pipeline = [...statuses.values()];
-  const insights = buildInsights(snap, ws, leads, statuses);
+  const insights = buildInsights(snap, ws, leads, statuses, rates);
   const areaRows = snap.areas
     .filter((a) => ws.areas.length === 0 || ws.areas.includes(a.id))
     .map((a) => {
@@ -96,8 +102,8 @@ async function Dashboard() {
         <StatCard label="Act now" value={count(actNow.length)} hint="New signals worth contacting this week" />
         <StatCard
           label="Expected value, act-now leads"
-          value={money(actNow.reduce((s, l) => s + expectedValue(l, ws.trade, snap), 0))}
-          hint="Gross profit at your stated assumptions"
+          value={money(actNow.reduce((s, l) => s + expectedValue(l, ws.trade, snap, rates), 0))}
+          hint={rates.individual !== null || rates.company !== null ? "Using your measured close rates" : "Gross profit at the default close-rate assumptions"}
         />
         <StatCard label="Open leads" value={count(open.length)} hint="Not yet worked" />
         <StatCard
@@ -127,7 +133,7 @@ async function Dashboard() {
               See all {count(open.length)}
             </Link>
           </div>
-          <LeadList leads={top} snap={snap} trade={ws.trade} statuses={statuses} areaNames={names} />
+          <LeadList leads={top} snap={snap} trade={ws.trade} statuses={statuses} areaNames={names} rates={rates} />
 
           <div className="mt-6 mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold">Your neighborhoods</h2>

@@ -2,6 +2,7 @@ import "server-only";
 
 import { ago, change, count, pct } from "@/lib/format";
 import {
+  type CloseRates,
   expectedValue,
   type InvestorLead,
   type Lead,
@@ -27,6 +28,7 @@ export function buildInsights(
   ws: Workspace,
   leads: Lead[],
   statuses: Map<string, LeadStatusRow>,
+  rates?: CloseRates,
 ): Insight[] {
   const out: Insight[] = [];
   const trade = ws.trade;
@@ -50,7 +52,7 @@ export function buildInsights(
 
   const freshViolations = open.filter((l) => l.kind === "violation" && l.ageDays <= 14);
   if (freshViolations.length > 0 && trade !== "general") {
-    const ev = freshViolations.reduce((s, l) => s + expectedValue(l, trade, snap), 0);
+    const ev = freshViolations.reduce((s, l) => s + expectedValue(l, trade, snap, rates), 0);
     out.push({
       id: "fresh-violations",
       kind: "opportunity",

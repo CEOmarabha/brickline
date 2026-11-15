@@ -166,13 +166,24 @@ export const TRADE_KEYS: TradeKey[] = ["porch", "masonry", "roofing", "plumbing"
 
 export const TIER_ORDER: Record<Tier, number> = { act_now: 0, this_week: 1, monitor: 2 };
 
-/** Expected gross profit for a contractor in `trade` pursuing this lead, using the snapshot's stated assumptions. */
-export function expectedValue(lead: Lead, trade: TradeKey, snap: Snapshot): number {
-  if (lead.kind === "violation") return lead.expectedValue;
-  const { winRate, margin } = snap.meta.assumptions;
-  const model = snap.models.investorPurchase[lead.segment];
-  const timeLeft = model ? Math.min(1, lead.probability / model.pAny) : 1;
-  return lead.tradeProbabilities[trade] * timeLeft * winRate.company * snap.trades[trade].jobValue * margin;
+/** Close rates measured from a workspace's own outcomes; null means "not enough data, use the assumption". */
+export interface CloseRates {
+  individual: number | null;
+  company: number | null;
+}
+
+export function closeRateFor(lead: Lead, snap: Snapshot, rates?: CloseRates): { rate: number; measured: boolean } {
+  const ownerType = lead.kind === "investor_purchase" || lead.owner.type === "company" ? "company" : "individual";
+  const measured = rates?.[ownerType] ?? null;
+  return measured === null
+    ? { rate: snap.meta.assumptions.winRate[ownerType], measured: false }
+    : { rate: measured, measured: true };
+}
+
+/** Expected gross profit for a contractor in `trade` pursuing this lead. */
+export function expectedValue(lead: Lead, trade: TradeKey, snap: Snapshot, rates?: CloseRates): number {
+  const { rate } = closeRateFor(lead, snap, rates);
+  return tradeProbability(lead, trade, snap) * rate * snap.trades[trade].jobValue * snap.meta.assumptions.margin;
 }
 
 /** Probability that this lead turns into work for `trade` (historical rate, time-adjusted). */

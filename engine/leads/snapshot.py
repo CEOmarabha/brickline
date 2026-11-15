@@ -98,13 +98,17 @@ UPPER_WORDS = {"LLC", "LLP", "LP", "II", "III", "IV", "USA", "CTA", "HVAC", "JV"
 
 
 def title(s: str | None) -> str | None:
+    """Title-case an all-caps public-record string: '2031 W 23RD ST, CHICAGO IL 60608' -> '2031 W 23rd St, Chicago IL 60608'."""
     if not s:
         return s
-    return re.sub(
+    s = re.sub(r"\s+", " ", s.strip())
+    s = re.sub(
         r"\b([A-Z])([A-Z']*)\b",
         lambda m: m.group(0) if m.group(0) in UPPER_WORDS else m.group(1) + m.group(2).lower(),
         s,
     )
+    s = re.sub(r"(\d)(ST|ND|RD|TH)\b", lambda m: m.group(1) + m.group(2).lower(), s)
+    return re.sub(r"\b([A-Z][a-z])(\s+\d{5}(?:-\d{4})?)$", lambda m: m.group(1).upper() + m.group(2), s)
 
 
 def iso(d) -> str | None:
