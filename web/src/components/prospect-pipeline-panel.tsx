@@ -1,0 +1,231 @@
+"use client";
+
+import { Mail } from "lucide-react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { ProspectStatusBadge } from "@/components/bits";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  cleanProspectFields,
+  isDue,
+  isHttpUrl,
+  MAX_SEQUENCE_STEP,
+  PROSPECT_STATUS_LABEL,
+  PROSPECT_STATUSES,
+  type ProspectStatus,
+} from "@/lib/pipeline";
+import { logEmailSent, saveProspect } from "@/lib/prospect-actions";
+
+export interface PanelState {
+  status: ProspectStatus;
+  contactName: string;
+  email: string;
+  phone: string;
+  website: string;
+  notes: string;
+  sequenceStep: number;
+  nextFollowUp: string | null;
+}
+
+export interface PanelEvent {
+  id: number;
+  status: ProspectStatus;
+  note: string;
+  at: string;
+}
+
+const DAYS_LABEL = ["Day 0", "Day 4", "Day 10"];
+
+function fail(error: unknown) {
+  toast.error(error instanceof Error && error.message ? error.message : "Couldn't save. Try again.");
+}
+
+export function ProspectPipelinePanel({
+  prospectId,
+  state,
+  history,
+  today,
+}: {
+  prospectId: string;
+  state: PanelState;
+  history: PanelEvent[];
+  today: string;
+}) {
+  const [contactName, setContactName] = useState(state.contactName);
+  const [email, setEmail] = useState(state.email);
+  const [phone, setPhone] = useState(state.phone);
+  const [website, setWebsite] = useState(state.website);
+  const [notes, setNotes] = useState(state.notes);
+  const [followUp, setFollowUp] = useState(state.nextFollowUp ?? "");
+  const [pending, startTransition] = useTransition();
+
+  const nextEmail = state.sequenceStep + 1;
+  const due = isDue(state, today);
+
+  function setStatus(status: ProspectStatus) {
+    startTransition(async () => {
+      try {
+        await saveProspect(prospectId, { status });
+        toast.success(`Marked as ${PROSPECT_STATUS_LABEL[status]}`);
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+
+  function sendEmail() {
+    startTransition(async () => {
+      try {
+        await logEmailSent(prospectId);
+        toast.success(`Email ${nextEmail} logged`);
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+
+  function saveDetails(e: React.FormEvent) {
+    e.preventDefault();
+    const fields = { contactName, email, phone, website, notes, nextFollowUp: followUp || null };
+    try {
+      const clean = cleanProspectFields(fields);
+      setWebsite(clean.website ?? "");
+    } catch (error) {
+      fail(error);
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await saveProspect(prospectId, fields);
+        toast.success("Saved");
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <ProspectStatusBadge status={state.status} />
+        {state.nextFollowUp && (
+          <span className={due ? "text-sm font-medium text-amber-700" : "text-sm text-muted-foreground"}>
+            Follow up {state.nextFollowUp}
+            {due ? (state.nextFollowUp < today ? " (overdue)" : " (due today)") : ""}
+          </span>
+        )}
+        <span className="text-sm text-muted-foreground">
+          · {state.sequenceStep} of {MAX_SEQUENCE_STEP} emails sent
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {PROSPECT_STATUSES.map((s) => (
+          <Button
+            key={s}
+            type="button"
+            size="sm"
+            variant={state.status === s ? "default" : "outline"}
+            disabled={pending}
+            onClick={() => setStatus(s)}
+          >
+            {PROSPECT_STATUS_LABEL[s]}
+          </Button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" disabled={pending || nextEmail > MAX_SEQUENCE_STEP} onClick={sendEmail}>
+          <Mail />
+          {nextEmail > MAX_SEQUENCE_STEP ? "All 3 emails sent" : `I sent email ${nextEmail} (${DAYS_LABEL[nextEmail - 1]})`}
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Sets the next follow-up: 4 days after email 1, 6 days after email 2, none after email 3.
+        </span>
+      </div>
+
+      <form onSubmit={saveDetails} className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="pp-contact">Contact name</Label>
+            <Input id="pp-contact" value={contactName} onChange={(e) => setContactName(e.target.value)} maxLength={120} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pp-email">Business email</Label>
+            <Input
+              id="pp-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              maxLength={200}
+              autoComplete="off"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pp-phone">Business phone</Label>
+            <Input id="pp-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pp-website">Website</Label>
+            <Input
+              id="pp-website"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="https://"
+              maxLength={200}
+            />
+            {isHttpUrl(state.website) && (
+              <a
+                href={state.website}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="text-xs text-primary underline-offset-4 hover:underline"
+              >
+                Open {state.website}
+              </a>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pp-follow">Next follow-up</Label>
+            <Input id="pp-follow" type="date" value={followUp} onChange={(e) => setFollowUp(e.target.value)} />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="pp-notes">Notes</Label>
+          <Textarea
+            id="pp-notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            maxLength={4000}
+            placeholder="Where you found the contact, what they said, opt-outs…"
+          />
+        </div>
+        <Button type="submit" variant="secondary" size="sm" disabled={pending}>
+          Save contact details and notes
+        </Button>
+      </form>
+
+      <div>
+        <h3 className="mb-1.5 text-sm font-medium">History</h3>
+        {history.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nothing logged yet.</p>
+        ) : (
+          <ul className="divide-y rounded-md border text-sm">
+            {history.map((h) => (
+              <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5">
+                <span>
+                  {h.note || PROSPECT_STATUS_LABEL[h.status]}
+                </span>
+                <span className="text-xs whitespace-nowrap text-muted-foreground">{h.at}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}

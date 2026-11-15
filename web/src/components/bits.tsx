@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { change } from "@/lib/format";
+import { PROSPECT_STATUS_LABEL, type ProspectStatus } from "@/lib/pipeline";
 import type { Tier } from "@/lib/snapshot";
 import type { LeadStatus } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,24 @@ export function StatusBadge({ status, label }: { status: LeadStatus; label: stri
   return (
     <Badge variant="outline" className={STATUS_STYLE[status]}>
       {label}
+    </Badge>
+  );
+}
+
+const PROSPECT_STATUS_STYLE: Record<ProspectStatus, string> = {
+  not_contacted: "bg-muted text-muted-foreground",
+  emailed: "bg-sky-500/10 text-sky-700 border-sky-500/20",
+  replied: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+  meeting: "bg-violet-500/10 text-violet-700 border-violet-500/20",
+  pilot: "bg-primary/10 text-primary border-primary/20",
+  paying: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+  not_interested: "bg-zinc-500/10 text-zinc-500",
+};
+
+export function ProspectStatusBadge({ status }: { status: ProspectStatus }) {
+  return (
+    <Badge variant="outline" className={PROSPECT_STATUS_STYLE[status]}>
+      {PROSPECT_STATUS_LABEL[status]}
     </Badge>
   );
 }

@@ -198,6 +198,29 @@ Highest-converting signal combinations (train rate, then out-of-sample test rate
 | any building violation (365d), 3+ building violations (365d), major permit already in last 3 years | 2,721 | 5.1% | 1,271 | 6.5% |
 | demolition permit (365d), any non-major permit (180d), major permit already in last 3 years | 573 | 4.3% | 263 | 6.5% |
 
+## BT7 — 311 lead types (re-validation of signal-lab H07–H09)
+
+Same within-property method as the signal lab: one episode per key per window; **baseline** = share of the same keys that already had the target in the equally long window *before* the signal. 311 data starts mid-2018, so these cover 2018 onward. Duplicates are excluded.
+
+| Signal → target | Key | Window | Signals | Conversion | Baseline | Lift | Median days | Signals/week (last year) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 'Building Violation' 311 complaint → building violation | address | 120d | 96,864 | 31.6% | 5.4% | 5.8x | 32.0 | 255.4 |
+| 'Porch Inspection Request' 311 call → porch permit | address | 365d | 3,014 | 13.7% | 1.2% | 11.4x | 149.5 | 7.1 |
+| 'Vacant/Abandoned Building Complaint' → property sale | parcel (pin10) | 365d | 9,307 | 19.4% | 7.8% | 2.5x | 167.0 | 20.5 |
+
+Conversion by year of the signal (signals / conversion within the window):
+
+| Year | 'Building Violation' 311 complaint (signals / conversion) | 'Porch Inspection Request' 311 call (signals / conversion) | 'Vacant/Abandoned Building Complaint' (signals / conversion) |
+| --- | --- | --- | --- |
+| 2018 | 217 / 53.9% | 2 / 0.0% | 83 / 24.1% |
+| 2019 | 15,001 / 49.6% | 457 / 14.4% | 2,052 / 18.2% |
+| 2020 | 13,125 / 29.5% | 440 / 10.7% | 1,426 / 20.3% |
+| 2021 | 14,881 / 33.1% | 441 / 13.2% | 1,377 / 18.4% |
+| 2022 | 14,294 / 20.4% | 498 / 16.5% | 1,345 / 19.7% |
+| 2023 | 14,033 / 22.5% | 418 / 14.6% | 1,176 / 18.4% |
+| 2024 | 13,725 / 28.6% | 429 / 14.9% | 1,347 / 20.3% |
+| 2025 | 11,588 / 36.4% | 329 / 10.3% | 501 / 22.4% |
+
 ## BT0 — Market size: contractors active in owner-facing trades (last 12 months, non-major permits)
 
 | Trade | Permits | Median reported cost | Distinct contractors | With 5+ jobs | Top-10 share |

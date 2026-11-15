@@ -6,13 +6,17 @@ import { Suspense } from "react";
 import { Trend } from "@/components/bits";
 import { CopyButton } from "@/components/copy-button";
 import { PrintButton } from "@/components/print-button";
+import { ProspectPipelinePanel } from "@/components/prospect-pipeline-panel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { count, dateLabel, money, pct } from "@/lib/format";
 import { tradeNoun } from "@/lib/insights";
+import { todayChicago } from "@/lib/pipeline";
+import { getPipelineHistory, getPipelineRow } from "@/lib/prospect-pipeline";
 import { getProspect } from "@/lib/prospects";
 import { getSnapshot } from "@/lib/snapshot";
 import { buildTeaser, draftColdEmail, joinNames } from "@/lib/teaser";
+import { viewerId } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Prospect teaser" };
 
@@ -55,6 +59,21 @@ async function Teaser({ params }: { params: PageProps<"/prospects/[id]">["params
         </div>
         <PrintButton label="Print teaser" />
       </header>
+
+      <Card className="print:hidden">
+        <CardHeader>
+          <CardTitle>Pipeline</CardTitle>
+          <CardDescription>
+            Your private sales tracking for this contractor: status, contact details you found by hand, notes, and the
+            email sequence (day 0, 4, 10). Only you see this.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+            <Pipeline prospectId={prospect.id} />
+          </Suspense>
+        </CardContent>
+      </Card>
 
       <section className="grid grid-cols-3 gap-3">
         <Stat label="Open leads in your areas" value={count(t.openLeads)} />
@@ -241,6 +260,37 @@ async function Teaser({ params }: { params: PageProps<"/prospects/[id]">["params
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+const historyTime = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Chicago",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+async function Pipeline({ prospectId }: { prospectId: string }) {
+  const owner = await viewerId();
+  if (!owner) return <p className="text-sm text-muted-foreground">Sign in to track this prospect.</p>;
+  const [row, history] = await Promise.all([getPipelineRow(owner, prospectId), getPipelineHistory(owner, prospectId)]);
+  return (
+    <ProspectPipelinePanel
+      prospectId={prospectId}
+      today={todayChicago()}
+      state={{
+        status: row?.status ?? "not_contacted",
+        contactName: row?.contactName ?? "",
+        email: row?.email ?? "",
+        phone: row?.phone ?? "",
+        website: row?.website ?? "",
+        notes: row?.notes ?? "",
+        sequenceStep: row?.sequenceStep ?? 0,
+        nextFollowUp: row?.nextFollowUp ?? null,
+      }}
+      history={history.map((h) => ({ id: h.id, status: h.status, note: h.note, at: historyTime.format(h.createdAt) }))}
+    />
   );
 }
 

@@ -71,6 +71,16 @@ Goal of the call: a yes to the one-pager or a 15-minute meeting, not a sale. Log
 | "What does it cost?" | State section 2: first month free; then the pilot price; then the standard range. No surprises, cancel any time (write the cancel terms into the pilot agreement) |
 | "Send me something." | Send the printed teaser PDF and propose a time. Never send names of property owners before they are a client |
 
+## 5b. Tracking outreach in the app (the pipeline)
+
+`/prospects` doubles as a CRM-lite, private to the signed-in founder (never visible in a client workspace). Each contractor has a status (Not contacted → Emailed → Replied → Meeting → Pilot → Paying, or Not interested), contact fields you enter by hand (name, business email, phone, website), notes, and a history. The counts across the top of the page are your pipeline; click one to filter, or click **Due today / overdue** for the follow-ups to do now.
+
+- **Weekly routine, Monday:** open **Due today / overdue** first and send those touches (day-4 and day-10 emails, calls to business lines). Then pick new best-fit prospects (`/prospects?fit=best&status=not_contacted`), research contacts (10-minute cap), and send the day-0 emails.
+- On a contractor's page press **I sent email 1/2/3** right after sending. It sets the status to Emailed and the next follow-up: 4 days after email 1, 6 days after email 2 (day 10), none after email 3 (then wait 90 days, section 3). Change the status by hand when they reply, book a meeting, start a pilot or opt out; marking **Not interested** clears the follow-up. Record every opt-out here the same day.
+- Record where each contact came from in the notes (section 8, "Records").
+- **Export pipeline** (button on `/prospects`, or `/export/prospects`) downloads a CSV for your own records or a mail tool; it contains contact details, so keep it private.
+- Section 7 metrics: emails sent, replies, meetings and pilots can be read straight from the status counts and history; bounce rates still come from the sending tool.
+
 ## 6. Weekly pilot operations (about 2–3 hours per pilot per week at the start) [E]
 
 1. **Refresh the data:** `scripts/refresh-data.sh` (about 5 minutes, mostly downloads). Commit `web/data/snapshot.json` and `web/data/prospects.json`, republish. Until the scheduled refresh exists (HANDOFF next tasks), do this manually each Monday.

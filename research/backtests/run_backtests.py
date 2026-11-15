@@ -536,6 +536,103 @@ def bt_composite(con) -> dict:
 
 
 # --------------------------------------------------------------------------------------------------
+# BT7: 311 lead types (re-validation of signal-lab H07-H09, same within-property method)
+# --------------------------------------------------------------------------------------------------
+BT7_SPECS = [
+    {
+        "key": "complaint",
+        "label": "'Building Violation' 311 complaint → building violation",
+        "signal": "SELECT address_key AS k, created_date AS d FROM sr311 "
+        "WHERE sr_type = 'Building Violation' AND NOT duplicate",
+        "target": "SELECT address_key AS k, violation_date AS d FROM violations",
+        "window": 120,
+        "start": "2016-01-01",
+        "end": "2025-10-31",
+        "key_name": "address",
+    },
+    {
+        "key": "porch_request",
+        "label": "'Porch Inspection Request' 311 call → porch permit",
+        "signal": "SELECT address_key AS k, created_date AS d FROM sr311 "
+        "WHERE sr_type = 'Porch Inspection Request' AND NOT duplicate",
+        "target": "SELECT address_key AS k, issue_date AS d FROM p WHERE t_porch",
+        "window": 365,
+        "start": "2016-01-01",
+        "end": "2025-10-31",
+        "key_name": "address",
+    },
+    {
+        "key": "vacant",
+        "label": "'Vacant/Abandoned Building Complaint' → property sale",
+        "signal": "SELECT a.pin10 AS k, s.created_date AS d FROM sr311 s JOIN addr_pin a USING (address_key) "
+        "WHERE s.sr_type = 'Vacant/Abandoned Building Complaint' AND NOT s.duplicate",
+        "target": "SELECT pin10 AS k, sale_date AS d FROM sales WHERE NOT filtered_out",
+        "window": 365,
+        "start": "2016-01-01",
+        "end": "2025-06-30",
+        "key_name": "parcel (pin10)",
+    },
+]
+
+
+def same_property(con, spec: dict) -> dict:
+    """One episode per key per window (signals within the window of the previous one are dropped).
+
+    conversion = share of episodes followed by the target within the window; baseline = share of the same keys
+    that already had the target in the equally long window before the episode; lift = conversion / baseline.
+    """
+    window, start, end = spec["window"], spec["start"], spec["end"]
+    con.execute(f"CREATE OR REPLACE TEMP TABLE sig AS {spec['signal']}")
+    con.execute(f"CREATE OR REPLACE TEMP TABLE tgt AS {spec['target']}")
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE ep AS
+        SELECT k, d FROM (
+          SELECT k, d, lag(d) OVER (PARTITION BY k ORDER BY d) AS prev
+          FROM (SELECT DISTINCT k, d FROM sig WHERE k IS NOT NULL AND d BETWEEN DATE '{start}' AND DATE '{end}')
+        ) WHERE prev IS NULL OR d - prev > {window}
+    """)
+    r = one(
+        con,
+        f"""
+        WITH o AS (
+          SELECT e.k, e.d,
+            min(t.d - e.d) FILTER (WHERE t.d > e.d AND t.d <= e.d + INTERVAL {window} DAY) AS days,
+            bool_or(t.d > e.d - INTERVAL {2 * window} DAY AND t.d <= e.d - INTERVAL {window} DAY) AS before
+          FROM ep e LEFT JOIN tgt t ON t.k = e.k
+            AND t.d > e.d - INTERVAL {2 * window} DAY AND t.d <= e.d + INTERVAL {window} DAY
+          GROUP BY ALL
+        )
+        SELECT count(*) AS signals,
+          avg((days IS NOT NULL)::INT) AS conversion,
+          avg(coalesce(before, false)::INT) AS baseline,
+          median(days) AS median_days,
+          count(*) FILTER (WHERE d > DATE '{end}' - INTERVAL 365 DAY) / 52.0 AS signals_per_week,
+          min(d) AS first_signal, max(d) AS last_signal
+        FROM o
+    """,
+    )
+    r["lift"] = r["conversion"] / r["baseline"] if r["baseline"] else None
+    r["by_year"] = q(
+        con,
+        f"""
+        SELECT year(e.d) AS year, count(*) AS signals,
+          avg((EXISTS (SELECT 1 FROM tgt t WHERE t.k = e.k AND t.d > e.d AND t.d <= e.d + INTERVAL {window} DAY))::INT)
+            AS conversion
+        FROM ep e GROUP BY 1 ORDER BY 1
+    """,
+    )
+    r["window_days"] = window
+    r["period"] = f"{start} to {end}"
+    r["key"] = spec["key_name"]
+    r["label"] = spec["label"]
+    return {k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items()}
+
+
+def bt_311(con) -> dict:
+    return {spec["key"]: same_property(con, spec) for spec in BT7_SPECS}
+
+
+# --------------------------------------------------------------------------------------------------
 # BT0: market sizing for owner-facing trades (who would buy marketing / leads)
 # --------------------------------------------------------------------------------------------------
 def bt_market(con) -> dict:
@@ -742,6 +839,38 @@ def render(r: dict) -> str:
         present = ", ".join(FEATURES[f] for f in FEATURES if x[f]) or "(none)"
         a(f"| {present} | {x['n']:,} | {pct(x['rate'])} | {x['test_n']:,} | {pct(x['test_rate'])} |")
 
+    t7 = r["sr311"]
+    a("\n## BT7 — 311 lead types (re-validation of signal-lab H07–H09)\n")
+    a(
+        "Same within-property method as the signal lab: one episode per key per window; **baseline** = share of the "
+        "same keys that already had the target in the equally long window *before* the signal. 311 data starts "
+        "mid-2018, so these cover 2018 onward. Duplicates are excluded.\n"
+    )
+    a(
+        "| Signal → target | Key | Window | Signals | Conversion | Baseline | Lift | Median days | Signals/week (last year) |"
+    )
+    a("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    for x in t7.values():
+        lift = f"{x['lift']:.1f}x" if x["lift"] else "n/a"
+        a(
+            f"| {x['label']} | {x['key']} | {x['window_days']}d | {x['signals']:,} | {pct(x['conversion'])} | "
+            f"{pct(x['baseline'])} | {lift} | {x['median_days']} | {x['signals_per_week']:.1f} |"
+        )
+    a("\nConversion by year of the signal (signals / conversion within the window):\n")
+    a(
+        "| Year | "
+        + " | ".join(f"{x['label'].split(' → ')[0]} (signals / conversion)" for x in t7.values())
+        + " |"
+    )
+    a("| --- | " + " | ".join("---" for _ in t7) + " |")
+    years = sorted({y["year"] for x in t7.values() for y in x["by_year"]})
+    for yr in years:
+        cells = []
+        for x in t7.values():
+            row = next((y for y in x["by_year"] if y["year"] == yr), None)
+            cells.append(f"{row['signals']:,} / {pct(row['conversion'])}" if row else "—")
+        a(f"| {yr} | " + " | ".join(cells) + " |")
+
     a(
         "\n## BT0 — Market size: contractors active in owner-facing trades (last 12 months, non-major permits)\n"
     )
@@ -765,25 +894,29 @@ def main() -> int:
     con.execute("SET memory_limit = '8GB'")
     prepare_base(con)
     results = {"generated_on": date.today().isoformat()}
-    for name, fn in [
+    backtests = [
         ("demolition", bt_demolition),
         ("sale", bt_sale),
         ("violation", bt_violation),
         ("rotation", bt_rotation),
         ("restaurant", bt_restaurant),
         ("composite", bt_composite),
+        ("sr311", bt_311),
         ("market", bt_market),
-    ]:
-        if len(sys.argv) > 1 and name not in sys.argv[1:]:
+    ]
+    full = len(sys.argv) <= 1
+    for name, fn in backtests:
+        if not full and name not in sys.argv[1:]:
             continue
         print(f"running {name} ...", flush=True)
         results[name] = fn(con)
     OUT.mkdir(parents=True, exist_ok=True)
     stem = OUT / f"backtests-{results['generated_on']}"
-    stem.with_suffix(".json").write_text(json.dumps(results, indent=2, default=str))
-    if len(results) == 8:
+    json_path = stem.with_suffix(".json") if full else stem.with_suffix(".partial.json")
+    json_path.write_text(json.dumps(results, indent=2, default=str))
+    if full:
         stem.with_suffix(".md").write_text(render(results))
-    print(f"wrote {stem}.json" + (" and .md" if len(results) == 8 else ""))
+    print(f"wrote {json_path}" + (" and .md" if full else ""))
     return 0
 
 

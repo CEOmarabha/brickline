@@ -1,14 +1,23 @@
-import { FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { EmptyState, PageHeader, Trend } from "@/components/bits";
+import { EmptyState, PageHeader, ProspectStatusBadge, Trend } from "@/components/bits";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { count, dateLabel, money } from "@/lib/format";
+import {
+  isDue,
+  PROSPECT_STATUS_LABEL,
+  PROSPECT_STATUSES,
+  todayChicago,
+  type ProspectStatus,
+} from "@/lib/pipeline";
+import { getPipeline, type PipelineRow } from "@/lib/prospect-pipeline";
 import { getProspects, isBestFit, PROSPECT_TRADES, type Prospect, type ProspectTrade } from "@/lib/prospects";
 import { areaNames, getSnapshot } from "@/lib/snapshot";
 import { cn } from "@/lib/utils";
+import { viewerId } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Prospects" };
 
@@ -19,7 +28,12 @@ export default function ProspectsPage({ searchParams }: PageProps<"/prospects">)
     <>
       <PageHeader
         title="Prospects"
-        description="Our own sales list: Chicago contractors doing 3–60 permitted jobs a year, from public permit records. Open a teaser to see what Brickline would show them this week, plus a cold-email draft."
+        description="Our own sales list: Chicago contractors doing 3–60 permitted jobs a year, from public permit records. Open a teaser to see what Brickline would show them this week, plus a cold-email draft and your pipeline notes."
+        actions={
+          <a href="/export/prospects" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <Download /> Export pipeline
+          </a>
+        }
       />
       <Suspense fallback={<Skeleton className="h-[40rem] w-full" />}>
         <Prospects searchParams={searchParams} />
@@ -32,10 +46,13 @@ function first(v: string | string[] | undefined): string {
   return (Array.isArray(v) ? v[0] : v) ?? "";
 }
 
-function href(trade: string, best: boolean, page = 1): string {
+type StatusFilter = ProspectStatus | "due" | "all";
+
+function href(trade: string, best: boolean, status: StatusFilter = "all", page = 1): string {
   const params = new URLSearchParams();
   if (trade !== "all") params.set("trade", trade);
   if (best) params.set("fit", "best");
+  if (status !== "all") params.set("status", status);
   if (page > 1) params.set("page", String(page));
   const qs = params.toString();
   return qs ? `/prospects?${qs}` : "/prospects";
@@ -48,12 +65,45 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
     ? (tradeParam as ProspectTrade)
     : "all";
   const best = first(sp.fit) === "best";
-  const [file, snap] = await Promise.all([getProspects(), getSnapshot()]);
+  const statusParam = first(sp.status);
+  const status: StatusFilter =
+    statusParam === "due" || PROSPECT_STATUSES.includes(statusParam as ProspectStatus)
+      ? (statusParam as StatusFilter)
+      : "all";
+  const owner = await viewerId();
+  const [file, snap, pipeline] = await Promise.all([
+    getProspects(),
+    getSnapshot(),
+    owner ? getPipeline(owner) : Promise.resolve(new Map<string, PipelineRow>()),
+  ]);
   const names = areaNames(snap);
+  const today = todayChicago();
 
   const byTrade = new Map<string, number>();
   for (const p of file.prospects) byTrade.set(p.trade, (byTrade.get(p.trade) ?? 0) + 1);
-  const rows = file.prospects.filter((p) => (trade === "all" || p.trade === trade) && (!best || isBestFit(p)));
+  const statusOf = (p: Prospect): ProspectStatus => pipeline.get(p.id)?.status ?? "not_contacted";
+  const byStatus = new Map<ProspectStatus, number>();
+  let dueCount = 0;
+  for (const p of file.prospects) {
+    byStatus.set(statusOf(p), (byStatus.get(statusOf(p)) ?? 0) + 1);
+    const row = pipeline.get(p.id);
+    if (row && isDue(row, today)) dueCount++;
+  }
+  const matches = (p: Prospect) => {
+    if (status === "all") return true;
+    const row = pipeline.get(p.id);
+    return status === "due" ? !!row && isDue(row, today) : statusOf(p) === status;
+  };
+  const rows = file.prospects.filter(
+    (p) => (trade === "all" || p.trade === trade) && (!best || isBestFit(p)) && matches(p),
+  );
+  if (status === "due") {
+    rows.sort(
+      (a, b) =>
+        (pipeline.get(a.id)?.nextFollowUp ?? "").localeCompare(pipeline.get(b.id)?.nextFollowUp ?? "") ||
+        a.id.localeCompare(b.id),
+    );
+  }
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const page = Math.min(pages, Math.max(1, Number(first(sp.page)) || 1));
   const shown = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -63,19 +113,47 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
 
   return (
     <div className="space-y-4">
+      {owner && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+          <Link
+            href={href(trade, best, "due")}
+            className={cn("rounded-lg border p-3 hover:bg-muted", status === "due" && "border-primary bg-primary/5")}
+          >
+            <div className="text-xs text-muted-foreground">Due today / overdue</div>
+            <div className={cn("text-xl font-semibold tabular-nums", dueCount > 0 && "text-amber-700")}>
+              {count(dueCount)}
+            </div>
+          </Link>
+          {PROSPECT_STATUSES.map((s) => (
+            <Link
+              key={s}
+              href={href(trade, best, status === s ? "all" : s)}
+              className={cn("rounded-lg border p-3 hover:bg-muted", status === s && "border-primary bg-primary/5")}
+            >
+              <div className="text-xs text-muted-foreground">{PROSPECT_STATUS_LABEL[s]}</div>
+              <div className="text-xl font-semibold tabular-nums">{count(byStatus.get(s) ?? 0)}</div>
+            </Link>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
-        <Link href={href("all", best)} className={pill(trade === "all")}>
+        <Link href={href("all", best, status)} className={pill(trade === "all")}>
           All trades ({count(file.prospects.length)})
         </Link>
         {PROSPECT_TRADES.map((t) => (
-          <Link key={t} href={href(t, best)} className={pill(trade === t)}>
+          <Link key={t} href={href(t, best, status)} className={pill(trade === t)}>
             {snap.trades[t].label} ({count(byTrade.get(t) ?? 0)})
           </Link>
         ))}
         <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
-        <Link href={href(trade, !best)} className={pill(best)} title="Already win violation jobs, 5–40 jobs a year">
+        <Link href={href(trade, !best, status)} className={pill(best)} title="Already win violation jobs, 5–40 jobs a year">
           Best fit only
         </Link>
+        {status !== "all" && (
+          <Link href={href(trade, best)} className={pill(true)}>
+            {status === "due" ? "Due today / overdue" : PROSPECT_STATUS_LABEL[status]} ×
+          </Link>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         {count(rows.length)} contractors · permits through {dateLabel(file.generatedFor)}. Violation-driven jobs are
@@ -86,10 +164,12 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
         <EmptyState title="No prospects match">Try another trade or turn off &ldquo;Best fit only&rdquo;.</EmptyState>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[56rem] text-sm">
+          <table className="w-full min-w-[68rem] text-sm">
             <thead className="border-b text-left text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-2 font-medium">Company</th>
+                <th className="px-4 py-2 font-medium">Pipeline</th>
+                <th className="px-4 py-2 font-medium">Follow-up</th>
                 <th className="px-4 py-2 font-medium">Trade</th>
                 <th className="px-4 py-2 font-medium">Jobs, 12 mo</th>
                 <th className="px-4 py-2 font-medium">Typical job</th>
@@ -101,7 +181,14 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
             </thead>
             <tbody className="divide-y">
               {shown.map((p) => (
-                <ProspectRow key={p.id} p={p} label={snap.trades[p.trade].label} names={names} />
+                <ProspectRow
+                  key={p.id}
+                  p={p}
+                  label={snap.trades[p.trade].label}
+                  names={names}
+                  row={pipeline.get(p.id)}
+                  today={today}
+                />
               ))}
             </tbody>
           </table>
@@ -115,12 +202,12 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
           </span>
           <div className="flex gap-2">
             {page > 1 && (
-              <Link href={href(trade, best, page - 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Link href={href(trade, best, status, page - 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Previous
               </Link>
             )}
             {page < pages && (
-              <Link href={href(trade, best, page + 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Link href={href(trade, best, status, page + 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Next
               </Link>
             )}
@@ -131,10 +218,30 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
   );
 }
 
-function ProspectRow({ p, label, names }: { p: Prospect; label: string; names: Map<number, string> }) {
+function ProspectRow({
+  p,
+  label,
+  names,
+  row,
+  today,
+}: {
+  p: Prospect;
+  label: string;
+  names: Map<number, string>;
+  row: PipelineRow | undefined;
+  today: string;
+}) {
+  const due = row ? isDue(row, today) : false;
   return (
     <tr>
       <td className="px-4 py-2.5 font-medium">{p.company}</td>
+      <td className="px-4 py-2.5">
+        <ProspectStatusBadge status={row?.status ?? "not_contacted"} />
+      </td>
+      <td className={cn("px-4 py-2.5 whitespace-nowrap", due ? "font-medium text-amber-700" : "text-muted-foreground")}>
+        {row?.nextFollowUp ? dateLabel(row.nextFollowUp) : "—"}
+        {due && row?.nextFollowUp && row.nextFollowUp < today ? " (overdue)" : ""}
+      </td>
       <td className="px-4 py-2.5 text-muted-foreground">{label}</td>
       <td className="px-4 py-2.5 tabular-nums">
         {count(p.jobs12m)} <Trend now={p.jobs12m} before={p.jobsPrev12m} />

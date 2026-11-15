@@ -1139,6 +1139,176 @@
       }
     ]
   },
+  "sr311": {
+    "complaint": {
+      "signals": 96864,
+      "conversion": 0.3157,
+      "baseline": 0.054,
+      "median_days": 32.0,
+      "signals_per_week": 255.4038,
+      "first_signal": "2018-11-03",
+      "last_signal": "2025-10-31",
+      "lift": 5.8455,
+      "by_year": [
+        {
+          "year": 2018,
+          "signals": 217,
+          "conversion": 0.5391705069124424
+        },
+        {
+          "year": 2019,
+          "signals": 15001,
+          "conversion": 0.4961669222051863
+        },
+        {
+          "year": 2020,
+          "signals": 13125,
+          "conversion": 0.2953904761904762
+        },
+        {
+          "year": 2021,
+          "signals": 14881,
+          "conversion": 0.330958940931389
+        },
+        {
+          "year": 2022,
+          "signals": 14294,
+          "conversion": 0.20351196306142438
+        },
+        {
+          "year": 2023,
+          "signals": 14033,
+          "conversion": 0.22539727784507946
+        },
+        {
+          "year": 2024,
+          "signals": 13725,
+          "conversion": 0.286120218579235
+        },
+        {
+          "year": 2025,
+          "signals": 11588,
+          "conversion": 0.3639109423541595
+        }
+      ],
+      "window_days": 120,
+      "period": "2016-01-01 to 2025-10-31",
+      "key": "address",
+      "label": "'Building Violation' 311 complaint \u2192 building violation"
+    },
+    "porch_request": {
+      "signals": 3014,
+      "conversion": 0.1367,
+      "baseline": 0.0119,
+      "median_days": 149.5,
+      "signals_per_week": 7.1154,
+      "first_signal": "2018-07-23",
+      "last_signal": "2025-10-31",
+      "lift": 11.4444,
+      "by_year": [
+        {
+          "year": 2018,
+          "signals": 2,
+          "conversion": 0.0
+        },
+        {
+          "year": 2019,
+          "signals": 457,
+          "conversion": 0.14442013129102846
+        },
+        {
+          "year": 2020,
+          "signals": 440,
+          "conversion": 0.10681818181818181
+        },
+        {
+          "year": 2021,
+          "signals": 441,
+          "conversion": 0.13151927437641722
+        },
+        {
+          "year": 2022,
+          "signals": 498,
+          "conversion": 0.1646586345381526
+        },
+        {
+          "year": 2023,
+          "signals": 418,
+          "conversion": 0.145933014354067
+        },
+        {
+          "year": 2024,
+          "signals": 429,
+          "conversion": 0.14918414918414918
+        },
+        {
+          "year": 2025,
+          "signals": 329,
+          "conversion": 0.1033434650455927
+        }
+      ],
+      "window_days": 365,
+      "period": "2016-01-01 to 2025-10-31",
+      "key": "address",
+      "label": "'Porch Inspection Request' 311 call \u2192 porch permit"
+    },
+    "vacant": {
+      "signals": 9307,
+      "conversion": 0.1937,
+      "baseline": 0.0778,
+      "median_days": 167.0,
+      "signals_per_week": 20.5,
+      "first_signal": "2018-07-03",
+      "last_signal": "2025-06-30",
+      "lift": 2.4903,
+      "by_year": [
+        {
+          "year": 2018,
+          "signals": 83,
+          "conversion": 0.24096385542168675
+        },
+        {
+          "year": 2019,
+          "signals": 2052,
+          "conversion": 0.1817738791423002
+        },
+        {
+          "year": 2020,
+          "signals": 1426,
+          "conversion": 0.2026647966339411
+        },
+        {
+          "year": 2021,
+          "signals": 1377,
+          "conversion": 0.18445896877269427
+        },
+        {
+          "year": 2022,
+          "signals": 1345,
+          "conversion": 0.1970260223048327
+        },
+        {
+          "year": 2023,
+          "signals": 1176,
+          "conversion": 0.1836734693877551
+        },
+        {
+          "year": 2024,
+          "signals": 1347,
+          "conversion": 0.20341499628804752
+        },
+        {
+          "year": 2025,
+          "signals": 501,
+          "conversion": 0.22355289421157684
+        }
+      ],
+      "window_days": 365,
+      "period": "2016-01-01 to 2025-06-30",
+      "key": "parcel (pin10)",
+      "label": "'Vacant/Abandoned Building Complaint' \u2192 property sale"
+    }
+  },
   "market": {
     "rows": [
       {

@@ -7,18 +7,21 @@ import pg from "pg";
 
 const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
 let pool: pg.Pool | undefined;
-let local: Promise<PGlite> | undefined;
+
+// Local PGlite is kept on globalThis so route handlers, pages and server actions share one database in dev,
+// where each is bundled separately.
+const shared = globalThis as typeof globalThis & { __bricklineLocalDb?: Promise<PGlite> };
 
 export async function sql<T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
   if (databaseUrl !== "") {
     pool ??= new pg.Pool({ connectionString: databaseUrl, max: 5 });
     return (await pool.query(text, params)).rows as T[];
   }
-  local ??= startLocal().catch((error: unknown) => {
-    local = undefined;
+  shared.__bricklineLocalDb ??= startLocal().catch((error: unknown) => {
+    shared.__bricklineLocalDb = undefined;
     throw error;
   });
-  return (await (await local).query<T>(text, params)).rows;
+  return (await (await shared.__bricklineLocalDb).query<T>(text, params)).rows;
 }
 
 async function startLocal(): Promise<PGlite> {
