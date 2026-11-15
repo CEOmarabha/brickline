@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import bisect
 import json
+import os
 import re
 import sys
 from datetime import UTC, date, datetime
@@ -63,6 +64,8 @@ COMMERCIAL_SUB_TRADES = ("electrical", "plumbing", "hvac")
 COMPLAINT_TRADES = ("porch", "masonry", "roofing", "general")
 CELL_LAT, CELL_LON = 0.0015, 0.002  # ~160 m blocks, same grid as research/signal_lab/lab.py
 RESI_CLASSES = "('202','203','204','205','206','207','208','209','210','234','278','295','211','212')"
+# A usable street address: number, optional direction, then a street name that is more than one letter.
+COMPLETE_ADDRESS = "^[0-9]+( [NSEW])? [A-Z0-9]{2,}"
 MIN_CELL = 300  # minimum historical episodes per cell before a finer split is used
 
 # Assumptions surfaced in the UI (replace with pilot data).
@@ -125,6 +128,18 @@ def adjusted(age: int) -> str:
 
 def iso(d) -> str | None:
     return d.isoformat() if d else None
+
+
+def generated_at(dates: dict) -> str:
+    """Reproducible build stamp: the newest source record (midnight UTC), or SNAPSHOT_GENERATED_AT if set.
+
+    A wall-clock time would make two builds from the same warehouse differ, which defeats md5 comparisons.
+    """
+    override = os.environ.get("SNAPSHOT_GENERATED_AT")
+    if override:
+        return override
+    newest = max(d for d in dates.values() if d)
+    return datetime(newest.year, newest.month, newest.day, tzinfo=UTC).isoformat(timespec="seconds")
 
 
 ENTITY_STOPWORDS = {"LLC", "INC", "CORP", "CO", "THE", "OF", "AND", "LTD", "LP", "TRUST", "SERIES", "GROUP"}
@@ -323,7 +338,7 @@ def sale_model(con) -> dict:
             "p_any": sum(r["first_days"] is not None for r in sub) / len(sub),
             "p_major": sum(bool(r["major"]) for r in sub) / len(sub),
             "p_trade": {k: sum(bool(r[k]) for r in sub) / len(sub) for k in TRADES},
-            "delays": [r["first_days"] for r in sub if r["first_days"] is not None],
+            "delays": cdf_points([r["first_days"] for r in sub]),
         }
     return model
 
@@ -375,10 +390,10 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
             ),
             ep AS (
               SELECT address_key, min(violation_date) AS first_date, max(violation_date) AS last_date,
-                     list(DISTINCT description) AS descriptions, min(id) AS violation_id,
+                     list(DISTINCT description ORDER BY description) AS descriptions, min(id) AS violation_id,
                      bool_or(violation_status = 'OPEN') AS any_open,
                      count(*) AS citations, min(inspection_category) AS category,
-                     avg(lat) AS lat, avg(lon) AS lon
+                     median(lat) AS lat, median(lon) AS lon
               FROM recent GROUP BY address_key
             ),
             fresh AS (
@@ -394,7 +409,7 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
               coalesce({COMPANY_SQL.format(col="par.owner_name")}, false) AS company,
               (SELECT min(p.issue_date) FROM p WHERE p.address_key = f.address_key AND p.t_{t["permit"]}
                  AND p.issue_date > f.first_date) AS permit_date,
-              (SELECT first(pp.name_raw ORDER BY p.issue_date) FROM p
+              (SELECT first(pp.name_raw ORDER BY p.issue_date, p.id, pp.slot, pp.name_raw) FROM p
                  JOIN permit_parties pp ON pp.permit_id = p.id AND pp.role = '{t["role"]}'
                  WHERE p.address_key = f.address_key AND p.t_{t["permit"]} AND p.issue_date > f.first_date)
                 AS permit_contractor
@@ -406,6 +421,7 @@ def violation_leads(con, today: date, vmodel: dict, values: dict) -> tuple[list[
             LEFT JOIN addr_area aa ON aa.address_key = f.address_key
             LEFT JOIN pin_area pa ON pa.pin10 = ap.pin10
             LEFT JOIN zip_area za ON za.zip = par.zip
+            ORDER BY f.first_date DESC, f.address_key
         """,
         )
         for r in rows:
@@ -516,20 +532,21 @@ def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[di
           par.address, par.owner_name, par.owner_mailing, par.units,
           coalesce(pa.community_area, za.community_area) AS community_area,
           rp.purchases_24m,
-          (SELECT list({{'name': name_raw, 'jobs': jobs}} ORDER BY jobs DESC)[:3] FROM used u
+          (SELECT list({{'name': name_raw, 'jobs': jobs}} ORDER BY jobs DESC, name_raw)[:3] FROM used u
              WHERE u.buyer_key = r.buyer_key) AS contractors_used,
-          (SELECT list(par2.address ORDER BY s2.sale_date DESC)[:5] FROM s s2
+          (SELECT list(par2.address ORDER BY s2.sale_date DESC, s2.pin10)[:5] FROM s s2
              JOIN parcels par2 ON par2.pin10 = s2.pin10
              WHERE s2.buyer_key = r.buyer_key AND s2.pin10 <> r.pin10
                AND s2.sale_date > DATE '{today_sales}' - INTERVAL 730 DAY) AS other_properties,
           (SELECT list({{'date': p.issue_date, 'type': p.permit_type, 'cost': p.reported_cost,
-                         'description': left(p.description, 140)}} ORDER BY p.issue_date)[:3]
+                         'description': left(p.description, 140)}} ORDER BY p.issue_date, p.id)[:3]
              FROM p WHERE p.pin10 = r.pin10 AND p.issue_date > r.sale_date) AS permits_since
         FROM recent r
         LEFT JOIN parcels par ON par.pin10 = r.pin10
         LEFT JOIN pin_area pa ON pa.pin10 = r.pin10
         LEFT JOIN zip_area za ON za.zip = par.zip
         LEFT JOIN repeat rp ON rp.buyer_key = r.buyer_key
+        ORDER BY r.sale_date DESC, r.pin10, r.buyer_key
     """,
     )
     leads = []
@@ -758,7 +775,7 @@ def sr_rows(
           SELECT k, first(address_key ORDER BY created_date, sr_number) AS address_key,
                  min(created_date) AS first_date, count(*) AS requests,
                  first(sr_number ORDER BY created_date, sr_number) AS sr_number,
-                 first(status ORDER BY created_date, sr_number) AS status, avg(lat) AS lat, avg(lon) AS lon
+                 first(status ORDER BY created_date, sr_number) AS status, median(lat) AS lat, median(lon) AS lon
           FROM recent GROUP BY k
         ),
         f AS (
@@ -1008,16 +1025,23 @@ def roofing_blocks(con, today: date) -> dict:
     cells = q(
         con,
         f"""
-        WITH rr AS (
+        WITH parcel_addr AS (
+          SELECT pin10, min(regexp_replace(trim(address), '\\s+', ' ', 'g')) AS address FROM parcels
+          WHERE regexp_matches(upper(regexp_replace(trim(address), '\\s+', ' ', 'g')), '{COMPLETE_ADDRESS}')
+          GROUP BY 1
+        ),
+        rr AS (
           SELECT r.cy, r.cx, r.pin10, max(p.issue_date) AS last_date,
-                 any_value(coalesce(par.address, p.address_key)) AS address
-          FROM p JOIN resi r USING (pin10)
-          LEFT JOIN (SELECT pin10, first(address) AS address FROM parcels GROUP BY 1) par ON par.pin10 = r.pin10
-          WHERE p.t_roofing AND p.issue_date > DATE '{today}' - INTERVAL 90 DAY GROUP BY r.cy, r.cx, r.pin10
+                 coalesce(pa.address,
+                   first(p.address_key ORDER BY p.issue_date DESC, p.id)
+                     FILTER (WHERE regexp_matches(p.address_key, '{COMPLETE_ADDRESS}'))) AS address
+          FROM p JOIN resi r USING (pin10) LEFT JOIN parcel_addr pa ON pa.pin10 = r.pin10
+          WHERE p.t_roofing AND p.issue_date > DATE '{today}' - INTERVAL 90 DAY
+          GROUP BY r.cy, r.cx, r.pin10, pa.address
         ),
         top AS (
           SELECT cy, cx, count(*) AS recent, max(last_date) AS last_date,
-                 list(address ORDER BY last_date DESC, pin10)[:5] AS addresses,
+                 list(address ORDER BY last_date DESC, pin10) FILTER (WHERE address IS NOT NULL) AS addresses,
                  list(pin10) AS pins
           FROM rr GROUP BY cy, cx HAVING count(*) >= 2 ORDER BY recent DESC, cy, cx LIMIT 100
         )
@@ -1036,7 +1060,7 @@ def roofing_blocks(con, today: date) -> dict:
             "recentReroofs": c["recent"],
             "lastPermit": iso(c["last_date"]),
             "residentialParcels": c["parcels"],
-            "addresses": [title(a) for a in c["addresses"]],
+            "addresses": [title(a) for a in (c["addresses"] or [])[:5]],
         }
         for c in cells
     ]
@@ -1059,16 +1083,16 @@ def preapp_projects(con, today: date) -> dict:
         WITH scored AS (
           SELECT f.*, c.rate, c.n FROM feat f JOIN combo c USING ({cols}) WHERE f.d = DATE '{today}'
         ),
-        top AS (SELECT * FROM scored ORDER BY rate DESC, hash(pin10) LIMIT 150)
+        top AS (SELECT * FROM scored ORDER BY rate DESC, hash(pin10), pin10 LIMIT 150)
         SELECT t.*, par.address, par.owner_name, pa.community_area,
           (SELECT list({{'date': p.issue_date, 'type': p.permit_type, 'cost': p.reported_cost,
-                         'description': left(p.description, 140)}} ORDER BY p.issue_date DESC)[:3]
+                         'description': left(p.description, 140)}} ORDER BY p.issue_date DESC, p.id)[:3]
              FROM p WHERE p.pin10 = t.pin10) AS recent_permits,
-          (SELECT list(DISTINCT pp.name_raw)[:3] FROM p JOIN permit_parties pp ON pp.permit_id = p.id
+          (SELECT list(DISTINCT pp.name_raw ORDER BY pp.name_raw)[:3] FROM p JOIN permit_parties pp ON pp.permit_id = p.id
              WHERE p.pin10 = t.pin10 AND pp.role = 'gc' AND p.issue_date > DATE '{today}' - INTERVAL 1095 DAY)
             AS recent_gcs
         FROM top t LEFT JOIN parcels par USING (pin10) LEFT JOIN pin_area pa USING (pin10)
-        ORDER BY t.rate DESC
+        ORDER BY t.rate DESC, hash(t.pin10), t.pin10
     """,
     )
     projects = []
@@ -1119,7 +1143,7 @@ def gc_targets(con, today: date) -> dict:
               FROM jobs
             ),
             g AS (
-              SELECT gc, any_value(gc_name) AS gc_name, count(*) AS jobs_total,
+              SELECT gc, first(gc_name ORDER BY issue_date DESC, id) AS gc_name, count(*) AS jobs_total,
                 avg(is_new::INT) FILTER (WHERE k > 1) AS open_door,
                 -- shrink toward the ~15% citywide new-sub rate so GCs with few jobs don't top the list
                 (sum(is_new::INT) FILTER (WHERE k > 1) + 0.75) / (count(*) FILTER (WHERE k > 1) + 5)
@@ -1130,10 +1154,10 @@ def gc_targets(con, today: date) -> dict:
               FROM j GROUP BY gc
             )
             SELECT g.*,
-              (SELECT list({{'name': sub_name, 'jobs': n}} ORDER BY n DESC)[:3] FROM (
-                 SELECT any_value(sub_name) AS sub_name, count(*) AS n FROM jobs
+              (SELECT list({{'name': sub_name, 'jobs': n}} ORDER BY n DESC, sub)[:3] FROM (
+                 SELECT sub, first(sub_name ORDER BY issue_date DESC, id) AS sub_name, count(*) AS n FROM jobs
                  WHERE jobs.gc = g.gc AND issue_date > DATE '{today}' - INTERVAL 730 DAY GROUP BY sub)) AS subs,
-              (SELECT list(community_area ORDER BY n DESC)[:3] FROM (
+              (SELECT list(community_area ORDER BY n DESC, community_area)[:3] FROM (
                  SELECT community_area, count(*) AS n FROM jobs
                  WHERE jobs.gc = g.gc AND issue_date > DATE '{today}' - INTERVAL 730 DAY
                    AND community_area IS NOT NULL GROUP BY 1)) AS areas
@@ -1169,17 +1193,17 @@ def competitors(con, today: date, won: list[dict]) -> dict:
               WHERE p.t_{t["permit"]} AND pp.name_key <> '' AND p.issue_date > DATE '{today}' - INTERVAL 730 DAY
             ),
             c AS (
-              SELECT name_key, any_value(name_raw) AS name,
+              SELECT name_key, first(name_raw ORDER BY issue_date DESC, id, name_raw) AS name,
                 count(DISTINCT id) FILTER (WHERE issue_date > DATE '{today}' - INTERVAL 365 DAY) AS jobs_12m,
                 count(DISTINCT id) FILTER (WHERE issue_date <= DATE '{today}' - INTERVAL 365 DAY) AS jobs_prev,
                 median(reported_cost) FILTER (WHERE reported_cost > 0) AS median_cost
               FROM x GROUP BY 1
             )
             SELECT c.*, c.jobs_12m / sum(c.jobs_12m) OVER () AS share,
-              (SELECT list(community_area ORDER BY n DESC)[:3] FROM (
+              (SELECT list(community_area ORDER BY n DESC, community_area)[:3] FROM (
                  SELECT community_area, count(*) AS n FROM x WHERE x.name_key = c.name_key
                    AND community_area IS NOT NULL GROUP BY 1)) AS areas
-            FROM c WHERE jobs_12m > 0 ORDER BY jobs_12m DESC LIMIT 25
+            FROM c WHERE jobs_12m > 0 ORDER BY jobs_12m DESC, name_key LIMIT 25
         """,
         )
         won_counts: dict[str, int] = {}
@@ -1199,7 +1223,7 @@ def competitors(con, today: date, won: list[dict]) -> dict:
                 for r in rows
             ],
             "violationJobsWon": sorted(
-                ({"name": n, "jobs": c} for n, c in won_counts.items()), key=lambda x: -x["jobs"]
+                ({"name": n, "jobs": c} for n, c in won_counts.items()), key=lambda x: (-x["jobs"], x["name"])
             )[:10],
         }
     return out
@@ -1306,7 +1330,7 @@ def build(out: Path) -> dict:
     print("gc targets, competitors, areas ...", flush=True)
     snapshot = {
         "meta": {
-            "generatedAt": datetime.now(UTC).isoformat(timespec="seconds"),
+            "generatedAt": generated_at(dates),
             "dataAsOf": {k: iso(v) for k, v in dates.items()},
             "sources": [
                 {
@@ -1389,10 +1413,14 @@ def build(out: Path) -> dict:
         },
         "leads": sorted(
             v_leads + s_leads + c_leads + pr_leads + vb_leads,
-            key=lambda x: x["signalDate"] or "",
+            key=lambda x: (x["signalDate"] or "", x["id"]),
             reverse=True,
         ),
-        "recentWins": sorted(won, key=lambda x: x["permitDate"], reverse=True)[:400],
+        "recentWins": sorted(
+            won,
+            key=lambda x: (x["permitDate"], x["signalDate"], x["trade"], x["address"], x["contractor"] or ""),
+            reverse=True,
+        )[:400],
         "competitors": competitors(con, today, won),
         "areas": areas(con, today, dates["sales"]),
         "blocks": blocks,

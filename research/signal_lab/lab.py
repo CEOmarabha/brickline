@@ -26,7 +26,7 @@ import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from engine.score.signals import one, prepare_base, q  # noqa: E402
+from engine.score.signals import INVESTOR_RE, NON_OPERATOR_RE, one, prepare_base, q  # noqa: E402
 
 DB = Path("data/warehouse.duckdb")
 OUT = Path("research/findings")
@@ -216,7 +216,7 @@ def h02_reroof_then_solar(con) -> dict:
                     AND p.issue_date <= s.d + INTERVAL 730 DAY) AS y
           FROM snap s CROSS JOIN resi r
         )
-        SELECT reroofed, count(*) AS parcels, avg(y::INT) AS rate FROM u WHERE NOT already GROUP BY 1
+        SELECT reroofed, count(*) AS parcels, avg(y::INT) AS rate FROM u WHERE NOT already GROUP BY 1 ORDER BY 1
     """,
     )
     on = next(r for r in rows if r["reroofed"])
@@ -637,6 +637,451 @@ def h16_energy(con) -> dict:
     )
 
 
+CHAIN_TARGET = "SELECT address_key AS k, issue_date AS d FROM p WHERE t_porch OR t_masonry"
+
+
+def h17_complaint_chain(con) -> dict:
+    """311 complaint -> porch/masonry citation -> porch/masonry permit, with timing for each step."""
+
+    def complaints(negate: str) -> str:
+        return f"""
+        SELECT s.address_key AS k, s.created_date AS d FROM sr311 s
+        WHERE s.sr_type = 'Building Violation' AND NOT s.duplicate AND s.address_key IS NOT NULL
+          AND {negate} EXISTS (SELECT 1 FROM violations v WHERE v.address_key = s.address_key
+                      AND (v.t_porch OR v.t_masonry) AND v.violation_date > s.created_date
+                      AND v.violation_date <= s.created_date + INTERVAL 120 DAY)
+    """
+
+    signal = complaints("")
+    uncited = same_property(con, complaints("NOT"), CHAIN_TARGET, 365, "2018-07-01", "2025-10-31")
+    m = same_property(con, signal, CHAIN_TARGET, 365, "2018-07-01", "2025-10-31")
+    steps = []
+    for label, vflag, pflag in (
+        (
+            "Porch or masonry citation → porch or masonry permit",
+            "t_porch OR t_masonry",
+            "t_porch OR t_masonry",
+        ),
+        ("Porch citation → porch permit", "t_porch", "t_porch"),
+        ("Masonry citation → masonry permit", "t_masonry", "t_masonry"),
+    ):
+        row = one(
+            con,
+            f"""
+            WITH c AS (
+              SELECT e.k, e.d, min(v.violation_date) AS vd
+              FROM ep e JOIN violations v ON v.address_key = e.k AND ({vflag})
+                AND v.violation_date > e.d AND v.violation_date <= e.d + INTERVAL 120 DAY
+              GROUP BY ALL
+            ),
+            pv AS (
+              SELECT c.k, c.d, c.vd, min(t.issue_date) AS pd
+              FROM c LEFT JOIN p t ON t.address_key = c.k AND ({pflag})
+                AND t.issue_date > c.vd AND t.issue_date <= c.vd + INTERVAL 365 DAY
+              GROUP BY ALL
+            )
+            SELECT count(*) AS complaints, median(vd - d) AS median_days_complaint_to_citation,
+              round(avg((pd IS NOT NULL)::INT), 4) AS conversion, count(pd) AS permits,
+              median(pd - vd) AS median_days_citation_to_permit,
+              quantile_cont(pd - vd, 0.25) AS citation_to_permit_p25_days,
+              quantile_cont(pd - vd, 0.75) AS citation_to_permit_p75_days,
+              median(pd - d) AS median_days_complaint_to_permit
+            FROM pv
+        """,
+        )
+        steps.append({"step": label, **row})
+    m["groups"] = steps
+    m["complaint_basis"] = [
+        {
+            "cohort": "Complaint followed by a porch/masonry citation within 120 days",
+            "complaints": m["signals"],
+            "conversion": m["conversion"],
+            "prior_window": m["baseline"],
+            "median_days_complaint_to_permit": m["median_days"],
+        },
+        {
+            "cohort": "Complaint with NO porch/masonry citation within 120 days",
+            "complaints": uncited["signals"],
+            "conversion": uncited["conversion"],
+            "prior_window": uncited["baseline"],
+            "median_days_complaint_to_permit": uncited["median_days"],
+        },
+    ]
+    m["lift_note"] = (
+        "lift = permit within 365 days of the complaint vs the same address's window 1-2 years earlier"
+    )
+    return result(
+        "H17",
+        "Complaint chain: 311 complaint → porch/masonry citation → permit (when to mail)",
+        who="Porch builders, masons and tuckpointers",
+        data="311 service requests, building violations, permits",
+        signal="'Building Violation' 311 complaint at an address that gets a porch or masonry citation within 120 days",
+        target="Porch or masonry permit at the same address within 365 days of the complaint",
+        metrics=m,
+        notes="Cohort is selected on the citation (known only afterwards), so it describes the timeline of the chain, not a "
+        "forecast available on the complaint day; at complaint time the usable rate is H07 (31.6% cited) times the "
+        "porch/masonry share. 311 data starts mid-2018. The citation-to-permit step is the validated violation lead; "
+        "lift against the address's own earlier year is inflated by the citation itself forcing a repair, so also read the "
+        "complaint_basis table (complaints with no porch/masonry citation convert at a much lower rate). "
+        "Permits undercount repairs, so rates are floors.",
+    )
+
+
+def h18_repeat_investors(con) -> dict:
+    """Company buyers with 3+ purchase dates in the prior 24 months vs one-off company buyers."""
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE co_sales AS
+        SELECT DISTINCT upper(trim(buyer_name)) AS buyer, pin10, sale_date, is_multisale FROM sales
+        WHERE NOT filtered_out AND buyer_name IS NOT NULL AND pin10 IS NOT NULL
+          AND sale_date BETWEEN DATE '2014-01-01' AND DATE '2025-10-31'
+          AND regexp_matches(upper(buyer_name), '{INVESTOR_RE}')
+          AND NOT regexp_matches(upper(buyer_name), '{NON_OPERATOR_RE}')
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE co_deals AS SELECT DISTINCT buyer, sale_date FROM co_sales
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE co_units AS
+        SELECT u.buyer, u.pin10, u.sale_date,
+          (SELECT count(*) FROM co_deals d WHERE d.buyer = u.buyer AND d.sale_date > u.sale_date - INTERVAL 730 DAY
+             AND d.sale_date <= u.sale_date) AS n24
+        FROM co_sales u
+        WHERE NOT u.is_multisale AND u.sale_date >= DATE '2016-01-01'
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE co_out AS
+        SELECT u.buyer, u.pin10, u.sale_date, u.n24,
+          CASE WHEN u.n24 = 1 THEN '1 purchase' WHEN u.n24 = 2 THEN '2 purchases'
+               WHEN u.n24 <= 5 THEN '3-5 purchases' ELSE '6+ purchases' END AS grp,
+          min(p.issue_date) AS first_permit
+        FROM co_units u LEFT JOIN p ON p.pin10 = u.pin10 AND p.issue_date > u.sale_date
+          AND p.issue_date <= u.sale_date + INTERVAL 365 DAY
+        GROUP BY ALL
+    """)
+    groups = q(
+        con,
+        """
+        SELECT grp, count(*) AS purchases, count(DISTINCT buyer) AS buyers,
+          avg((first_permit IS NOT NULL)::INT) AS conversion,
+          median(first_permit - sale_date) AS median_days_to_first_permit
+        FROM co_out GROUP BY 1 ORDER BY min(n24)
+    """,
+    )
+    agg = one(
+        con,
+        """
+        SELECT
+          avg((first_permit IS NOT NULL)::INT) FILTER (WHERE n24 >= 3) AS repeat_rate,
+          avg((first_permit IS NOT NULL)::INT) FILTER (WHERE n24 = 1) AS single_rate,
+          count(*) FILTER (WHERE n24 >= 3) AS repeat_purchases,
+          count(DISTINCT buyer) FILTER (WHERE n24 >= 3) AS repeat_buyers,
+          count(*) FILTER (WHERE n24 = 1) AS single_purchases,
+          median(first_permit - sale_date) FILTER (WHERE n24 >= 3) AS repeat_median_days,
+          median(first_permit - sale_date) FILTER (WHERE n24 = 1) AS single_median_days,
+          count(*) FILTER (WHERE n24 >= 3 AND sale_date > DATE '2025-10-31' - INTERVAL 365 DAY) / 52.0 AS per_week
+        FROM co_out
+    """,
+    )
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE co_gc AS
+        SELECT DISTINCT o.buyer, o.pin10, o.n24, p.id AS permit_id, p.issue_date, pp.name_key AS gc
+        FROM co_out o JOIN p ON p.pin10 = o.pin10 AND p.issue_date > o.sale_date
+          AND p.issue_date <= o.sale_date + INTERVAL 365 DAY
+        JOIN permit_parties pp ON pp.permit_id = p.id AND pp.role = 'gc' AND pp.name_key IS NOT NULL
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE gc_share AS
+        WITH c AS (
+          SELECT year(p.issue_date) AS y, pp.name_key AS gc, count(DISTINCT p.id) AS n
+          FROM p JOIN permit_parties pp ON pp.permit_id = p.id AND pp.role = 'gc' AND pp.name_key IS NOT NULL
+          WHERE p.issue_date >= DATE '2016-01-01' GROUP BY ALL
+        )
+        SELECT y, gc, n / sum(n) OVER (PARTITION BY y) AS share FROM c
+    """)
+    loyal = one(
+        con,
+        """
+        WITH x AS (
+          SELECT DISTINCT g.buyer, g.permit_id, g.gc, g.issue_date, g.pin10,
+            EXISTS (SELECT 1 FROM co_gc h WHERE h.buyer = g.buyer AND h.pin10 <> g.pin10 AND h.issue_date < g.issue_date)
+              AS has_prior,
+            EXISTS (SELECT 1 FROM co_gc h WHERE h.buyer = g.buyer AND h.pin10 <> g.pin10 AND h.issue_date < g.issue_date
+                    AND h.gc = g.gc) AS same_gc
+          FROM co_gc g WHERE g.n24 >= 3
+        ),
+        b AS (
+          SELECT x.permit_id, x.buyer,
+            (SELECT coalesce(sum(m.share), 0) FROM (
+               SELECT DISTINCT h.gc FROM co_gc h
+               WHERE h.buyer = x.buyer AND h.pin10 <> x.pin10 AND h.issue_date < x.issue_date) hs
+             JOIN gc_share m ON m.gc = hs.gc AND m.y = year(x.issue_date)) AS chance
+          FROM x WHERE x.has_prior
+        )
+        SELECT count(*) AS repeat_permits_with_gc, count(*) FILTER (WHERE has_prior) AS with_prior_gc_history,
+          avg(same_gc::INT) FILTER (WHERE has_prior) AS loyalty_share,
+          count(DISTINCT buyer) FILTER (WHERE has_prior) AS buyers,
+          (SELECT avg(chance) FROM b) AS random_gc_chance
+        FROM x
+    """,
+    )
+    loyalty = [
+        {
+            "measure": "Repeat buyers' permits naming a GC the buyer used before on another property",
+            "permits": loyal["with_prior_gc_history"],
+            "buyers": loyal["buyers"],
+            "share": loyal["loyalty_share"],
+        },
+        {
+            "measure": "Benchmark: chance a randomly drawn Chicago GC (same year) would be one of those GCs",
+            "permits": loyal["with_prior_gc_history"],
+            "buyers": loyal["buyers"],
+            "share": loyal["random_gc_chance"],
+        },
+    ]
+    for r in loyalty:
+        r["share"] = round(r["share"], 4)
+    return result(
+        "H18",
+        "Repeat investors (3+ purchases in 24 months) renovate more and faster than one-off company buyers",
+        who="Rehab GCs, subs working for investors, property managers",
+        data="Cook County sales, permits, permit parties",
+        signal="Company buyer (not bank/agency/land trust) who bought on 3+ distinct dates in the 24 months up to and including this purchase",
+        target="Any permit at the purchased parcel within 365 days of purchase (baseline: company buyers with exactly 1 purchase date in 24 months)",
+        metrics=_round(
+            {
+                "groups": groups,
+                "conversion": agg["repeat_rate"],
+                "baseline": agg["single_rate"],
+                "lift": agg["repeat_rate"] / agg["single_rate"] if agg["single_rate"] else None,
+                "signals_per_week": agg["per_week"],
+                "repeat_median_days_to_permit": agg["repeat_median_days"],
+                "single_median_days_to_permit": agg["single_median_days"],
+                "repeat_buyers": agg["repeat_buyers"],
+                "repeat_purchases": agg["repeat_purchases"],
+                "single_purchases": agg["single_purchases"],
+                "loyalty": loyalty,
+            }
+        ),
+        notes="Buyers are identified by name string (the sales feed truncates names to ~25 characters and investors "
+        "often use a new LLC per building), so portfolio operators are undercounted and 'repeat' means a repeat name. "
+        "Units are single-parcel deeds (multi-parcel deeds are excluded as units but count as one purchase date). "
+        "Repeat investors differ from one-off buyers in building mix (more multi-family/commercial and larger "
+        "parcels that need permits for any reason), so this is a targeting comparison, not a causal effect. "
+        "GC loyalty: of repeat buyers' permits naming a GC where the buyer already had an earlier permit with a named GC on "
+        "a different property, the share naming one of those same GCs, against the chance a random GC (weighted by "
+        "that year's citywide GC permit share) would match. Only buyers with prior permits can be measured, which "
+        "favors buyers who renovate repeatedly.",
+    )
+
+
+def h19_tree_emergency(con) -> dict:
+    m = same_property(
+        con,
+        sr_signal("Tree Emergency"),
+        "SELECT address_key AS k, issue_date AS d FROM p WHERE t_roofing OR t_porch",
+        180,
+        "2018-07-01",
+        "2025-10-31",
+    )
+    season = one(
+        con,
+        """
+        SELECT avg((EXISTS (SELECT 1 FROM tgt t WHERE t.k = e.k AND t.d > e.d - INTERVAL 365 DAY
+                            AND t.d <= e.d - INTERVAL 185 DAY))::INT) AS r
+        FROM ep e
+    """,
+    )["r"]
+    m["seasonal_baseline"] = season
+    m["seasonal_lift"] = m["conversion"] / season if season else None
+    m["groups"] = q(
+        con,
+        """
+        SELECT 'roofing' AS target, avg((EXISTS (SELECT 1 FROM p t WHERE t.address_key = e.k AND t.t_roofing
+              AND t.issue_date > e.d AND t.issue_date <= e.d + INTERVAL 180 DAY))::INT) AS conversion,
+          avg((EXISTS (SELECT 1 FROM p t WHERE t.address_key = e.k AND t.t_roofing
+              AND t.issue_date > e.d - INTERVAL 365 DAY AND t.issue_date <= e.d - INTERVAL 185 DAY))::INT)
+            AS seasonal_baseline_rate
+        FROM ep e
+        UNION ALL
+        SELECT 'porch', avg((EXISTS (SELECT 1 FROM p t WHERE t.address_key = e.k AND t.t_porch
+              AND t.issue_date > e.d AND t.issue_date <= e.d + INTERVAL 180 DAY))::INT),
+          avg((EXISTS (SELECT 1 FROM p t WHERE t.address_key = e.k AND t.t_porch
+              AND t.issue_date > e.d - INTERVAL 365 DAY AND t.issue_date <= e.d - INTERVAL 185 DAY))::INT)
+        FROM ep e
+    """,
+    )
+    return result(
+        "H19",
+        "311 'tree emergency' → roofing or porch permit (storm-damage proxy)",
+        who="Tree services, roofers, porch builders",
+        data="311 service requests, permits",
+        signal="'Tree Emergency' 311 request (fallen/hazardous tree) at an address",
+        target="Roofing or porch permit at the same address within 180 days",
+        metrics=_round(m),
+        notes="Tree emergencies cluster in storm weeks and summer, and roofing permits are seasonal, so the default "
+        "baseline (the 180 days before the prior window) can be season-shifted; 'seasonal_baseline' uses the same "
+        "180-day window one year earlier and is the fairer control. A tree on a roof is often repaired by insurance "
+        "without a permit, and the 311 address is often the parkway tree in front of the house, not a damaged building.",
+    )
+
+
+def h20_rodent_to_violation(con) -> dict:
+    m = same_property(
+        con,
+        sr_signal("Rodent Baiting/Rat Complaint"),
+        "SELECT address_key AS k, violation_date AS d FROM violations",
+        180,
+        "2018-07-01",
+        "2025-10-31",
+    )
+    m["groups"] = q(
+        con,
+        """
+        SELECT 'pest/sanitation violation' AS target,
+          avg((EXISTS (SELECT 1 FROM violations v WHERE v.address_key = e.k AND v.t_pest
+              AND v.violation_date > e.d AND v.violation_date <= e.d + INTERVAL 180 DAY))::INT) AS conversion,
+          avg((EXISTS (SELECT 1 FROM violations v WHERE v.address_key = e.k AND v.t_pest
+              AND v.violation_date > e.d - INTERVAL 360 DAY AND v.violation_date <= e.d - INTERVAL 180 DAY))::INT)
+            AS baseline_rate
+        FROM ep e
+    """,
+    )
+    return result(
+        "H20",
+        "311 rodent complaint → building/pest violation (pest-control demand proxy)",
+        who="Pest control, sanitation and property-management services",
+        data="311 service requests, building violations",
+        signal="'Rodent Baiting/Rat Complaint' 311 request at an address",
+        target="Any building violation at the same address within 180 days",
+        metrics=m,
+        notes="Food inspections are not in the warehouse, so the restaurant idea (rodent complaints near restaurants -> "
+        "failed inspections) is untested; add the Chicago Food Inspections dataset to test it directly. Rat "
+        "complaints are filed against the address of the nearby problem (alleys, garbage), not necessarily the "
+        "owner's building, and baiting is done by the City, so the complaint is demand evidence, not a work order.",
+    )
+
+
+def h21_food_takeover(con) -> dict:
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE fl AS
+        SELECT account_number, address_key, min(issue_date) AS d FROM food_licenses
+        WHERE address_key IS NOT NULL AND issue_date IS NOT NULL GROUP BY ALL
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE fl_x AS
+        SELECT f.account_number, f.address_key, f.d,
+          EXISTS (SELECT 1 FROM p WHERE p.address_key = f.address_key AND p.issue_date > f.d - INTERVAL 730 DAY
+                  AND p.issue_date <= f.d AND (p.t_interior_buildout OR p.t_new_construction
+                       OR p.permit_type IN ('PERMIT - NEW CONSTRUCTION', 'PERMIT - RENOVATION/ALTERATION')))
+            AS had_buildout,
+          min(a.issue_date) AS first_permit,
+          bool_or(a.t_signs) AS sign,
+          bool_or(a.t_interior_buildout OR a.t_new_construction
+                  OR a.permit_type IN ('PERMIT - NEW CONSTRUCTION', 'PERMIT - RENOVATION/ALTERATION')) AS buildout,
+          bool_or(a.t_electrical OR a.t_plumbing OR a.t_hvac) AS mep
+        FROM fl f LEFT JOIN p a ON a.address_key = f.address_key AND a.issue_date > f.d
+          AND a.issue_date <= f.d + INTERVAL 365 DAY
+        WHERE f.d BETWEEN DATE '2016-01-01' AND DATE '2025-10-31'
+        GROUP BY ALL
+    """)
+    groups = q(
+        con,
+        """
+        SELECT CASE WHEN had_buildout THEN 'Build-out permit in prior 2 years' ELSE 'As-is takeover (no build-out permit in prior 2 years)' END AS grp,
+          count(*) AS licenses,
+          avg((first_permit IS NOT NULL)::INT) AS any_permit_rate,
+          avg(coalesce(sign, false)::INT) AS sign_permit_rate,
+          avg(coalesce(buildout, false)::INT) AS buildout_permit_rate,
+          avg(coalesce(mep, false)::INT) AS mep_permit_rate,
+          median(first_permit - d) AS median_days_to_first_permit
+        FROM fl_x GROUP BY had_buildout ORDER BY had_buildout
+    """,
+    )
+    asis = next(r for r in groups if r["grp"].startswith("As-is"))
+    built = next(r for r in groups if r["grp"].startswith("Build-out"))
+    vol = one(
+        con,
+        "SELECT count(*) FILTER (WHERE NOT had_buildout AND d > DATE '2025-10-31' - INTERVAL 365 DAY) / 52.0 AS v FROM fl_x",
+    )["v"]
+    return result(
+        "H21",
+        "New food license with no recent build-out permit (as-is takeover) → permits after opening",
+        who="Signage, cleaning, security, small-trade contractors serving new restaurants",
+        data="Retail food licenses, permits",
+        signal="First food license for an account at an address, with no renovation/new-construction permit there in the prior 2 years",
+        target="Any permit at the address within 365 days after the license",
+        metrics=_round(
+            {
+                "groups": groups,
+                "conversion": asis["any_permit_rate"],
+                "baseline": built["any_permit_rate"],
+                "signals_per_week": vol,
+            }
+        ),
+        notes="Descriptive: compares as-is takeovers with licenses that followed a build-out. The food license "
+        "table has no license type, so renewals under a new account number (ownership changes) look like new "
+        "businesses. Address matching depends on a normalized street address; units in a building share one "
+        "address, so a permit for another tenant counts. A first-year permit is not necessarily a build-out; the "
+        "sign/MEP/build-out columns separate what kind of permit follows.",
+    )
+
+
+def h22_seasonality(con) -> dict:
+    months = q(
+        con,
+        """
+        WITH t AS (
+          SELECT month(issue_date) AS m, count(*) AS n, count(*) FILTER (WHERE t_porch) AS porch,
+            count(*) FILTER (WHERE t_masonry) AS masonry, count(*) FILTER (WHERE t_roofing) AS roofing
+          FROM p WHERE issue_date BETWEEN DATE '2016-01-01' AND DATE '2025-12-31' GROUP BY 1
+        )
+        SELECT m AS month, porch / sum(porch) OVER () AS porch_share, masonry / sum(masonry) OVER () AS masonry_share,
+          roofing / sum(roofing) OVER () AS roofing_share
+        FROM t ORDER BY m
+    """,
+    )
+    same_property(
+        con,
+        "SELECT address_key AS k, violation_date AS d FROM violations WHERE t_porch OR t_masonry",
+        CHAIN_TARGET,
+        365,
+        "2016-01-01",
+        "2025-10-31",
+    )
+    cited = q(
+        con,
+        """
+        SELECT month(e.d) AS month, count(*) AS citations,
+          avg((x.days IS NOT NULL)::INT) AS permit_within_365_share,
+          median(x.days) AS median_days_citation_to_permit
+        FROM ep e LEFT JOIN LATERAL (
+          SELECT min(t.d - e.d) AS days FROM tgt t WHERE t.k = e.k AND t.d > e.d AND t.d <= e.d + INTERVAL 365 DAY
+        ) x ON true
+        GROUP BY 1 ORDER BY 1
+    """,
+    )
+    by_month = {r["month"]: r for r in cited}
+    rows = [{**r, **{k: v for k, v in by_month[r["month"]].items() if k != "month"}} for r in months]
+    for r in rows:
+        for k, v in r.items():
+            if isinstance(v, float):
+                r[k] = round(v, 4)
+    return result(
+        "H22",
+        "Seasonality: when permits are pulled and how fast citations turn into permits, by month",
+        who="Porch, masonry and roofing contractors (mailing calendar)",
+        data="Permits (issue dates 2016-2025), building violations",
+        signal="Calendar month of permit issue / of porch or masonry citation",
+        target="Share of the year's porch, masonry and roofing permits; days from citation to permit",
+        metrics={"groups": rows, "lift": None, "conversion": None, "baseline": None},
+        notes="Descriptive. Permit shares are by issue month (when the job is cleared to start), which trails the "
+        "decision by the permit-processing time; citation rows show, for citations issued in each month, how many "
+        "got a porch/masonry permit within a year and the median days to it (only citations that converted, so "
+        "the median is censored at 365). Weather, the City's inspection calendar and porch-season enforcement "
+        "all move together here, so this is a calendar, not a causal effect of month.",
+    )
+
+
 HYPOTHESES: dict[str, Callable] = {
     "H01": h01_solar_neighbors,
     "H02": h02_reroof_then_solar,
@@ -654,6 +1099,12 @@ HYPOTHESES: dict[str, Callable] = {
     "H14": h14_no_ac,
     "H15": h15_condition,
     "H16": h16_energy,
+    "H17": h17_complaint_chain,
+    "H18": h18_repeat_investors,
+    "H19": h19_tree_emergency,
+    "H20": h20_rodent_to_violation,
+    "H21": h21_food_takeover,
+    "H22": h22_seasonality,
 }
 
 
@@ -707,7 +1158,7 @@ def render(results: list[dict], generated: str) -> str:
                 f"- Signals tested: {m['signals']:,}; conversion {fmt(m['conversion'], True)} vs baseline "
                 f"{fmt(m['baseline'], True)}; median {m['median_days']} days to target"
             )
-        for key in ("by_neighbors", "groups", "by_year"):
+        for key in ("by_neighbors", "groups", "complaint_basis", "loyalty", "by_year"):
             if key in m and m[key]:
                 rows = m[key]
                 cols = list(rows[0].keys())
@@ -716,7 +1167,9 @@ def render(results: list[dict], generated: str) -> str:
                     L.append(
                         "| "
                         + " | ".join(
-                            fmt(v, pct=("rate" in c or c == "conversion")) if isinstance(v, float) else str(v)
+                            fmt(v, pct=("rate" in c or "share" in c or c in ("conversion", "prior_window")))
+                            if isinstance(v, float)
+                            else ("—" if v is None else str(v))
                             for c, v in row.items()
                         )
                         + " |"

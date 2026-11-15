@@ -847,5 +847,479 @@
     "verdict": "No signal",
     "notes": "Large buildings; addresses matched by normalized street address.",
     "score": 0.0
+  },
+  {
+    "id": "H17",
+    "title": "Complaint chain: 311 complaint \u2192 porch/masonry citation \u2192 permit (when to mail)",
+    "who": "Porch builders, masons and tuckpointers",
+    "data": "311 service requests, building violations, permits",
+    "signal": "'Building Violation' 311 complaint at an address that gets a porch or masonry citation within 120 days",
+    "target": "Porch or masonry permit at the same address within 365 days of the complaint",
+    "metrics": {
+      "signals": 15616,
+      "conversion": 0.1231,
+      "baseline": 0.0197,
+      "median_days": 197.0,
+      "signals_per_week": 47.7692,
+      "lift": 6.2606,
+      "by_year": [
+        {
+          "year": 2018,
+          "n": 52,
+          "conversion": 0.23076923076923078
+        },
+        {
+          "year": 2019,
+          "n": 3391,
+          "conversion": 0.11383072839870245
+        },
+        {
+          "year": 2020,
+          "n": 1855,
+          "conversion": 0.05983827493261455
+        },
+        {
+          "year": 2021,
+          "n": 2565,
+          "conversion": 0.1313840155945419
+        },
+        {
+          "year": 2022,
+          "n": 1642,
+          "conversion": 0.14738124238733252
+        },
+        {
+          "year": 2023,
+          "n": 1846,
+          "conversion": 0.1560130010834236
+        },
+        {
+          "year": 2024,
+          "n": 2048,
+          "conversion": 0.13720703125
+        },
+        {
+          "year": 2025,
+          "n": 2217,
+          "conversion": 0.11953089760938204
+        }
+      ],
+      "groups": [
+        {
+          "step": "Porch or masonry citation \u2192 porch or masonry permit",
+          "complaints": 15616,
+          "median_days_complaint_to_citation": 33.0,
+          "conversion": 0.1335,
+          "permits": 2085,
+          "median_days_citation_to_permit": 172.0,
+          "citation_to_permit_p25_days": 97.0,
+          "citation_to_permit_p75_days": 257.0,
+          "median_days_complaint_to_permit": 215.0
+        },
+        {
+          "step": "Porch citation \u2192 porch permit",
+          "complaints": 8693,
+          "median_days_complaint_to_citation": 32.0,
+          "conversion": 0.1176,
+          "permits": 1022,
+          "median_days_citation_to_permit": 181.0,
+          "citation_to_permit_p25_days": 104.0,
+          "citation_to_permit_p75_days": 261.0,
+          "median_days_complaint_to_permit": 223.0
+        },
+        {
+          "step": "Masonry citation \u2192 masonry permit",
+          "complaints": 11335,
+          "median_days_complaint_to_citation": 33.0,
+          "conversion": 0.1,
+          "permits": 1133,
+          "median_days_citation_to_permit": 173.0,
+          "citation_to_permit_p25_days": 93.0,
+          "citation_to_permit_p75_days": 261.0,
+          "median_days_complaint_to_permit": 213.0
+        }
+      ],
+      "complaint_basis": [
+        {
+          "cohort": "Complaint followed by a porch/masonry citation within 120 days",
+          "complaints": 15616,
+          "conversion": 0.1231,
+          "prior_window": 0.0197,
+          "median_days_complaint_to_permit": 197.0
+        },
+        {
+          "cohort": "Complaint with NO porch/masonry citation within 120 days",
+          "complaints": 73031,
+          "conversion": 0.0452,
+          "prior_window": 0.0239,
+          "median_days_complaint_to_permit": 174.0
+        }
+      ],
+      "lift_note": "lift = permit within 365 days of the complaint vs the same address's window 1-2 years earlier"
+    },
+    "verdict": "Strong",
+    "notes": "Cohort is selected on the citation (known only afterwards), so it describes the timeline of the chain, not a forecast available on the complaint day; at complaint time the usable rate is H07 (31.6% cited) times the porch/masonry share. 311 data starts mid-2018. The citation-to-permit step is the validated violation lead; lift against the address's own earlier year is inflated by the citation itself forcing a repair, so also read the complaint_basis table (complaints with no porch/masonry citation convert at a much lower rate). Permits undercount repairs, so rates are floors.",
+    "score": 77.067986
+  },
+  {
+    "id": "H18",
+    "title": "Repeat investors (3+ purchases in 24 months) renovate more and faster than one-off company buyers",
+    "who": "Rehab GCs, subs working for investors, property managers",
+    "data": "Cook County sales, permits, permit parties",
+    "signal": "Company buyer (not bank/agency/land trust) who bought on 3+ distinct dates in the 24 months up to and including this purchase",
+    "target": "Any permit at the purchased parcel within 365 days of purchase (baseline: company buyers with exactly 1 purchase date in 24 months)",
+    "metrics": {
+      "groups": [
+        {
+          "grp": "1 purchase",
+          "purchases": 34367,
+          "buyers": 32497,
+          "conversion": 0.36049116885384236,
+          "median_days_to_first_permit": 96.0
+        },
+        {
+          "grp": "2 purchases",
+          "purchases": 4423,
+          "buyers": 3693,
+          "conversion": 0.3450146959077549,
+          "median_days_to_first_permit": 93.0
+        },
+        {
+          "grp": "3-5 purchases",
+          "purchases": 3771,
+          "buyers": 1506,
+          "conversion": 0.34632723415539646,
+          "median_days_to_first_permit": 92.0
+        },
+        {
+          "grp": "6+ purchases",
+          "purchases": 4023,
+          "buyers": 389,
+          "conversion": 0.3012677106636838,
+          "median_days_to_first_permit": 99.5
+        }
+      ],
+      "conversion": 0.3231,
+      "baseline": 0.3605,
+      "lift": 0.8962,
+      "signals_per_week": 14.8654,
+      "repeat_median_days_to_permit": 96.0,
+      "single_median_days_to_permit": 96.0,
+      "repeat_buyers": 1513,
+      "repeat_purchases": 7794,
+      "single_purchases": 34367,
+      "loyalty": [
+        {
+          "measure": "Repeat buyers' permits naming a GC the buyer used before on another property",
+          "permits": 2201,
+          "buyers": 486,
+          "share": 0.557
+        },
+        {
+          "measure": "Benchmark: chance a randomly drawn Chicago GC (same year) would be one of those GCs",
+          "permits": 2201,
+          "buyers": 486,
+          "share": 0.0026
+        }
+      ]
+    },
+    "verdict": "No signal",
+    "notes": "Buyers are identified by name string (the sales feed truncates names to ~25 characters and investors often use a new LLC per building), so portfolio operators are undercounted and 'repeat' means a repeat name. Units are single-parcel deeds (multi-parcel deeds are excluded as units but count as one purchase date). Repeat investors differ from one-off buyers in building mix (more multi-family/commercial and larger parcels that need permits for any reason), so this is a targeting comparison, not a causal effect. GC loyalty: of repeat buyers' permits naming a GC where the buyer already had an earlier permit with a named GC on a different property, the share naming one of those same GCs, against the chance a random GC (weighted by that year's citywide GC permit share) would match. Only buyers with prior permits can be measured, which favors buyers who renovate repeatedly.",
+    "score": 21.52229112594
+  },
+  {
+    "id": "H19",
+    "title": "311 'tree emergency' \u2192 roofing or porch permit (storm-damage proxy)",
+    "who": "Tree services, roofers, porch builders",
+    "data": "311 service requests, permits",
+    "signal": "'Tree Emergency' 311 request (fallen/hazardous tree) at an address",
+    "target": "Roofing or porch permit at the same address within 180 days",
+    "metrics": {
+      "signals": 110980,
+      "conversion": 0.0051,
+      "baseline": 0.0051,
+      "median_days": 82.0,
+      "signals_per_week": 405.2308,
+      "lift": 1.0,
+      "by_year": [
+        {
+          "year": 2019,
+          "n": 8883,
+          "conversion": 0.005178430710345604
+        },
+        {
+          "year": 2020,
+          "n": 21662,
+          "conversion": 0.005078016803619241
+        },
+        {
+          "year": 2021,
+          "n": 14497,
+          "conversion": 0.0042077671242326
+        },
+        {
+          "year": 2022,
+          "n": 12043,
+          "conversion": 0.00456696836336461
+        },
+        {
+          "year": 2023,
+          "n": 11346,
+          "conversion": 0.004935660144544333
+        },
+        {
+          "year": 2024,
+          "n": 22634,
+          "conversion": 0.005434302376955024
+        },
+        {
+          "year": 2025,
+          "n": 19915,
+          "conversion": 0.005724328395681647
+        }
+      ],
+      "seasonal_baseline": 0.0051,
+      "seasonal_lift": 0.9912,
+      "groups": [
+        {
+          "target": "roofing",
+          "conversion": 0.0030636150657776177,
+          "seasonal_baseline_rate": 0.0034150297350874033
+        },
+        {
+          "target": "porch",
+          "conversion": 0.0023968282573436656,
+          "seasonal_baseline_rate": 0.0021715624436835466
+        }
+      ]
+    },
+    "verdict": "No signal",
+    "notes": "Tree emergencies cluster in storm weeks and summer, and roofing permits are seasonal, so the default baseline (the 180 days before the prior window) can be season-shifted; 'seasonal_baseline' uses the same 180-day window one year earlier and is the fairer control. A tree on a roof is often repaired by insurance without a permit, and the 311 address is often the parkway tree in front of the house, not a damaged building.",
+    "score": 0.51
+  },
+  {
+    "id": "H20",
+    "title": "311 rodent complaint \u2192 building/pest violation (pest-control demand proxy)",
+    "who": "Pest control, sanitation and property-management services",
+    "data": "311 service requests, building violations",
+    "signal": "'Rodent Baiting/Rat Complaint' 311 request at an address",
+    "target": "Any building violation at the same address within 180 days",
+    "metrics": {
+      "signals": 220172,
+      "conversion": 0.0191,
+      "baseline": 0.0145,
+      "median_days": 74.0,
+      "signals_per_week": 545.5192,
+      "lift": 1.3138,
+      "by_year": [
+        {
+          "year": 2019,
+          "n": 27850,
+          "conversion": 0.02865350089766607
+        },
+        {
+          "year": 2020,
+          "n": 34559,
+          "conversion": 0.013050146126913395
+        },
+        {
+          "year": 2021,
+          "n": 40881,
+          "conversion": 0.01885961693696338
+        },
+        {
+          "year": 2022,
+          "n": 32267,
+          "conversion": 0.018191960826850963
+        },
+        {
+          "year": 2023,
+          "n": 30923,
+          "conversion": 0.017139346117776413
+        },
+        {
+          "year": 2024,
+          "n": 28368,
+          "conversion": 0.01998730964467005
+        },
+        {
+          "year": 2025,
+          "n": 25324,
+          "conversion": 0.019546675090822935
+        }
+      ],
+      "groups": [
+        {
+          "target": "pest/sanitation violation",
+          "conversion": 0.0011036825754410188,
+          "baseline_rate": 0.000576821757535018
+        }
+      ]
+    },
+    "verdict": "Weak",
+    "notes": "Food inspections are not in the warehouse, so the restaurant idea (rodent complaints near restaurants -> failed inspections) is untested; add the Chicago Food Inspections dataset to test it directly. Rat complaints are filed against the address of the nearby problem (alleys, garbage), not necessarily the owner's building, and baiting is done by the City, so the complaint is demand evidence, not a work order.",
+    "score": 2.509358
+  },
+  {
+    "id": "H21",
+    "title": "New food license with no recent build-out permit (as-is takeover) \u2192 permits after opening",
+    "who": "Signage, cleaning, security, small-trade contractors serving new restaurants",
+    "data": "Retail food licenses, permits",
+    "signal": "First food license for an account at an address, with no renovation/new-construction permit there in the prior 2 years",
+    "target": "Any permit at the address within 365 days after the license",
+    "metrics": {
+      "groups": [
+        {
+          "grp": "As-is takeover (no build-out permit in prior 2 years)",
+          "licenses": 7534,
+          "any_permit_rate": 0.12065303955402176,
+          "sign_permit_rate": 0.045659676134855325,
+          "buildout_permit_rate": 0.024157154234138573,
+          "mep_permit_rate": 0.054685426068489515,
+          "median_days_to_first_permit": 132.0
+        },
+        {
+          "grp": "Build-out permit in prior 2 years",
+          "licenses": 3065,
+          "any_permit_rate": 0.5171288743882545,
+          "sign_permit_rate": 0.2626427406199021,
+          "buildout_permit_rate": 0.2570962479608483,
+          "mep_permit_rate": 0.2929853181076672,
+          "median_days_to_first_permit": 36.0
+        }
+      ],
+      "conversion": 0.1207,
+      "baseline": 0.5171,
+      "signals_per_week": 14.4231
+    },
+    "verdict": "Descriptive",
+    "notes": "Descriptive: compares as-is takeovers with licenses that followed a build-out. The food license table has no license type, so renewals under a new account number (ownership changes) look like new businesses. Address matching depends on a normalized street address; units in a building share one address, so a permit for another tenant counts. A first-year permit is not necessarily a build-out; the sign/MEP/build-out columns separate what kind of permit follows.",
+    "score": 0.0
+  },
+  {
+    "id": "H22",
+    "title": "Seasonality: when permits are pulled and how fast citations turn into permits, by month",
+    "who": "Porch, masonry and roofing contractors (mailing calendar)",
+    "data": "Permits (issue dates 2016-2025), building violations",
+    "signal": "Calendar month of permit issue / of porch or masonry citation",
+    "target": "Share of the year's porch, masonry and roofing permits; days from citation to permit",
+    "metrics": {
+      "groups": [
+        {
+          "month": 1,
+          "porch_share": 0.0706,
+          "masonry_share": 0.053,
+          "roofing_share": 0.0512,
+          "citations": 3057,
+          "permit_within_365_share": 0.1524,
+          "median_days_citation_to_permit": 182.0
+        },
+        {
+          "month": 2,
+          "porch_share": 0.0639,
+          "masonry_share": 0.0563,
+          "roofing_share": 0.0529,
+          "citations": 3298,
+          "permit_within_365_share": 0.1416,
+          "median_days_citation_to_permit": 182.0
+        },
+        {
+          "month": 3,
+          "porch_share": 0.0786,
+          "masonry_share": 0.0862,
+          "roofing_share": 0.0797,
+          "citations": 4204,
+          "permit_within_365_share": 0.1558,
+          "median_days_citation_to_permit": 177.0
+        },
+        {
+          "month": 4,
+          "porch_share": 0.0842,
+          "masonry_share": 0.0907,
+          "roofing_share": 0.0892,
+          "citations": 3684,
+          "permit_within_365_share": 0.149,
+          "median_days_citation_to_permit": 178.0
+        },
+        {
+          "month": 5,
+          "porch_share": 0.089,
+          "masonry_share": 0.0953,
+          "roofing_share": 0.0921,
+          "citations": 4192,
+          "permit_within_365_share": 0.1462,
+          "median_days_citation_to_permit": 176.0
+        },
+        {
+          "month": 6,
+          "porch_share": 0.0881,
+          "masonry_share": 0.0969,
+          "roofing_share": 0.0904,
+          "citations": 4115,
+          "permit_within_365_share": 0.1485,
+          "median_days_citation_to_permit": 170.0
+        },
+        {
+          "month": 7,
+          "porch_share": 0.0898,
+          "masonry_share": 0.0947,
+          "roofing_share": 0.0919,
+          "citations": 3781,
+          "permit_within_365_share": 0.1555,
+          "median_days_citation_to_permit": 181.5
+        },
+        {
+          "month": 8,
+          "porch_share": 0.0987,
+          "masonry_share": 0.1047,
+          "roofing_share": 0.1028,
+          "citations": 4576,
+          "permit_within_365_share": 0.1423,
+          "median_days_citation_to_permit": 192.0
+        },
+        {
+          "month": 9,
+          "porch_share": 0.0898,
+          "masonry_share": 0.0948,
+          "roofing_share": 0.0925,
+          "citations": 3979,
+          "permit_within_365_share": 0.151,
+          "median_days_citation_to_permit": 191.0
+        },
+        {
+          "month": 10,
+          "porch_share": 0.0998,
+          "masonry_share": 0.102,
+          "roofing_share": 0.1037,
+          "citations": 3691,
+          "permit_within_365_share": 0.1444,
+          "median_days_citation_to_permit": 203.0
+        },
+        {
+          "month": 11,
+          "porch_share": 0.0834,
+          "masonry_share": 0.0714,
+          "roofing_share": 0.084,
+          "citations": 2577,
+          "permit_within_365_share": 0.149,
+          "median_days_citation_to_permit": 189.5
+        },
+        {
+          "month": 12,
+          "porch_share": 0.0642,
+          "masonry_share": 0.0541,
+          "roofing_share": 0.0695,
+          "citations": 2288,
+          "permit_within_365_share": 0.1372,
+          "median_days_citation_to_permit": 187.0
+        }
+      ],
+      "lift": null,
+      "conversion": null,
+      "baseline": null
+    },
+    "verdict": "Descriptive",
+    "notes": "Descriptive. Permit shares are by issue month (when the job is cleared to start), which trails the decision by the permit-processing time; citation rows show, for citations issued in each month, how many got a porch/masonry permit within a year and the median days to it (only citations that converted, so the median is censored at 365). Weather, the City's inspection calendar and porch-season enforcement all move together here, so this is a calendar, not a causal effect of month.",
+    "score": 0.0
   }
 ]
