@@ -7,6 +7,7 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | # | Hypothesis | Verdict | Lift | Conversion | Baseline | Signals/week | Who it's for |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | H08 | 311 porch inspection request → porch permit | **Strong** | 11.44× | 13.7% | 1.2% | 7.10 | Porch builders |
+| H26 | Restaurant 'Out of Business' → new food license or renovation permit at the address within 365 days | **Strong** | 10.24× | 32.3% | 3.2% | 13.10 | Restaurant build-out contractors, equipment dealers, brokers, signage |
 | H17 | Complaint chain: 311 complaint → porch/masonry citation → permit (when to mail) | **Strong** | 6.26× | 12.3% | 2.0% | 47.80 | Porch builders, masons and tuckpointers |
 | H07 | 311 building complaint → city citation (earlier lead) | **Strong** | 5.85× | 31.6% | 5.4% | 255.40 | Porch, masonry, roofing, general repair contractors |
 | H13 | Which buildings need masonry work: walls × age | **Useful** | 2.86× | 1.4% | 0.5% | — | Masons, tuckpointers |
@@ -16,16 +17,21 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | H10 | Complaint about unpermitted work → permit gets pulled | **Useful** | 2.17× | 18.9% | 8.7% | 70.60 | Expediters, architects, GCs who legalize work |
 | H03 | Neighbors re-roofed → you re-roof | **Useful** | 2.16× | 0.7% | 0.3% | — | Roofers |
 | H14 | Which homes pull HVAC permits: A/C × heat type | **Useful** | 2.16× | 0.3% | 0.1% | — | HVAC contractors |
+| H23 | Restaurant pest violation → another pest violation within 180 days (recurring pest-control need) | **Weak** | 1.50× | 12.6% | 8.4% | 44.80 | Pest-control companies |
 | H15 | Assessor condition rating → renovation permits | **Weak** | 1.41× | 0.6% | 0.4% | — | General contractors, rehab crews |
 | H20 | 311 rodent complaint → building/pest violation (pest-control demand proxy) | **Weak** | 1.31× | 1.9% | 1.5% | 545.50 | Pest control, sanitation and property-management services |
 | H21 | New food license with no recent build-out permit (as-is takeover) → permits after opening | **Descriptive** | —× | 12.1% | 51.7% | 14.40 | Signage, cleaning, security, small-trade contractors serving new restaurants |
 | H22 | Seasonality: when permits are pulled and how fast citations turn into permits, by month | **Descriptive** | —× | — | — | — | Porch, masonry and roofing contractors (mailing calendar) |
 | H02 | New roof → solar within 2 years | **No signal** | 1.18× | 1.0% | 0.8% | 90.20 | Solar installers (and roofers partnering with them) |
 | H16 | Poor energy score → mechanical/electrical upgrades | **No signal** | 1.08× | 17.7% | 16.4% | — | Commercial HVAC, electrical, lighting retrofit, energy services |
+| H27 | Home-improvement mortgage loans per tract (HMDA, year Y) → residential permits per parcel (year Y+1) | **No signal** | 1.05× | 3.8% | 3.6% | — | All residential trades (neighborhood demand index for mail targeting) |
+| H28 | Radar-detected hail (NEXRAD) → reroof wave on blocks under the swath | **No signal** | 1.04× | 116.9% | 112.9% | 0.20 | Roofers, gutter and siding contractors, restoration |
 | H19 | 311 'tree emergency' → roofing or porch permit (storm-damage proxy) | **No signal** | 1.00× | 0.5% | 0.5% | 405.20 | Tree services, roofers, porch builders |
 | H04 | Hail ≥ 1 inch → reroof wave | **No signal** | 0.98× | 1.14 | 1.17 | 0.10 | Roofers, gutter and siding contractors, restoration |
+| H24 | Restaurant plumbing violation → plumbing permit at the address within 365 days | **No signal** | 0.95× | 3.2% | 3.4% | 55.70 | Commercial plumbers, drain and grease-trap contractors |
 | H05 | Damaging wind (60+ kt) → reroof wave | **No signal** | 0.90× | 1.04 | 1.16 | 0.20 | Roofers, gutter and siding contractors, restoration |
 | H18 | Repeat investors (3+ purchases in 24 months) renovate more and faster than one-off company buyers | **No signal** | 0.90× | 32.3% | 36.0% | 14.90 | Rehab GCs, subs working for investors, property managers |
+| H25 | Restaurant hood/ventilation violation → HVAC or mechanical permit at the address within 365 days | **No signal** | 0.86× | 1.8% | 2.0% | 18.00 | Commercial HVAC, hood and exhaust-cleaning contractors |
 | H06 | 311 'water in basement' → plumbing work | **No signal** | 0.74× | 0.5% | 0.6% | 271.40 | Plumbers, waterproofing and drain contractors |
 | H11 | Lead test kit request → plumbing work | **No signal** | 0.70× | 0.6% | 0.9% | 273.30 | Plumbers |
 
@@ -47,6 +53,43 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | 2023 | 418 | 14.6% |
 | 2024 | 429 | 14.9% |
 | 2025 | 329 | 10.3% |
+
+## H26 — Restaurant 'Out of Business' → new food license or renovation permit at the address within 365 days
+
+- **Signal:** Inspection result 'Out of Business' for a restaurant (first one at the address in 365 days)
+- **Target:** New retail food license issued at the same address to a differently named business within 365 days; also a renovation/build-out/new-construction permit
+- **Data:** Chicago food inspections (2016+), retail food licenses, permits
+- **Verdict:** Strong
+- **Notes:** Space turnover. Control: ordinary restaurant inspections (Pass, Pass w/ Conditions, Fail) at an address, which also see turnover, so lift is the extra turnover after a closure. Closed spaces that re-let to a non-food tenant, or that reopen as the same name or a bar/cafe under another license class, are missed by the license test (the license table here is retail food establishments only), so conversion is a floor. Same-name matching drops ownership-transfer relicensing under the old trade name. The renovation permit view counts any renovation at the address, including unrelated tenants.
+- Signals tested: 7,943; conversion 32.3% vs baseline 3.2%; median 19.0 days to target
+
+| definition | signals | conversion | matched_control | lift | median_days | days_p25_p75 | share_converting_after_30_days |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| New retail food license under a different business name (headline) | 7943 | 32.3% | 3.2% | 10.24 | 19.00 | 6-112 | 13.6% |
+| New license (different name) issued 31+ days after the closure was recorded | 7943 | 15.0% | 3.0% | 5.03 | 154.00 | 82-252 | 15.0% |
+| Any new retail food license, including the same name | 7943 | 43.0% | 4.8% | 9.02 | 15.00 | 5-84 | 16.2% |
+| Renovation, build-out or new-construction permit | 7943 | 11.0% | 6.2% | 1.78 | 113.00 | 40-210 | 8.8% |
+
+| year | n | conversion | control_conversion |
+| --- | --- | --- | --- |
+| 2016 | 932 | 32.2% | 4.2% |
+| 2017 | 826 | 32.1% | 5.8% |
+| 2018 | 726 | 36.6% | 4.9% |
+| 2019 | 943 | 29.5% | 4.0% |
+| 2020 | 668 | 31.9% | 2.6% |
+| 2021 | 794 | 29.0% | 4.0% |
+| 2022 | 787 | 31.3% | 3.3% |
+| 2023 | 786 | 36.9% | 3.9% |
+| 2024 | 886 | 31.2% | 3.2% |
+| 2025 | 595 | 34.3% | 3.6% |
+
+| strat | signals | signal_rate | controls | control_rate |
+| --- | --- | --- | --- | --- |
+| Canvass (routine) | 7834 | 32.4% | 24460 | 3.1% |
+| Complaint | 41 | 34.1% | 3274 | 3.6% |
+| License (pre-opening) | 1 | 0.0% | 3680 | 9.6% |
+| Other | 27 | 22.2% | 50 | 2.0% |
+| Re-inspection | 40 | 32.5% | 89 | 7.9% |
 
 ## H17 — Complaint chain: 311 complaint → porch/masonry citation → permit (when to mail)
 
@@ -112,7 +155,7 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 | grp | parcels | annual_rate | lift |
 | --- | --- | --- | --- |
-| Masonry / pre-1910 | 38759 | 1.4% | 2.86 |
+| Masonry / pre-1910 | 38758 | 1.4% | 2.86 |
 | Masonry / 1910-39 | 71009 | 0.8% | 1.60 |
 | Frame + Masonry / pre-1910 | 5219 | 0.7% | 1.48 |
 | Frame + Masonry / 1910-39 | 9525 | 0.6% | 1.23 |
@@ -121,7 +164,7 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | Frame / 1970+ | 9229 | 0.4% | 0.85 |
 | Frame + Masonry / 1940-69 | 11652 | 0.3% | 0.68 |
 | Stucco / pre-1910 | 1116 | 0.3% | 0.55 |
-| Frame / pre-1910 | 45816 | 0.2% | 0.38 |
+| Frame / pre-1910 | 45817 | 0.2% | 0.38 |
 | Frame / 1910-39 | 32018 | 0.2% | 0.33 |
 | Masonry / 1940-69 | 72633 | 0.1% | 0.26 |
 | Stucco / 1910-39 | 2200 | 0.1% | 0.22 |
@@ -228,11 +271,51 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | grp | parcels | annual_rate | lift |
 | --- | --- | --- | --- |
 | Central A/C / Hot Water Steam | 8284 | 0.3% | 2.16 |
-| Central A/C / Warm Air Furnace | 97143 | 0.2% | 1.57 |
+| Central A/C / Warm Air Furnace | 97142 | 0.2% | 1.57 |
 | No Central A/C / Electric Heater | 1330 | 0.2% | 1.31 |
 | No Central A/C / None | 1708 | 0.1% | 0.90 |
-| No Central A/C / Hot Water Steam | 70382 | 0.1% | 0.83 |
+| No Central A/C / Hot Water Steam | 70383 | 0.1% | 0.83 |
 | No Central A/C / Warm Air Furnace | 157508 | 0.1% | 0.66 |
+
+## H23 — Restaurant pest violation → another pest violation within 180 days (recurring pest-control need)
+
+- **Signal:** Restaurant inspection (Pass, Pass w/ Conditions or Fail) citing rodents, mice, roaches, insects, pests or droppings, with none at that license in the prior 180 days
+- **Target:** Another pest violation at the same license 15 to 180 days later, among restaurants re-inspected in that window (headline); other views in the table
+- **Data:** Chicago food inspections (2016+, violation text flags)
+- **Verdict:** Weak
+- **Notes:** 'Conversion' is persistence of need (the restaurant still shows pests at a later inspection), not a purchase: nearly every restaurant is already required to keep pest control, so this identifies accounts with a problem, probably under contract with a competitor, and measures how long the need persists. The target can only be seen at a later inspection; failed restaurants are re-inspected quickly, which inflates the raw rate, so the control is ordinary inspections without pest violations (same license key, 180-day gap, inspection-type mix matched) and the table also shows 15+ day recurrence and rates among re-inspected restaurants. Violation text is classified by keywords (headings 'INSECTS, RODENTS & ANIMALS NOT PRESENT' and 'rodent proofed' count; the generic garbage-container heading does not). Weekly volume is episodes (first pest finding after 180 clean days) in the last 52 weeks of data.
+- Signals tested: 17,076; conversion 12.6% vs baseline 8.4%; median 8.0 days to target
+
+| measure | signal | matched_control | lift |
+| --- | --- | --- | --- |
+| Any later pest violation within 180 days | 22.3% | 2.6% | 8.46 |
+| ...only counting violations 15+ days later (not a quick re-check) | 8.5% | 2.5% | 3.33 |
+| Any later pest violation, among restaurants re-inspected within 180 days | 33.0% | 8.7% | 3.80 |
+| ...among re-inspected, 15+ days later | 12.6% | 8.4% | 1.50 |
+| Share of the inspections that were a Fail | 62.0% | 16.2% | 3.82 |
+| Share re-inspected within 180 days | 67.5% | — | — |
+
+| year | n | conversion | control_conversion |
+| --- | --- | --- | --- |
+| 2016 | 966 | 20.0% | 4.6% |
+| 2017 | 1891 | 20.0% | 2.9% |
+| 2018 | 1457 | 21.5% | 2.0% |
+| 2019 | 1845 | 22.7% | 2.2% |
+| 2020 | 1181 | 21.7% | 1.6% |
+| 2021 | 1542 | 21.5% | 1.9% |
+| 2022 | 1661 | 24.3% | 2.0% |
+| 2023 | 1811 | 23.2% | 2.5% |
+| 2024 | 2037 | 22.6% | 2.1% |
+| 2025 | 2088 | 23.0% | 2.5% |
+| 2026 | 597 | 25.3% | 1.8% |
+
+| strat | signals | signal_rate | controls | control_rate |
+| --- | --- | --- | --- | --- |
+| Canvass (routine) | 11229 | 21.0% | 37315 | 2.2% |
+| Complaint | 3631 | 28.3% | 5354 | 4.3% |
+| License (pre-opening) | 2105 | 19.0% | 9479 | 1.9% |
+| Other | 55 | 16.4% | 116 | 1.7% |
+| Re-inspection | 56 | 19.6% | 93 | 8.6% |
 
 ## H15 — Assessor condition rating → renovation permits
 
@@ -253,7 +336,7 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 - **Target:** Any building violation at the same address within 180 days
 - **Data:** 311 service requests, building violations
 - **Verdict:** Weak
-- **Notes:** Food inspections are not in the warehouse, so the restaurant idea (rodent complaints near restaurants -> failed inspections) is untested; add the Chicago Food Inspections dataset to test it directly. Rat complaints are filed against the address of the nearby problem (alleys, garbage), not necessarily the owner's building, and baiting is done by the City, so the complaint is demand evidence, not a work order.
+- **Notes:** The restaurant-inspection version of the pest idea is H23 (food inspections, added in round 3). Rat complaints are filed against the address of the nearby problem (alleys, garbage), not necessarily the owner's building, and baiting is done by the City, so the complaint is demand evidence, not a work order.
 - Signals tested: 220,172; conversion 1.9% vs baseline 1.5%; median 74.0 days to target
 
 | target | conversion | baseline_rate |
@@ -332,6 +415,47 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | ENERGY STAR ≤ 40 | 4373 | 17.7% |
 | ENERGY STAR ≥ 75 | 5616 | 16.4% |
 
+## H27 — Home-improvement mortgage loans per tract (HMDA, year Y) → residential permits per parcel (year Y+1)
+
+- **Signal:** Tract's home-improvement loans per 1,000 residential parcels in year Y (top quintile of Chicago tracts)
+- **Target:** Share of the tract's residential parcels with any permit (excl. signs and demolition) in year Y+1 (top vs bottom loan quintile)
+- **Data:** CFPB HMDA home-improvement loans 2018-2025 (Cook County, loan years 2018-2024 paired with next-year permits, originated, loan_purpose=2), Chicago census tracts, Assessor parcels, permits
+- **Verdict:** No signal
+- **Notes:** Area-level index, not a lead: HMDA covers only mortgage-financed work (about 2,000 Chicago loans a year, so most tracts have a handful), is reported on 2010 tracts through 2021 and 2020 tracts from 2022 (each year is matched to its own tract map), and wealthier, higher-equity neighborhoods have both more loans and more permits. Quintiles are drawn per loan year with ties kept together (the bottom quintile is mostly tracts with zero loans). The 2020 pairs overlap the pandemic. The lift is not controlled for income; compare it with same_year_lift (the same quintiles' permit rates in the loan year itself) and the partial rank correlation (rank correlation of loans with next-year permits once the tract's current permit rate is held fixed). Permits attach to parcels through PIN or address, so rates are floors.
+
+| loan_quintile | tract_years | parcels | loans | permitted_parcels_next_year | permit_rate_next_year | permit_rate_same_year |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1263 | 431273 | 0 | 15681 | 3.6% | 3.7% |
+| 2 | 647 | 440465 | 896 | 13955 | 3.2% | 3.3% |
+| 3 | 953 | 550938 | 2130 | 17633 | 3.2% | 3.3% |
+| 4 | 954 | 527043 | 3508 | 17356 | 3.3% | 3.4% |
+| 5 | 956 | 377376 | 4938 | 14453 | 3.8% | 4.0% |
+
+| loan_year | tracts | loans | rho_loans_next | rho_now_next | rho_loans_now | partial_rho |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2018 | 684 | 2196 | 0.14 | 0.69 | 0.16 | 0.04 |
+| 2019 | 684 | 1903 | 0.07 | 0.58 | 0.07 | 0.04 |
+| 2020 | 684 | 1122 | 0.15 | 0.58 | 0.13 | 0.09 |
+| 2021 | 684 | 1294 | 0.07 | 0.61 | 0.09 | 0.02 |
+| 2022 | 679 | 1817 | 0.06 | 0.58 | 0.07 | 0.02 |
+| 2023 | 679 | 1459 | 0.04 | 0.54 | 0.01 | 0.03 |
+| 2024 | 679 | 1681 | -0.03 | 0.55 | -0.05 | -0.00 |
+
+## H28 — Radar-detected hail (NEXRAD) → reroof wave on blocks under the swath
+
+- **Signal:** NEXRAD hail detection of at least 1 inch within ~2.5 km of the block on the day (a centroid footprint, not a MESH grid)
+- **Target:** Reroof permits on those blocks in the next 120 days (vs the same blocks a year earlier, vs blocks with no detection within ~8 km)
+- **Data:** NOAA SWDI nx3hail radar hail detections 2016-2026 (Chicago area), permits
+- **Verdict:** No signal
+- **Notes:** Retest of H04 with radar instead of spotter points. nx3hail gives one centroid per tracked hail cell per scan (probability, severe probability, estimated max size); a block counts as under the swath when a centroid of that size was within ~2.5 km that day, a stand-in for the true footprint (MESH grids would need GRIB processing). Day granularity is local time (UTC-6 approximation); detections only come from a box around the city, so blocks at its edge can be near storms we did not fetch. 'conversion' and 'baseline' are after/before permit ratios near and far; lift is their ratio. Insurance-paid repairs and unpermitted patching are invisible, so a null here is about permitted work only. Events from the last 125 days of permit data are excluded so every window is complete.
+
+| definition | event_days | near_cell_days | near_after | near_year_before | far_after | far_year_before | near_ratio | far_ratio | lift | raw_cell_day_ratio |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Radar hail cell of 1 inch or more within ~2.5 km (headline) | 88 | 161546 | 10448 | 8935 | 44837 | 39704 | 1.17 | 1.13 | 1.04 | 1.12 |
+| 1 inch or more with severe-hail probability 30+ | 85 | 152509 | 9831 | 8438 | 43173 | 38477 | 1.17 | 1.12 | 1.04 | 1.13 |
+| 1.75 inches (golf ball) or more | 23 | 29365 | 1994 | 1606 | 8156 | 7364 | 1.24 | 1.11 | 1.12 | 1.22 |
+| 1 inch or more, 270-day window (slower insurance-driven repairs) | 81 | 154104 | 18260 | 16108 | 80851 | 71104 | 1.13 | 1.14 | 1.00 | 1.08 |
+
 ## H19 — 311 'tree emergency' → roofing or porch permit (storm-damage proxy)
 
 - **Signal:** 'Tree Emergency' 311 request (fallen/hazardous tree) at an address
@@ -365,6 +489,42 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 - **Notes:** 'conversion' and 'baseline' here are after/before permit ratios near vs far from the storm; lift is their ratio (difference-in-ratios). Spotter reports are points, so 3 km is a rough footprint.
 - Near storms: 2300 reroof permits in the 120 days after vs 2013 in the same window a year earlier; elsewhere: 80409 vs 68831; 97 storm reports.
 
+## H24 — Restaurant plumbing violation → plumbing permit at the address within 365 days
+
+- **Signal:** Restaurant inspection citing plumbing, leaks, sewage, drains or hand sinks, none at that address in the prior 365 days
+- **Target:** Plumbing permit (any permit tagged plumbing) at the same address within 365 days
+- **Data:** Chicago food inspections (2016+), permits
+- **Verdict:** No signal
+- **Notes:** Matched control: ordinary restaurant inspections without a plumbing finding at the same kind of address (one per address per 365 days, inspection-type mix standardized). Permits are matched on street address, so a plumbing permit for another tenant or the landlord counts; the control has the same bias. Many fixes (faucets, traps, sinks) need no permit, so conversion is a floor. Hand-sink text is often about soap and towels rather than plumbing, hence the strict view. The headline is the broad flag.
+- Signals tested: 21,677; conversion 3.2% vs baseline 3.4%; median 125.0 days to target
+
+| definition | signals | conversion | matched_control | lift | median_days | days_p25_p75 | share_converting_after_30_days |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Plumbing, leak, sewage, drain or hand-sink text | 21677 | 3.2% | 3.4% | 0.95 | 125.00 | 50-243 | 2.6% |
+| Strict: plumbing, leak, sewage, drain, backflow (no hand sinks) | 19504 | 3.2% | 3.3% | 0.96 | 130.00 | 48-242 | 2.6% |
+| Strict and the inspection failed | 8971 | 3.2% | 3.2% | 0.99 | 142.50 | 50-254 | 2.6% |
+
+| year | n | conversion | control_conversion |
+| --- | --- | --- | --- |
+| 2016 | 4004 | 4.1% | 3.9% |
+| 2017 | 2367 | 3.4% | 3.1% |
+| 2018 | 1848 | 3.7% | 5.1% |
+| 2019 | 2518 | 3.3% | 2.9% |
+| 2020 | 1523 | 2.0% | 2.3% |
+| 2021 | 1925 | 2.0% | 3.0% |
+| 2022 | 1849 | 3.1% | 4.0% |
+| 2023 | 2008 | 2.8% | 3.3% |
+| 2024 | 2017 | 3.1% | 3.1% |
+| 2025 | 1618 | 2.8% | 2.5% |
+
+| strat | signals | signal_rate | controls | control_rate |
+| --- | --- | --- | --- | --- |
+| Canvass (routine) | 15244 | 3.3% | 15149 | 3.3% |
+| Complaint | 3324 | 2.9% | 2059 | 3.1% |
+| License (pre-opening) | 2927 | 3.0% | 2861 | 3.9% |
+| Other | 58 | 3.4% | 33 | 12.1% |
+| Re-inspection | 124 | 0.8% | 139 | 5.8% |
+
 ## H05 — Damaging wind (60+ kt) → reroof wave
 
 - **Signal:** Thunderstorm Wind report ≥ 60 kt within ~3 km
@@ -393,6 +553,42 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | --- | --- | --- | --- |
 | Repeat buyers' permits naming a GC the buyer used before on another property | 2201 | 486 | 55.7% |
 | Benchmark: chance a randomly drawn Chicago GC (same year) would be one of those GCs | 2201 | 486 | 0.3% |
+
+## H25 — Restaurant hood/ventilation violation → HVAC or mechanical permit at the address within 365 days
+
+- **Signal:** Restaurant inspection citing a hood, exhaust or duct, none at that address in the prior 365 days
+- **Target:** HVAC/mechanical permit (permits tagged hvac) at the same address within 365 days
+- **Data:** Chicago food inspections (2016+), permits
+- **Verdict:** No signal
+- **Notes:** Hood cleaning and filter swaps need no permit, so only replacements and new installs appear. Permits are matched on street address (a building's other tenants and landlord count; the control has the same bias). The broad ventilation heading (#56 'ventilation & lighting' and the older '#38 ventilation') is shown separately because it also covers lighting.
+- Signals tested: 7,503; conversion 1.8% vs baseline 2.0%; median 127.0 days to target
+
+| definition | signals | conversion | matched_control | lift | median_days | days_p25_p75 | share_converting_after_30_days |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Hood, exhaust or duct text → HVAC/mechanical permit | 7503 | 1.8% | 2.0% | 0.86 | 127.00 | 70-229 | 1.5% |
+| Any ventilation heading (includes lighting) → HVAC/mechanical permit | 16535 | 2.1% | 2.2% | 0.98 | 136.50 | 65-236 | 1.8% |
+| Hood, exhaust or duct text → hood/exhaust/kitchen-vent permit | 7503 | 0.4% | 0.4% | 1.02 | 206.00 | 98-279 | 0.4% |
+
+| year | n | conversion | control_conversion |
+| --- | --- | --- | --- |
+| 2016 | 1171 | 2.3% | 2.7% |
+| 2017 | 954 | 2.1% | 2.4% |
+| 2018 | 714 | 1.1% | 2.7% |
+| 2019 | 811 | 2.1% | 2.3% |
+| 2020 | 445 | 1.1% | 1.7% |
+| 2021 | 730 | 1.4% | 1.8% |
+| 2022 | 784 | 1.3% | 1.7% |
+| 2023 | 658 | 2.1% | 1.6% |
+| 2024 | 701 | 1.7% | 1.6% |
+| 2025 | 535 | 1.5% | 1.2% |
+
+| strat | signals | signal_rate | controls | control_rate |
+| --- | --- | --- | --- | --- |
+| Canvass (routine) | 5479 | 1.8% | 21830 | 2.0% |
+| Complaint | 1311 | 1.4% | 2982 | 2.0% |
+| License (pre-opening) | 636 | 2.0% | 4781 | 2.0% |
+| Other | 28 | 3.6% | 43 | 7.0% |
+| Re-inspection | 49 | 0.0% | 111 | 0.9% |
 
 ## H06 — 311 'water in basement' → plumbing work
 

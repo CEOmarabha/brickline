@@ -17,7 +17,7 @@ from pathlib import Path
 import duckdb
 
 from engine.classify.trades import PERMIT_TRADES, VIOLATION_TRADES, sql_flags
-from engine.collect import noaa
+from engine.collect import hmda, noaa, swdi
 from engine.collect.socrata import export_csv
 
 DATA = Path("data")
@@ -75,6 +75,14 @@ DATASETS = [
         "license_description = 'Retail Food Establishment' AND application_type = 'ISSUE'",
     ),
     Dataset(
+        "food_inspections",
+        CHICAGO,
+        "4ijn-s7e5",
+        "inspection_id,dba_name,license_,facility_type,risk,address,inspection_date,inspection_type,results,"
+        "violations,latitude,longitude",
+        "inspection_date >= '2016-01-01T00:00:00'",
+    ),
+    Dataset(
         "parcel_addresses",
         COOK,
         "3723-97qp",
@@ -83,6 +91,8 @@ DATASETS = [
         "year = 2026 AND prop_address_city_name = 'CHICAGO'",
     ),
     Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community,the_geom"),
+    Dataset("tracts_2010", CHICAGO, "74p9-q2aq", "geoid10,commarea,the_geom"),
+    Dataset("tracts_2020", CHICAGO, "7qjk-677h", "tract_fips,tract_ce,commarea,the_geom"),
     Dataset(
         "sr311",
         CHICAGO,
@@ -124,6 +134,30 @@ DATASETS = [
     ),
 ]
 
+# Flags on the free-text violations of a food inspection (upper-cased). RE2 syntax. Each cited item reads
+# "<n>. <HEADING> - Comments: <inspector text>"; two generic headings are removed first because they name a
+# topic the item is usually not about (rodent-proof garbage containers; hand-washing supplies).
+FOOD_TEXT_NEUTRALIZE = (
+    "OUTSIDE GARBAGE WASTE GREASE AND STORAGE AREA; CLEAN, RODENT PROOF, ALL CONTAINERS COVERED",
+    "ADEQUATE HANDWASHING SINKS PROPERLY SUPPLIED AND ACCESSIBLE",
+)
+FOOD_VIOLATION_FLAGS: dict[str, str] = {
+    "pest": r"RODENT|\bMICE\b|\bMOUSE\b|\bRATS?\b|ROACH|INSECT|\bPESTS?\b|DROPPINGS|\bFLIES\b|VERMIN",
+    "plumbing": r"PLUMBING|LEAK|SEWAGE|\bDRAIN|HAND ?SINK|BACKFLOW|WASTE ?WATER",
+    "plumbing_strict": r"PLUMBING|LEAK|SEWAGE|\bDRAIN|BACKFLOW|WASTE ?WATER",
+    "ventilation": r"VENTILATION|\bHOODS?\b|EXHAUST|\bDUCTS?\b",
+    "hood": r"\bHOODS?\b|EXHAUST|\bDUCTS?\b",
+    "cleaning": r"SANITI[ZS]|CLEANED|CLEANING|\bUNCLEAN|\bDIRT|GREASE|FOOD-CONTACT SURFACES|\bCLEAN\b",
+}
+
+
+def food_text_sql(expr: str) -> str:
+    out = expr
+    for phrase in FOOD_TEXT_NEUTRALIZE:
+        out = f"replace({out}, '{phrase}', '')"
+    return out
+
+
 # Address key: "<number> <dir> <street words up to and including the suffix>", unit/floor text dropped.
 SUFFIXES = "AVE|AV|ST|BLVD|DR|RD|PL|CT|PKWY|TER|WAY|HWY|LN|SQ|PLZ|CIR|ROW|EXPY|PARK|CRES|PLAZA|SR|BL|TRL|WALK"
 ADDRESS_RE = rf"^(\d+)\s+([NSEW])\s+(.*?\s(?:{SUFFIXES}))\b"
@@ -150,6 +184,12 @@ def sync(names: list[str] | None = None) -> None:
     if not names or "noaa" in names:
         print("sync noaa storm events")
         noaa.sync(RAW / "noaa")
+    if not names or "hmda" in names:
+        print("sync hmda home-improvement loans")
+        hmda.sync(RAW / "hmda")
+    if not names or "swdi" in names:
+        print("sync swdi hail detections")
+        swdi.sync(RAW / "swdi")
 
 
 def _csv(name: str) -> str:
@@ -285,6 +325,31 @@ def build() -> None:
         FROM {_csv("food_licenses")}
     """)
 
+    print("build food_inspections")
+    # Address ranges ("5242-5244 W NORTH AVE") keep their first number so they parse like every other source.
+    insp_address_key = address_key_sql(r"regexp_replace(address, '^(\d+)-\d+', '\1')")
+    con.execute(f"""
+        CREATE TABLE food_inspections AS
+        WITH src AS (
+            SELECT inspection_id, dba_name, license_, facility_type, risk, address,
+                try_cast(inspection_date AS TIMESTAMP)::DATE AS inspection_date,
+                inspection_type, results, upper(coalesce(violations, '')) AS violations,
+                try_cast(latitude AS DOUBLE) AS lat, try_cast(longitude AS DOUBLE) AS lon
+            FROM {_csv("food_inspections")}
+        )
+        SELECT
+            try_cast(inspection_id AS BIGINT) AS inspection_id,
+            dba_name AS dba,
+            try_cast(license_ AS BIGINT) AS license_no,
+            facility_type, risk,
+            {insp_address_key} AS address_key,
+            inspection_date, inspection_type, results, violations, lat, lon,
+            {sql_flags(food_text_sql("violations"), FOOD_VIOLATION_FLAGS, prefix="f_")}
+        FROM src
+        WHERE inspection_date IS NOT NULL
+        QUALIFY row_number() OVER (PARTITION BY inspection_id ORDER BY inspection_date) = 1
+    """)
+
     print("build parcels")
     con.execute(f"""
         CREATE TABLE parcels AS
@@ -363,18 +428,55 @@ def build() -> None:
         FROM read_csv('{RAW / "noaa"}/storms-*.csv', header=true, all_varchar=true, union_by_name=true)
     """)
 
+    print("build tracts")
+    con.execute(f"""
+        CREATE TABLE tracts AS
+        SELECT 2010 AS vintage, geoid10 AS geoid, try_cast(commarea AS INTEGER) AS community_area,
+            the_geom AS geom_wkt FROM {_csv("tracts_2010")}
+        UNION ALL
+        SELECT 2020, tract_fips || tract_ce, try_cast(commarea AS INTEGER), the_geom
+        FROM {_csv("tracts_2020")}
+    """)
+
+    print("build hmda_home_improvement")
+    con.execute(f"""
+        CREATE TABLE hmda_home_improvement AS
+        SELECT try_cast(activity_year AS INTEGER) AS year, census_tract AS tract,
+            try_cast(loan_amount AS DOUBLE) AS loan_amount, occupancy_type, total_units,
+            "open-end_line_of_credit" AS open_end, business_or_commercial_purpose AS business_purpose,
+            lien_status, try_cast(income AS DOUBLE) AS income_k, derived_dwelling_category AS dwelling
+        FROM read_csv('{RAW / "hmda"}/hmda-*.csv', header=true, all_varchar=true, union_by_name=true)
+        WHERE census_tract IS NOT NULL AND census_tract <> 'NA'
+    """)
+
+    print("build hail_cells")
+    con.execute(f"""
+        CREATE TABLE hail_cells AS
+        SELECT strptime(ztime, '%Y-%m-%dT%H:%M:%SZ') AS ts,
+            (strptime(ztime, '%Y-%m-%dT%H:%M:%SZ') - INTERVAL 6 HOUR)::DATE AS local_date,
+            wsr_id AS radar, cell_id,
+            try_cast(prob AS INTEGER) AS prob, try_cast(sevprob AS INTEGER) AS sevprob,
+            try_cast(maxsize AS DOUBLE) AS max_size_in,
+            try_cast(lat AS DOUBLE) AS lat, try_cast(lon AS DOUBLE) AS lon
+        FROM read_csv('{RAW / "swdi"}/nx3hail-*.csv', header=true, all_varchar=true, union_by_name=true)
+    """)
+
     for t in (
         "permits",
         "permit_parties",
         "violations",
         "sales",
         "food_licenses",
+        "food_inspections",
         "parcels",
         "community_areas",
         "sr311",
         "benchmarking",
         "res_chars",
         "storms",
+        "tracts",
+        "hmda_home_improvement",
+        "hail_cells",
     ):
         n = con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
         print(f"  {t}: {n:,} rows")
