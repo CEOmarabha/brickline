@@ -76,6 +76,16 @@ DATASETS = [
         "license_description = 'Retail Food Establishment' AND application_type = 'ISSUE'",
     ),
     Dataset(
+        "biz_license_history",
+        CHICAGO,
+        "r5kz-chrr",
+        "id,license_id,account_number,site_number,legal_name,doing_business_as_name,address,zip_code,"
+        "community_area,license_code,license_description,business_activity,application_type,"
+        "application_created_date,license_start_date,expiration_date,date_issued,license_status,"
+        "license_status_change_date,latitude,longitude",
+        "date_issued >= '2014-01-01T00:00:00' OR license_start_date >= '2014-01-01T00:00:00'",
+    ),
+    Dataset(
         "food_inspections",
         CHICAGO,
         "4ijn-s7e5",
@@ -343,6 +353,28 @@ def build() -> None:
         FROM {_csv("food_licenses")}
     """)
 
+    print("build biz_license_history")
+    # Address ranges keep their first number; home-based licenses carry a redacted address.
+    lic_address_key = address_key_sql(r"regexp_replace(address, '^(\d+)-\d+', '\1')")
+    con.execute(f"""
+        CREATE TABLE biz_license_history AS
+        SELECT try_cast(id AS VARCHAR) AS row_id, license_id, account_number,
+            try_cast(site_number AS INTEGER) AS site_number,
+            legal_name, doing_business_as_name AS dba, address,
+            CASE WHEN address LIKE '%REDACTED%' THEN NULL ELSE {lic_address_key} END AS address_key,
+            zip_code AS zip, try_cast(community_area AS INTEGER) AS community_area,
+            try_cast(license_code AS INTEGER) AS license_code, license_description, business_activity,
+            application_type,
+            try_cast(application_created_date AS TIMESTAMP)::DATE AS application_date,
+            try_cast(license_start_date AS TIMESTAMP)::DATE AS start_date,
+            try_cast(expiration_date AS TIMESTAMP)::DATE AS expiration_date,
+            try_cast(date_issued AS TIMESTAMP)::DATE AS issue_date,
+            license_status,
+            try_cast(license_status_change_date AS TIMESTAMP)::DATE AS status_change_date,
+            try_cast(latitude AS DOUBLE) AS lat, try_cast(longitude AS DOUBLE) AS lon
+        FROM {_csv("biz_license_history")}
+    """)
+
     print("build food_inspections")
     # Address ranges ("5242-5244 W NORTH AVE") keep their first number so they parse like every other source.
     insp_address_key = address_key_sql(r"regexp_replace(address, '^(\d+)-\d+', '\1')")
@@ -426,13 +458,19 @@ def build() -> None:
     con.execute(f"""
         CREATE TABLE res_chars AS
         SELECT left(lpad(pin, 14, '0'), 10) AS pin10,
-            first(class) AS class,
+            first(class ORDER BY pin, class NULLS LAST) AS class,
             min(try_cast(try_cast(char_yrblt AS DOUBLE) AS INTEGER)) AS year_built,
             sum(try_cast(char_bldg_sf AS DOUBLE)) AS bldg_sf,
-            first(char_type_resd) AS type_resd, first(char_ext_wall) AS ext_wall,
-            first(char_roof_cnst) AS roof, first(char_air) AS air, first(char_heat) AS heat,
-            first(char_bsmt) AS basement, first(char_repair_cnd) AS repair_condition,
-            first(char_porch) AS porch, first(char_use) AS use, first(char_apts) AS apts
+            first(char_type_resd ORDER BY pin, char_type_resd NULLS LAST) AS type_resd,
+            first(char_ext_wall ORDER BY pin, char_ext_wall NULLS LAST) AS ext_wall,
+            first(char_roof_cnst ORDER BY pin, char_roof_cnst NULLS LAST) AS roof,
+            first(char_air ORDER BY pin, char_air NULLS LAST) AS air,
+            first(char_heat ORDER BY pin, char_heat NULLS LAST) AS heat,
+            first(char_bsmt ORDER BY pin, char_bsmt NULLS LAST) AS basement,
+            first(char_repair_cnd ORDER BY pin, char_repair_cnd NULLS LAST) AS repair_condition,
+            first(char_porch ORDER BY pin, char_porch NULLS LAST) AS porch,
+            first(char_use ORDER BY pin, char_use NULLS LAST) AS use,
+            first(char_apts ORDER BY pin, char_apts NULLS LAST) AS apts
         FROM {_csv("res_chars")}
         GROUP BY 1
     """)
@@ -521,6 +559,7 @@ def build() -> None:
         "violations",
         "sales",
         "food_licenses",
+        "biz_license_history",
         "food_inspections",
         "parcels",
         "community_areas",
