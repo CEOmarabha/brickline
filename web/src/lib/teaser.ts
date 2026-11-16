@@ -18,15 +18,17 @@ export function joinNames(names: string[]): string {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
-function nameKey(s: string): string {
+export function nameKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
 export interface TeaserSample {
   id: string;
+  kind: LeadKindKey;
   maskedAddress: string;
   area: string | null;
   title: string;
+  signalDate: string;
   chance: number;
 }
 
@@ -148,9 +150,11 @@ export function buildTeaser(snap: Snapshot, p: Prospect): Teaser {
     investorLeads: kindCounts.get("investor_purchase") ?? 0,
     samples: pickSamples(leads, 3).map((l) => ({
       id: l.id,
+      kind: l.kind,
       maskedAddress: maskAddress(l.address),
       area: l.communityArea ? (names.get(l.communityArea) ?? null) : null,
       title: l.title,
+      signalDate: l.signalDate,
       chance: tradeProbability(l, p.trade, snap),
     })),
     trends,
@@ -167,8 +171,20 @@ export interface EmailDraft {
   body: string;
 }
 
-/** Cold-email draft for a prospect. Real numbers only; no owner names; CAN-SPAM identity, address and opt-out. */
-export function draftColdEmail(p: Prospect, t: Teaser): EmailDraft {
+/** "Hello Maria," when the founder saved a contact name; a neutral "Hello," otherwise. Never guesses a name. */
+function greeting(contactName: string): string {
+  return contactName ? `Hello ${contactName},` : "Hello,";
+}
+
+function optOutLine(p: Prospect): string {
+  return `You're receiving this because ${p.company} appears as a contractor on public building permits. If you'd rather not hear from me, reply "no thanks" and I won't email you again.`;
+}
+
+/**
+ * Cold-email draft for a prospect (day 0). Real numbers only; no owner names; CAN-SPAM identity, address and
+ * opt-out. `contactName` is the name the founder saved in the pipeline, if any.
+ */
+export function draftColdEmail(p: Prospect, t: Teaser, contactName = ""): EmailDraft {
   const noun = tradeNoun(p.trade);
   const where = joinNames(t.areaNames);
   const counts: string[] = [];
@@ -183,7 +199,7 @@ export function draftColdEmail(p: Prospect, t: Teaser): EmailDraft {
       : `${found} in ${joinNames(nearby)}`;
 
   const lines = [
-    "Hello,",
+    greeting(contactName),
     "",
     `I'm [Your name], founder of Brickline, a small Chicago company that turns public records into weekly lead lists for contractors. We're independent and not affiliated with the City of Chicago.`,
     "",
@@ -213,8 +229,72 @@ export function draftColdEmail(p: Prospect, t: Teaser): EmailDraft {
     "Brickline",
     "[your mailing address]",
     "",
-    `You're receiving this because ${p.company} appears as a contractor on public building permits. If you'd rather not hear from me, reply "no thanks" and I won't email you again.`,
+    optOutLine(p),
   );
   return { subject, body: lines.join("\n") };
+}
+
+/** What a sample lead is, in words that match the letters the app drafts (a violation is a "repair notice"). */
+function sampleWhat(s: TeaserSample, noun: string): string {
+  const when = dateLabel(s.signalDate);
+  return s.kind === "violation"
+    ? `a ${noun} repair notice dated ${when}`
+    : `${s.title.charAt(0).toLowerCase()}${s.title.slice(1)}, dated ${when}`;
+}
+
+/**
+ * Follow-up emails of the playbook's day 0/4/10 sequence (section 3). Day 4 brings one new, real fact (a masked
+ * sample lead from the teaser with its historical chance of work); day 10 closes the loop. Both keep the sender
+ * identity, address placeholder and opt-out, never use "Re:" in the subject, and never name property owners.
+ */
+export function draftFollowUpEmail(p: Prospect, t: Teaser, step: 2 | 3, contactName = ""): EmailDraft {
+  const noun = tradeNoun(p.trade);
+  const where = joinNames(t.areaNames) || "Chicago";
+  const signature = ["[Your name]", "Brickline", "[your mailing address]"];
+  const footer = [optOutLine(p), "Brickline is independent and not affiliated with the City of Chicago."];
+
+  if (step === 2) {
+    const sample = t.samples.find((s) => s.kind === "violation") ?? t.samples[0];
+    const fact = sample
+      ? [
+          `Here is one example from the list for ${p.company}'s neighborhoods: ${sample.maskedAddress}${sample.area ? `, ${sample.area}` : ""}, ${sampleWhat(sample, noun)}. Its historical chance of work is ${pct(sample.chance)}, a floor because permits miss unpermitted work. I've hidden the last two digits of the house number; the weekly list has the full address, the evidence and a drafted letter for each lead.`,
+        ]
+      : [
+          `As of ${dateLabel(t.dataAsOf)}, the records show ${count(t.openLeads)} open leads in ${where}, with the evidence and the historical chance of work for each.`,
+        ];
+    return {
+      subject: sample
+        ? `Following up: a sample ${noun} lead${sample.area ? ` in ${sample.area}` : ""}`
+        : `Following up: ${noun} leads for ${p.company}`,
+      body: [
+        greeting(contactName),
+        "",
+        `I wrote to you recently about Brickline, a small Chicago company that turns public City and county records into weekly lead lists for contractors.`,
+        "",
+        ...fact,
+        "",
+        `I'm offering a free first month to a few Chicago contractors in exchange for weekly feedback on which leads were useful. Would you like the one-page summary for ${p.company}?`,
+        "",
+        ...signature,
+        "",
+        ...footer,
+      ].join("\n"),
+    };
+  }
+
+  return {
+    subject: `Closing the loop on ${noun} leads for ${p.company}`,
+    body: [
+      greeting(contactName),
+      "",
+      `I'll stop here so I don't fill your inbox. I've written to you before about the weekly list of ${noun} leads that Brickline builds from public records for ${p.company}'s neighborhoods (${where}).`,
+      "",
+      `If lead flow isn't a problem right now, no worries. If it ever is, here is what I'd send: a weekly list of properties in ${where === "Chicago" ? where : "those neighborhoods"} with the evidence for each, how often similar signals have led to a permitted job, and a drafted letter, with the first month free. If you'd like the one-page summary, just reply "send it".`,
+      "",
+      ...signature,
+      "",
+      ...footer,
+    ].join("\n"),
+  };
 }
 

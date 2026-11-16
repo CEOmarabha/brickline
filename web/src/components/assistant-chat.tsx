@@ -135,7 +135,7 @@ export function AssistantChat({
             rows={1}
             maxLength={4000}
             disabled={!aiEnabled || busy}
-            placeholder={aiEnabled ? "e.g. Which repeat investors bought in Logan Square?" : "Connect an AI key to ask your own questions"}
+            placeholder={aiEnabled ? "e.g. Draft my next outreach email, or prep me for a call" : "Connect an AI key to ask your own questions"}
             className="min-h-10 resize-none"
             aria-label="Ask the assistant"
           />

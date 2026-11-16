@@ -1,7 +1,8 @@
 import "server-only";
 
+import type { OutreachStatusResult } from "@/lib/assistant-outreach";
 import { runTool, TOOL_DEFS, type ToolContext } from "@/lib/assistant-tools";
-import { money } from "@/lib/format";
+import { count, dateLabel, money } from "@/lib/format";
 import { workspaceLabel } from "@/lib/workspace";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
@@ -34,7 +35,11 @@ function systemPrompt(ctx: ToolContext): string {
     "- When recommending outreach: email and calls to business lines are fine; mail for individual homeowners; never suggest autodialed or prerecorded calls, AI voice calls, or texts to people who haven't opted in; never impersonate the City.",
     "- Complaint, porch-request and vacant-building leads come from 311 reports. Outreach must never mention the report or the property's records, and never imply City affiliation.",
     "- Closed-restaurant leads come from public restaurant inspection records. Outreach to the property owner must never mention the inspection, the closure record or the restaurant closing, and never imply City affiliation. This audience is an unproven pilot list: quote the chance of a new food business and the weaker build-out permit chance from the tools, never a guarantee.",
-    "- Link leads as markdown links using the `link` field, e.g. [2031 W 23rd St](/leads/v-porch-123).",
+    "- Drafts and call briefs are for the founder to review and use himself. You never send an email, letter or text, never place a call, and never say or imply that you did; the business owner makes every call by hand. Say plainly that he reviews and sends it himself. Recommend outreach only through compliant channels: email with a real sender, postal address and working opt-out, manual calls to published business lines, mail for individual homeowners.",
+    "- To write an email or letter, call draft_email (prospect_id from outreach_status or a /prospects link, or an exact company name; lead_id for a lead) and present the subject and body in full. You may lightly personalize the wording, but add no facts, names, numbers, addresses, email addresses or phone numbers that are not in the tool results. Keep placeholders such as [Your name] and [your mailing address], the opt-out line and the not-affiliated line, and pass on its compliance notes and warnings.",
+    "- To prepare a call, call call_brief and present the opening, reason, questions, objections, next step and compliance reminders. If the tool refuses (an individual homeowner, or a prospect marked Not interested), relay the refusal and the alternative and never work around it.",
+    "- For outreach status, call outreach_status. Phone numbers, email addresses and notes are deliberately not in tool results: use the `phone_on_file`, `email_on_file` and `has_notes` flags, and point the founder to the /prospects/<id> link to see the details.",
+    "- Link leads as markdown links using the `link` field, e.g. [2031 W 23rd St](/leads/v-porch-123). Link prospects the same way, e.g. [Mr. Porch, Incorporated](/prospects/porch-mr-porch).",
     "- Be brief and concrete: lead with the answer, then a short list. No preamble.",
   ].join("\n");
 }
@@ -79,16 +84,18 @@ export async function askAssistant(history: ChatTurn[], ctx: ToolContext): Promi
     }
     messages.push({
       role: "user",
-      content: calls.map((c) => {
-        used.push(c.name);
-        let result: unknown;
-        try {
-          result = runTool(c.name, c.input ?? {}, ctx);
-        } catch {
-          result = { error: "Tool failed" };
-        }
-        return { type: "tool_result", tool_use_id: c.id, content: JSON.stringify(result).slice(0, 30_000) };
-      }),
+      content: await Promise.all(
+        calls.map(async (c) => {
+          used.push(c.name);
+          let result: unknown;
+          try {
+            result = await runTool(c.name, c.input ?? {}, ctx);
+          } catch {
+            result = { error: "Tool failed" };
+          }
+          return { type: "tool_result", tool_use_id: c.id, content: JSON.stringify(result).slice(0, 30_000) };
+        }),
+      ),
     });
   }
   return { reply: "That took too many steps. Try a narrower question.", tools: used };
@@ -100,14 +107,30 @@ export const QUICK_QUESTIONS = {
   competitors: "Who are my main competitors?",
   follow_ups: "What follow-ups are due?",
   results: "How are my leads converting?",
+  outreach: "What's my outreach status?",
 } as const;
 export type QuickKey = keyof typeof QUICK_QUESTIONS;
 
+const EVENT_TEXT: Record<string, string> = {
+  email_sent: "email logged as sent",
+  status_change: "status changed",
+  contact_details_updated: "contact details updated",
+  notes_updated: "notes updated",
+  follow_up_changed: "follow-up date changed",
+  added_to_pipeline: "added to your pipeline",
+};
+
+function eventText(e: OutreachStatusResult["prospect_pipeline"]["recent_events"][number]): string {
+  const what = EVENT_TEXT[e.kind] ?? "updated";
+  if (e.kind === "email_sent") return `${what} (email ${e.email_number})`;
+  return e.kind === "status_change" ? `${what} (${e.status})` : what;
+}
+
 /** Deterministic answers built straight from the tools; work without an AI key. */
-export function quickAnswer(key: QuickKey, ctx: ToolContext): string {
+export async function quickAnswer(key: QuickKey, ctx: ToolContext): Promise<string> {
   switch (key) {
     case "best_leads": {
-      const r = runTool("search_leads", { status: "open", sort: "priority", limit: 6 }, ctx) as {
+      const r = (await runTool("search_leads", { status: "open", sort: "priority", limit: 6 }, ctx)) as {
         total_matches: number;
         leads: { address: string; link: string; signal: string; chance_of_work: string; expected_value_usd: number; neighborhood: string | null }[];
       };
@@ -121,7 +144,7 @@ export function quickAnswer(key: QuickKey, ctx: ToolContext): string {
       ].join("\n");
     }
     case "hot_areas": {
-      const r = runTool("neighborhood_stats", { sort_by: "growth", limit: 5 }, ctx) as {
+      const r = (await runTool("neighborhood_stats", { sort_by: "growth", limit: 5 }, ctx)) as {
         signal_type: string;
         rows: { neighborhood: string; signals_last_90_days: number; signals_same_period_last_year: number; open_leads: number }[];
       };
@@ -134,7 +157,7 @@ export function quickAnswer(key: QuickKey, ctx: ToolContext): string {
       ].join("\n");
     }
     case "competitors": {
-      const r = runTool("competitors", {}, ctx) as {
+      const r = (await runTool("competitors", {}, ctx)) as {
         trade: string;
         top_contractors: { name: string; jobs_last_12m: number; jobs_prior_12m: number; share: string }[];
         winning_violation_jobs: { name: string; jobs: number }[];
@@ -153,7 +176,7 @@ export function quickAnswer(key: QuickKey, ctx: ToolContext): string {
       ].join("\n");
     }
     case "follow_ups": {
-      const r = runTool("pipeline", {}, ctx) as {
+      const r = (await runTool("pipeline", {}, ctx)) as {
         overdue_follow_ups: { lead: { address?: string; link?: string; id: string }; days_since_update: number }[];
       };
       if (r.overdue_follow_ups.length === 0) return "Nothing overdue. Leads you mark Contacted show up here after 21 days.";
@@ -165,7 +188,7 @@ export function quickAnswer(key: QuickKey, ctx: ToolContext): string {
       ].join("\n");
     }
     case "results": {
-      const r = runTool("my_results", {}, ctx) as {
+      const r = (await runTool("my_results", {}, ctx)) as {
         by_signal: { label: string; worked: number; won: number; lost: number; meetingRate: number | null }[];
         close_rates_used: Record<string, unknown>;
       };
@@ -174,6 +197,49 @@ export function quickAnswer(key: QuickKey, ctx: ToolContext): string {
         "**Outcomes by signal:**",
         ...r.by_signal.map((s) => `- ${s.label}: ${s.worked} worked, ${s.won} won, ${s.lost} lost.`),
       ].join("\n");
+    }
+    case "outreach": {
+      const r = (await runTool("outreach_status", {}, ctx)) as OutreachStatusResult | { error: string };
+      if ("error" in r) return r.error;
+      const p = r.prospect_pipeline;
+      const counts = Object.entries(p.counts_by_status)
+        .map(([label, n]) => `${label} ${count(n)}`)
+        .join(", ");
+      const leadCounts = Object.entries(r.lead_outreach.counts_by_status)
+        .filter(([label, n]) => label !== "New" && n > 0)
+        .map(([label, n]) => `${label} ${count(n)}`)
+        .join(", ");
+      const overdueLeads = r.lead_outreach.overdue_follow_ups_total;
+      return [
+        `**Your prospect pipeline** (${count(p.prospects_total)} contractors, ${count(p.prospects_tracked)} in your pipeline): ${counts}.`,
+        p.due_total === 0
+          ? "Nothing is due today or overdue."
+          : [
+              `**${count(p.due_total)} due today or overdue:**`,
+              ...p.due.slice(0, 10).map(
+                (d) =>
+                  `- [${d.company}](${d.link}): ${d.status}, ${d.emails_sent} of 3 emails sent, ${
+                    d.days_overdue === 0 ? "due today" : `${d.days_overdue} ${d.days_overdue === 1 ? "day" : "days"} overdue`
+                  } (follow-up ${dateLabel(d.next_follow_up)}). Next: ${d.next_step}.`,
+              ),
+              ...(p.due_total > 10 ? [`- ${count(p.due_total - 10)} more: [see all due follow-ups](/prospects?status=due).`] : []),
+            ].join("\n"),
+        p.recent_events.length === 0
+          ? ""
+          : [
+              "**Latest activity:**",
+              ...p.recent_events
+                .slice(0, 5)
+                .map((e) => `- ${dateLabel(e.date)}: [${e.company}](${e.link}), ${eventText(e)}.`),
+            ].join("\n"),
+        `**Lead outreach in ${r.lead_outreach.workspace}:** ${leadCounts || "no leads worked yet"}. ${
+          overdueLeads === 0
+            ? "No lead follow-ups are overdue."
+            : `${count(overdueLeads)} lead follow-ups are overdue (contacted 21+ days ago); ask "What follow-ups are due?" for the list.`
+        }`,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
     }
   }
 }

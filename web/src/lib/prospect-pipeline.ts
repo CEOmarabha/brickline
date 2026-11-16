@@ -68,6 +68,32 @@ export async function getPipelineRow(owner: string, prospectId: string): Promise
   return rows[0] ? toPipelineRow(rows[0]) : undefined;
 }
 
+export interface RecentPipelineEvent extends PipelineEvent {
+  prospectId: string;
+}
+
+/** The newest events across all of this owner's prospects. Owner-scoped like every other read here. */
+export async function getRecentPipelineEvents(owner: string, limit: number): Promise<RecentPipelineEvent[]> {
+  const rows = await sql<{
+    id: number | string;
+    prospect_id: string;
+    status: ProspectStatus;
+    note: string;
+    created_at: Date;
+  }>(
+    `select id, prospect_id, status, note, created_at from prospect_event
+     where owner_id = $1 order by created_at desc, id desc limit $2`,
+    [owner, limit],
+  );
+  return rows.map((r) => ({
+    id: Number(r.id),
+    prospectId: r.prospect_id,
+    status: r.status,
+    note: r.note,
+    createdAt: new Date(r.created_at),
+  }));
+}
+
 export async function getPipelineHistory(owner: string, prospectId: string): Promise<PipelineEvent[]> {
   const rows = await sql<{ id: number | string; status: ProspectStatus; note: string; created_at: Date }>(
     `select id, status, note, created_at from prospect_event

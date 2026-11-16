@@ -29,11 +29,11 @@ export async function POST(request: Request) {
   }
 
   const [snap, ws, statuses, outcomes] = await Promise.all([getSnapshot(), getWorkspace(), getStatuses(), getOutcomes()]);
-  const ctx: ToolContext = { snap, ws, statuses, rates: outcomes.rates, outcomes };
+  const ctx: ToolContext = { snap, ws, owner, statuses, rates: outcomes.rates, outcomes };
 
   if (typeof body.quick === "string") {
-    if (!(body.quick in QUICK_QUESTIONS)) return json({ error: "Unknown question" }, 400);
-    return json({ reply: quickAnswer(body.quick as QuickKey, ctx), tools: [], mode: "quick" });
+    if (!Object.hasOwn(QUICK_QUESTIONS, body.quick)) return json({ error: "Unknown question" }, 400);
+    return json({ reply: await quickAnswer(body.quick as QuickKey, ctx), tools: [], mode: "quick" });
   }
 
   if (!assistantConfigured()) {

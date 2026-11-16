@@ -13,7 +13,7 @@ export default function AssistantPage() {
     <>
       <PageHeader
         title="Assistant"
-        description="Ask about your leads, neighborhoods, competitors and results. It looks answers up in the data instead of guessing, and it never sends anything on your behalf."
+        description="Ask about your leads, neighborhoods, competitors, results and outreach. It looks answers up in the data instead of guessing, drafts emails and call briefs for you to review and use yourself, and never sends anything or calls anyone on your behalf."
       />
       <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
         <Assistant />

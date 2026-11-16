@@ -1,5 +1,6 @@
 import "server-only";
 
+import { callBrief, draftEmail, outreachStatus } from "@/lib/assistant-outreach";
 import { pct } from "@/lib/format";
 import { buildInsights } from "@/lib/insights";
 import { DEFAULT_FILTERS, queryLeads } from "@/lib/lead-query";
@@ -14,11 +15,13 @@ import {
   type Snapshot,
   tradeProbability,
 } from "@/lib/snapshot";
-import { type LeadStatusRow, STATUS_LABEL, type Workspace } from "@/lib/workspace";
+import { type LeadStatusRow, STATUS_LABEL, type Workspace, workspaceLabel } from "@/lib/workspace";
 
 export interface ToolContext {
   snap: Snapshot;
   ws: Workspace;
+  /** The signed-in viewer (`viewerId()`), never the client workspace id. Null when nobody is verified. */
+  owner: string | null;
   statuses: Map<string, LeadStatusRow>;
   rates: CloseRates;
   outcomes: { rows: SegmentOutcome[] };
@@ -91,6 +94,37 @@ export const TOOL_DEFS = [
       "Properties likely to apply for a $100k+ permit within 180 days (pre-application signal), in this workspace's areas.",
     input_schema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 15 } } },
   },
+  {
+    name: "outreach_status",
+    description:
+      "The founder's own sales outreach: his pipeline of contractor prospects he pitches (counts by status, who is due today or overdue with the next step, the latest pipeline events) plus this workspace's lead-outreach summary (lead counts by status and overdue lead follow-ups). Phone numbers, email addresses and notes are never included; each prospect has a /prospects/<id> link where he sees them.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "draft_email",
+    description:
+      "Draft an outreach email or letter for the founder to review and send himself; nothing is sent. For a contractor prospect pass prospect_id (from outreach_status or a /prospects/<id> link; an exact company name also works) and optionally step 1, 2 or 3 (day 0, 4 and 10 of the cold-email sequence; default is the next step in his pipeline). For a lead in this workspace pass lead_id to get the letter (or business email) the app drafts for that property owner. Returns subject, body, channel, compliance notes and requires_human_send.",
+    input_schema: {
+      type: "object",
+      properties: {
+        prospect_id: { type: "string", description: "Prospect id such as 'porch-mr-porch', or an exact company name" },
+        step: { type: "integer", minimum: 1, maximum: 3, description: "Email 1, 2 or 3 of the sequence; omit for the next step" },
+        lead_id: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "call_brief",
+    description:
+      "Preparation for a call the founder dials himself to a published business line: opening statement, reason for calling grounded in the data, discovery questions, likely objections with honest answers, suggested next step and compliance reminders. Pass prospect_id (a contractor he pitches) or lead_id (company-owned properties only). Refuses for individual homeowners (mail only) and for prospects marked Not interested. The assistant never places calls.",
+    input_schema: {
+      type: "object",
+      properties: {
+        prospect_id: { type: "string", description: "Prospect id such as 'porch-mr-porch', or an exact company name" },
+        lead_id: { type: "string" },
+      },
+    },
+  },
 ] as const;
 
 type Input = Record<string, unknown>;
@@ -145,7 +179,43 @@ function compactLead(l: Lead, ctx: ToolContext) {
   };
 }
 
-export function runTool(name: string, input: Input, ctx: ToolContext): unknown {
+/** A lead left at Contacted this many days or longer counts as an overdue follow-up. */
+const LEAD_FOLLOW_UP_DAYS = 21;
+
+function leadStatusCounts(statuses: Map<string, LeadStatusRow>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(STATUS_LABEL).map(([k, v]) => [v, [...statuses.values()].filter((s) => s.status === k).length]),
+  );
+}
+
+const daysSince = (d: Date) => Math.floor((Date.now() - d.getTime()) / 86_400_000);
+
+/** This workspace's lead outreach, as the `pipeline` tool counts it, without free-text notes or owner details. */
+export function leadOutreachSummary(ctx: ToolContext) {
+  const byId = new Map(ctx.snap.leads.map((l) => [l.id, l]));
+  const overdue = [...ctx.statuses.values()]
+    .filter((s) => s.status === "contacted" && daysSince(s.updatedAt) >= LEAD_FOLLOW_UP_DAYS)
+    .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime());
+  return {
+    workspace: workspaceLabel(ctx.ws),
+    counts_by_status: leadStatusCounts(ctx.statuses),
+    overdue_follow_ups_total: overdue.length,
+    overdue_follow_ups: overdue.slice(0, 15).map((s) => {
+      const l = byId.get(s.leadId);
+      return {
+        lead_id: s.leadId,
+        address: l?.address ?? null,
+        signal: l?.title ?? null,
+        link: l ? `/leads/${encodeURIComponent(l.id)}` : null,
+        days_since_contacted: daysSince(s.updatedAt),
+        has_notes: s.note.trim() !== "",
+      };
+    }),
+  };
+}
+export type LeadOutreachSummary = ReturnType<typeof leadOutreachSummary>;
+
+export async function runTool(name: string, input: Input, ctx: ToolContext): Promise<unknown> {
   const { snap, ws, statuses } = ctx;
   const names = areaNames(snap);
   switch (name) {
@@ -258,10 +328,8 @@ export function runTool(name: string, input: Input, ctx: ToolContext): unknown {
         };
       });
       return {
-        counts: Object.fromEntries(
-          Object.entries(STATUS_LABEL).map(([k, v]) => [v, [...statuses.values()].filter((s) => s.status === k).length]),
-        ),
-        overdue_follow_ups: rows.filter((r) => r.status === "Contacted" && r.days_since_update >= 21),
+        counts: leadStatusCounts(statuses),
+        overdue_follow_ups: rows.filter((r) => r.status === "Contacted" && r.days_since_update >= LEAD_FOLLOW_UP_DAYS),
         recent: rows.sort((a, b) => a.days_since_update - b.days_since_update).slice(0, 15),
       };
     }
@@ -295,6 +363,12 @@ export function runTool(name: string, input: Input, ctx: ToolContext): unknown {
         })),
       };
     }
+    case "outreach_status":
+      return outreachStatus(ctx, leadOutreachSummary(ctx));
+    case "draft_email":
+      return draftEmail(input, ctx);
+    case "call_brief":
+      return callBrief(input, ctx);
     default:
       return { error: `Unknown tool ${name}` };
   }
