@@ -241,12 +241,18 @@ def split_name(name: str, link: str) -> tuple[str, str, str, str]:
     return num, rest, city, name
 
 
+def fetch_listing(fetcher: Fetcher) -> tuple[bytes, list[dict]]:
+    """One request for the project listing: (raw body, project items)."""
+    body = fetcher.get(LISTING)
+    d = json.loads(body)
+    return body, [x for x in d["listItems"] if "projectName" in x]
+
+
 def load_listing(fetcher: Fetcher, refresh: bool, log=print) -> list[dict]:
     RAW.mkdir(parents=True, exist_ok=True)
     path = RAW / "listing.json"
     if refresh or not path.exists():
-        body = fetcher.get(LISTING)
-        json.loads(body)
+        body, _ = fetch_listing(fetcher)
         path.write_bytes(body)
         log(f"  hfsrb listing: {len(body) / 1e3:.0f} KB")
     d = json.loads(path.read_text())

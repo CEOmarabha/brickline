@@ -13,6 +13,10 @@ rm -rf data/raw/permits data/raw/violations data/raw/sales data/raw/food_license
 
 uv run python -m engine.warehouse sync
 uv run python -m engine.warehouse build
+# Weekly snapshots of sources that publish only their current state (FMCSA, HFSRB, Cook County buying plan,
+# ADU preapprovals, IDPH directories). A failure here must not abort the refresh. Commit
+# research/archive/manifest.json afterwards; the data files live in data/archive and the agent store.
+uv run python -m engine.collect.archive || echo "WARNING: source archive failed (exit $?); continuing the refresh" >&2
 uv run python -m engine.leads.snapshot
 uv run python -m engine.leads.pest
 uv run python -m engine.leads.prospects --trades porch masonry roofing
@@ -25,4 +29,4 @@ if [[ "${1:-}" == "--backtest" ]]; then
   uv run python research/backtests/run_backtests.py
 fi
 
-git status --short web/data research/findings
+git status --short web/data research/findings research/archive

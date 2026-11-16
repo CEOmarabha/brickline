@@ -1,0 +1,237 @@
+{
+  "sources": [
+    {
+      "name": "chicago_adu_preapprovals",
+      "description": "Chicago Additional Dwelling Unit preapproval applications (Socrata j4h8-ug9m), with status and action dates. Applicant and owner names are not kept. Status moves (Submitted -> Pre-Certified) and a later building permit at the address are the test chain for ADU preapproval -> permit.",
+      "url": "https://data.cityofchicago.org/resource/j4h8-ug9m.csv",
+      "filter": "",
+      "fields": [
+        "id",
+        "submission_date",
+        "status",
+        "address",
+        "zip",
+        "ward",
+        "zoning",
+        "latitude",
+        "longitude",
+        "coach_house",
+        "conversion_unit",
+        "adu_applying_for",
+        "dwelling_units_in_lot",
+        "max_number_of_adu_allowed",
+        "max_number_coach_house_units_allowed",
+        "principal_building_built_year",
+        "number_affordable_units_required",
+        "property_owner_occupied",
+        "user_amended_date",
+        "action_date"
+      ],
+      "key": [
+        "id"
+      ],
+      "runs": [
+        {
+          "date": "2026-11-16",
+          "rows": 616,
+          "sha256": "d2aeb2a65973239df8bab1fb5eb73a27f6d472fcfc989ed1143f73a9e9e6a254",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "name": "cook_buying_plan",
+      "description": "Cook County Procurement Buying Plan (fiscal year 2026, dataset cbhc-xvrm): planned solicitations with category, department, value band and anticipated advertise quarter. Items appearing, changing quarter or disappearing (posted) are the forward-looking events (E24). A new fiscal year gets a new dataset id: add it here when the County publishes it.",
+      "url": "https://datacatalog.cookcountyil.gov/resource/cbhc-xvrm.csv",
+      "filter": "",
+      "fields": [
+        "buying_plan_number",
+        "contract_commodity_category",
+        "department",
+        "current_contract_number",
+        "project_description",
+        "estimated_total_contract",
+        "estimated_contract_term",
+        "anticipated_advertise_date",
+        "proposed_procurement_method"
+      ],
+      "key": [
+        "buying_plan_number",
+        "project_description"
+      ],
+      "runs": [
+        {
+          "date": "2026-11-16",
+          "rows": 164,
+          "sha256": "0588ad27f61d896bc6bc7bf2c42d3a3f4070fc9b5e1d248805b3fdc6a4c18feb",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "name": "fmcsa_chicago_carriers",
+      "description": "FMCSA Company Census File: carriers with a Chicago, IL physical address. Current state only; the open file has no history, so weekly power-unit, driver and MCS-150 changes need our own snapshots (E23). Contact fields (phone, email, officers) are deliberately not kept.",
+      "url": "https://data.transportation.gov/resource/az4n-8mr2.csv",
+      "filter": "phy_city='CHICAGO' AND phy_state='IL'",
+      "fields": [
+        "dot_number",
+        "legal_name",
+        "dba_name",
+        "phy_street",
+        "phy_city",
+        "phy_state",
+        "phy_zip",
+        "phy_cnty",
+        "status_code",
+        "carrier_operation",
+        "classdef",
+        "business_org_desc",
+        "add_date",
+        "mcs150_date",
+        "mcs150_mileage",
+        "mcs150_mileage_year",
+        "mcs150_update_code_id",
+        "power_units",
+        "truck_units",
+        "bus_units",
+        "fleetsize",
+        "total_drivers",
+        "total_cdl",
+        "total_intrastate_drivers",
+        "driver_inter_total",
+        "hm_ind",
+        "safety_rating",
+        "safety_rating_date",
+        "prior_revoke_flag"
+      ],
+      "key": [
+        "dot_number"
+      ],
+      "runs": [
+        {
+          "date": "2026-11-16",
+          "rows": 20715,
+          "sha256": "d65a744dcc700104bc905f3123d5828a0e5d582c23b875f85b76399ad7666036",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "name": "hfsrb_project_pages",
+      "description": "Illinois HFSRB per-project pages for projects of last year and this year: received date, hearing and comment deadlines, Board meeting date and which documents exist (application, completeness letter, staff report, approval letter). Board-action progress shows as these dates and links appearing (E20).",
+      "url": "https://hfsrb.illinois.gov/project/project-search.html",
+      "filter": "",
+      "fields": [
+        "page_url",
+        "project_no",
+        "received_date",
+        "hearing_request_deadline",
+        "public_hearing_date",
+        "written_comment_deadline",
+        "board_meeting_date",
+        "document_count",
+        "application_url",
+        "completeness_letter_url",
+        "staff_report_url",
+        "approval_letter_url",
+        "page_status"
+      ],
+      "key": [
+        "page_url"
+      ],
+      "runs": [
+        {
+          "date": "2026-11-16",
+          "rows": 179,
+          "sha256": "3bafd6c39d261ae5ec4cc335e088a538045392e97686255fcfa1a6fbb9bfd14d",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "name": "hfsrb_projects",
+      "description": "Illinois HFSRB project search listing (CON and exemption projects): project number, facility, type (Exempted / Non-Exempted) and deemed-complete flag. List only, no PDFs. New projects and status flips become visible week to week (E20).",
+      "url": "https://hfsrb.illinois.gov/content/soi/hfsrb/en/project/project-search/jcr:content/responsivegrid/container/container/contentfragmentlist.model.json",
+      "filter": "",
+      "fields": [
+        "page_url",
+        "project_no",
+        "project_name",
+        "facility_name",
+        "city_in_name",
+        "project_year",
+        "project_status",
+        "deemed_complete"
+      ],
+      "key": [
+        "page_url",
+        "project_name",
+        "project_year"
+      ],
+      "runs": [
+        {
+          "date": "2026-11-16",
+          "rows": 1692,
+          "sha256": "1b9b845a4eb1f82e0e9db3980c9696b90717d5c1c16728b9b81f9d474daf4a42",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "name": "idph_astc",
+      "description": "Illinois IDPH Ambulatory Surgical Treatment Center Directory (all Illinois ASTCs; Socrata 79iq-26tb): licence number, facility, address, administrative contact, licence expiry. New or closed surgery centers (E20 facility master list).",
+      "url": "https://illinois-edp.data.socrata.com/resource/79iq-26tb.csv",
+      "filter": "",
+      "fields": [
+        "license_number",
+        "facility_name",
+        "address",
+        "city",
+        "county",
+        "zip",
+        "contact_name",
+        "phone",
+        "exp_date"
+      ],
+      "key": [
+        "license_number"
+      ],
+      "runs": [
+        {
+          "date": "2026-11-16",
+          "rows": 156,
+          "sha256": "912ab31566a77466b92f10da594a151e3263eb7a7a51dd6eb96e971d7af49407",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "name": "idph_hospitals",
+      "description": "Illinois IDPH Hospital Directory (all Illinois hospitals; Socrata 53nt-jwqq on the Illinois open data portal): licence number, facility, type, address, licence expiry. New or closed hospitals and address changes (E20 facility master list).",
+      "url": "https://illinois-edp.data.socrata.com/resource/53nt-jwqq.csv",
+      "filter": "",
+      "fields": [
+        "license_number",
+        "facility_name",
+        "facility_type",
+        "address",
+        "city",
+        "county",
+        "zip",
+        "phone",
+        "exp_date"
+      ],
+      "key": [
+        "license_number"
+      ],
+      "runs": [
+        {
+          "date": "2026-11-16",
+          "rows": 207,
+          "sha256": "aa26207bee2b37697ba9c3989091cfeddc62752f26a63fc7fe90719e567a30a5",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}
