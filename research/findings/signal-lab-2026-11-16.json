@@ -3788,5 +3788,912 @@
     "verdict": "Strong",
     "notes": "Reasoning: H32 shows build-outs mostly precede the new license, and the permit is public the day it is issued while the license only appears when issued, so the permit is the earlier, observable signal for anyone selling to a new business. Class comes from the latest sale or residential file, so addresses with no sale since 2010 are not in the universe. 'In force' uses license terms and cancellations known on the permit date. The license group of the first new licensee is a result, not something the permit tells you in advance. Premises-based licenses only (same filter as H31); unlicensed businesses, professional offices without a license and licenses under 2014 history are invisible, so conversion is a floor. Addresses are by street address without unit, so a permit for one tenant counts for the whole building. Signals stop 365 days before the newest license record.",
     "score": 137.45304
+  },
+  {
+    "id": "H34",
+    "title": "Council zoning reclassification introduced at an address \u2192 new-construction permit there within 730 days",
+    "who": "GCs, commercial subcontractors, suppliers and brokers who want the earliest public trace of a project",
+    "data": "City Clerk eLMS zoning reclassification ordinances 2012+ (title addresses), Chicago permits, parcel classes from sales and the residential file, today's zoning map (target district of passed ordinances)",
+    "signal": "A zoning reclassification ordinance introduced in Council at a parsed street address (one signal per address per 730 days; address ranges also match permits at same-side addresses inside the range). Second view: passed ordinances measured from the passage date",
+    "target": "PERMIT - NEW CONSTRUCTION at the address or inside its range within 730 days after the signal date; baselines = the same addresses' earlier 730-day window, comparable addresses (same community area, same class bucket, same year) with no zoning change within 730 days either side, and the subset of those with a permit in the prior year",
+    "metrics": {
+      "signals": 6869,
+      "projects": 4957,
+      "project_conversion": 0.22655,
+      "conversion": 0.17062,
+      "baseline": 0.00916,
+      "lift": 9.68595,
+      "lift_vs_control": 11.26164,
+      "conversion_exact_address": 0.10322,
+      "lift_vs_control_site_vs_exact_control": 18.62624,
+      "nc_permits_since_2014": 20088,
+      "nc_permits_with_zoning_signal_before": 1849,
+      "nc_permit_coverage_share": 0.09205,
+      "control_matched_share": 0.99971,
+      "own_earlier_window": 0.01762,
+      "lift_vs_own_earlier": 9.68595,
+      "busy_control_rate": 0.01941,
+      "lift_vs_busy_control": 7.68412,
+      "signals_per_week": 8.59615,
+      "projects_per_week_recent": 6.5,
+      "median_days": 313.0,
+      "days_p25": 189.0,
+      "days_p75": 454.0,
+      "permitted_before_intro_730": 0.02329,
+      "permitted_before_intro_ever": 0.07672,
+      "passed_signals": 6005,
+      "passed_conversion": 0.19434,
+      "passed_control_rate": 0.00917,
+      "passed_conversion_exact_address": 0.1154,
+      "passed_lift_vs_control": 12.57714,
+      "passed_own_earlier_window": 0.01799,
+      "passed_lift_vs_own_earlier": 10.80556,
+      "passed_busy_control_rate": 0.02027,
+      "passed_lift_vs_busy_control": 8.25261,
+      "passed_median_days": 237.0,
+      "passed_days_p25": 133.5,
+      "passed_days_p75": 403.0,
+      "passed_permitted_before_intro": 0.07427,
+      "passed_permitted_between_intro_and_passage": 0.0055,
+      "passed_permitted_before_passage_730": 0.02315,
+      "by_status": [
+        {
+          "split": "all introduced (known at introduction)",
+          "signals": 6869,
+          "conversion": 0.17062,
+          "exact_address_rate": 0.10322,
+          "own_earlier_rate": 0.01762,
+          "control_rate": 0.00916,
+          "lift_vs_control": 11.26164,
+          "lift_vs_own": 9.68595,
+          "median_days": 313.0,
+          "share_before_intro": 0.07672
+        },
+        {
+          "split": "introduced, later passed (hindsight)",
+          "signals": 6121,
+          "conversion": 0.17971,
+          "exact_address_rate": 0.10864,
+          "own_earlier_rate": 0.01715,
+          "control_rate": 0.00911,
+          "lift_vs_control": 11.91232,
+          "lift_vs_own": 10.47619,
+          "median_days": 311.5,
+          "share_before_intro": 0.07384
+        },
+        {
+          "split": "introduced, never passed (hindsight)",
+          "signals": 748,
+          "conversion": 0.09626,
+          "exact_address_rate": 0.05882,
+          "own_earlier_rate": 0.02139,
+          "control_rate": 0.00953,
+          "lift_vs_control": 6.17314,
+          "lift_vs_own": 4.5,
+          "median_days": 332.5,
+          "share_before_intro": 0.10027
+        }
+      ],
+      "by_split": [
+        {
+          "split": "all passed (from passage date)",
+          "signals": 6005,
+          "conversion": 0.19434,
+          "exact_address_rate": 0.1154,
+          "own_earlier_rate": 0.01799,
+          "control_rate": 0.00917,
+          "lift_vs_control": 12.57714,
+          "lift_vs_own": 10.80556,
+          "median_days": 237.0,
+          "share_before_intro": 0.07427
+        },
+        {
+          "split": "target district: business/commercial (B/C)",
+          "signals": 1883,
+          "conversion": 0.1726,
+          "exact_address_rate": 0.10887,
+          "own_earlier_rate": 0.00956,
+          "control_rate": 0.00927,
+          "lift_vs_control": 11.7397,
+          "lift_vs_own": 18.05556,
+          "median_days": 271.0,
+          "share_before_intro": 0.0547
+        },
+        {
+          "split": "target district: no map match (unknown)",
+          "signals": 1437,
+          "conversion": 0.16214,
+          "exact_address_rate": 0.09255,
+          "own_earlier_rate": 0.02436,
+          "control_rate": 0.01017,
+          "lift_vs_control": 9.11007,
+          "lift_vs_own": 6.65714,
+          "median_days": 288.0,
+          "share_before_intro": 0.0842
+        },
+        {
+          "split": "target district: residential (RS/RT/RM)",
+          "signals": 1331,
+          "conversion": 0.26071,
+          "exact_address_rate": 0.21037,
+          "own_earlier_rate": 0.00751,
+          "control_rate": 0.00877,
+          "lift_vs_control": 23.92557,
+          "lift_vs_own": 34.7,
+          "median_days": 175.0,
+          "share_before_intro": 0.04207
+        },
+        {
+          "split": "target district: planned development (PD)",
+          "signals": 1093,
+          "conversion": 0.21683,
+          "exact_address_rate": 0.06313,
+          "own_earlier_rate": 0.03934,
+          "control_rate": 0.00853,
+          "lift_vs_control": 7.40372,
+          "lift_vs_own": 5.51163,
+          "median_days": 238.0,
+          "share_before_intro": 0.1409
+        },
+        {
+          "split": "target district: downtown (D)",
+          "signals": 106,
+          "conversion": 0.17925,
+          "exact_address_rate": 0.0566,
+          "own_earlier_rate": 0.00943,
+          "control_rate": 0.01144,
+          "lift_vs_control": 4.94829,
+          "lift_vs_own": 19.0,
+          "median_days": 309.0,
+          "share_before_intro": 0.06604
+        },
+        {
+          "split": "target district: manufacturing (M/PMD)",
+          "signals": 106,
+          "conversion": 0.0283,
+          "exact_address_rate": 0.0,
+          "own_earlier_rate": 0.00943,
+          "control_rate": 0.00498,
+          "lift_vs_control": 0.0,
+          "lift_vs_own": 3.0,
+          "median_days": 34.0,
+          "share_before_intro": 0.0283
+        },
+        {
+          "split": "target district: other (open space/transport)",
+          "signals": 49,
+          "conversion": 0.06122,
+          "exact_address_rate": 0.0,
+          "own_earlier_rate": 0.0,
+          "control_rate": 0.00486,
+          "lift_vs_control": 0.0,
+          "lift_vs_own": null,
+          "median_days": 492.0,
+          "share_before_intro": 0.04082
+        },
+        {
+          "split": "App No. with T1 suffix (Type 1)",
+          "signals": 1547,
+          "conversion": 0.26955,
+          "exact_address_rate": 0.18811,
+          "own_earlier_rate": 0.00646,
+          "control_rate": 0.01174,
+          "lift_vs_control": 15.98434,
+          "lift_vs_own": 41.7,
+          "median_days": 243.0,
+          "share_before_intro": 0.04719
+        },
+        {
+          "split": "App No. without T1 suffix",
+          "signals": 4458,
+          "conversion": 0.16824,
+          "exact_address_rate": 0.09017,
+          "own_earlier_rate": 0.02198,
+          "control_rate": 0.00827,
+          "lift_vs_control": 10.90089,
+          "lift_vs_own": 7.65306,
+          "median_days": 230.0,
+          "share_before_intro": 0.08367
+        }
+      ],
+      "by_target": [
+        {
+          "target": "new construction (headline)",
+          "signals": 6869,
+          "conversion": 0.17062,
+          "exact_address_rate": 0.10322,
+          "own_earlier_rate": 0.01762,
+          "control_rate": 0.00916,
+          "lift_vs_control": 11.26164,
+          "lift_vs_own": 9.68595
+        },
+        {
+          "target": "new construction or renovation, cost $100k+",
+          "signals": 6869,
+          "conversion": 0.27573,
+          "exact_address_rate": 0.17965,
+          "own_earlier_rate": 0.04236,
+          "control_rate": 0.02406,
+          "lift_vs_control": 7.46361,
+          "lift_vs_own": 6.50859
+        }
+      ],
+      "by_year": [
+        {
+          "year": 2012,
+          "signals": 471,
+          "conversion": 0.13588,
+          "own_earlier_rate": 0.02972,
+          "control_rate": 0.00877,
+          "lift_vs_control": 7.98908,
+          "lift_vs_own": 4.57143
+        },
+        {
+          "year": 2013,
+          "signals": 444,
+          "conversion": 0.18243,
+          "own_earlier_rate": 0.00676,
+          "control_rate": 0.01066,
+          "lift_vs_control": 11.01089,
+          "lift_vs_own": 27.0
+        },
+        {
+          "year": 2014,
+          "signals": 586,
+          "conversion": 0.22526,
+          "own_earlier_rate": 0.00683,
+          "control_rate": 0.01162,
+          "lift_vs_control": 12.33121,
+          "lift_vs_own": 33.0
+        },
+        {
+          "year": 2015,
+          "signals": 639,
+          "conversion": 0.2097,
+          "own_earlier_rate": 0.01252,
+          "control_rate": 0.01029,
+          "lift_vs_control": 11.26729,
+          "lift_vs_own": 16.75
+        },
+        {
+          "year": 2016,
+          "signals": 604,
+          "conversion": 0.22682,
+          "own_earlier_rate": 0.00662,
+          "control_rate": 0.01013,
+          "lift_vs_control": 14.70262,
+          "lift_vs_own": 34.25
+        },
+        {
+          "year": 2017,
+          "signals": 633,
+          "conversion": 0.22591,
+          "own_earlier_rate": 0.01738,
+          "control_rate": 0.00963,
+          "lift_vs_control": 12.46269,
+          "lift_vs_own": 13.0
+        },
+        {
+          "year": 2018,
+          "signals": 606,
+          "conversion": 0.21287,
+          "own_earlier_rate": 0.0165,
+          "control_rate": 0.00927,
+          "lift_vs_control": 16.54742,
+          "lift_vs_own": 12.9
+        },
+        {
+          "year": 2019,
+          "signals": 557,
+          "conversion": 0.12747,
+          "own_earlier_rate": 0.03232,
+          "control_rate": 0.00831,
+          "lift_vs_control": 10.5924,
+          "lift_vs_own": 3.94444
+        },
+        {
+          "year": 2020,
+          "signals": 421,
+          "conversion": 0.14964,
+          "own_earlier_rate": 0.01663,
+          "control_rate": 0.00811,
+          "lift_vs_control": 10.25213,
+          "lift_vs_own": 9.0
+        },
+        {
+          "year": 2021,
+          "signals": 499,
+          "conversion": 0.11423,
+          "own_earlier_rate": 0.02605,
+          "control_rate": 0.01059,
+          "lift_vs_control": 4.91826,
+          "lift_vs_own": 4.38462
+        },
+        {
+          "year": 2022,
+          "signals": 524,
+          "conversion": 0.1145,
+          "own_earlier_rate": 0.01527,
+          "control_rate": 0.00637,
+          "lift_vs_control": 9.88332,
+          "lift_vs_own": 7.5
+        },
+        {
+          "year": 2023,
+          "signals": 388,
+          "conversion": 0.11856,
+          "own_earlier_rate": 0.02577,
+          "control_rate": 0.00624,
+          "lift_vs_control": 11.97165,
+          "lift_vs_own": 4.6
+        },
+        {
+          "year": 2024,
+          "signals": 497,
+          "conversion": 0.11066,
+          "own_earlier_rate": 0.02213,
+          "control_rate": 0.00746,
+          "lift_vs_control": 9.16946,
+          "lift_vs_own": 5.0
+        }
+      ]
+    },
+    "verdict": "Strong",
+    "notes": "Headline lift is the smaller of the two baselines named first (own earlier window, comparable addresses). Signals stop 730 days before the newest permit. Introduction dates since 2012-01-01; one application (App No.) is one project even when an original and a substitute ordinance exist (earliest introduction, earliest passage). Class comes from the latest sale or residential file, so addresses with neither are 'unknown class'. The target district of a passed ordinance is read from today's zoning map (matched by application number or Clerk record number, so ordinances later superseded are 'no map match'); titles state from/to districts for only a handful of matters. 'Never passed' is hindsight, not a filter available at introduction. Permit addresses are by street address without unit; multi-address titles give one signal per address.",
+    "score": 71.03071
+  },
+  {
+    "id": "H35",
+    "title": "Council zoning reclassification at an address \u2192 $1M+ new construction or renovation permit within 730 days",
+    "who": "Commercial subcontractors and GCs (the project is public before any permit or GC is)",
+    "data": "City Clerk eLMS zoning reclassification ordinances 2012+, Chicago permits and permit parties",
+    "signal": "Same signals as H34 (introduction; passed ordinances from the passage date)",
+    "target": "PERMIT - NEW CONSTRUCTION or RENOVATION/ALTERATION with reported cost of $1,000,000+ at the address or inside its range within 730 days; GC opportunity = share of those permits whose named general contractor appears on no earlier permit at the site",
+    "metrics": {
+      "signals": 6869,
+      "projects": 4957,
+      "project_conversion": 0.15534,
+      "conversion": 0.11836,
+      "baseline": 0.00652,
+      "lift": 7.39091,
+      "lift_vs_control": 8.90753,
+      "conversion_exact_address": 0.05809,
+      "own_earlier_window": 0.01601,
+      "lift_vs_own_earlier": 7.39091,
+      "busy_control_rate": 0.022,
+      "lift_vs_busy_control": 3.79198,
+      "signals_per_week": 8.59615,
+      "median_days": 351.0,
+      "days_p25": 229.0,
+      "days_p75": 496.0,
+      "permitted_big_before_intro_730": 0.01951,
+      "permitted_big_before_intro_ever": 0.05983,
+      "passed_signals": 6005,
+      "passed_conversion": 0.13855,
+      "passed_control_rate": 0.00646,
+      "passed_conversion_exact_address": 0.06661,
+      "passed_lift_vs_control": 10.32,
+      "passed_own_earlier_window": 0.01515,
+      "passed_lift_vs_own_earlier": 9.14286,
+      "passed_median_days": 279.0,
+      "passed_days_p25": 154.0,
+      "passed_days_p75": 434.0,
+      "big_permits_since_2014": 10237,
+      "big_permits_with_zoning_signal_before": 1133,
+      "big_permit_coverage_share": 0.11068,
+      "first_big_permits": 813,
+      "big_permit_with_gc_share": 0.99385,
+      "big_permit_no_gc_named_share": 0.00615,
+      "gc_new_to_address_share": 0.77847,
+      "gc_new_to_address_share_passed": 0.78039,
+      "no_gc_at_address_before_share": 0.46535,
+      "any_permit_at_address_before_share": 0.76261,
+      "by_split": [
+        {
+          "split": "all passed (from passage date)",
+          "signals": 6005,
+          "conversion": 0.13855,
+          "exact_address_rate": 0.06661,
+          "own_earlier_rate": 0.01515,
+          "control_rate": 0.00646,
+          "lift_vs_control": 10.32,
+          "lift_vs_own": 9.14286,
+          "median_days": 279.0,
+          "share_before_intro": 0.05895
+        },
+        {
+          "split": "target district: business/commercial (B/C)",
+          "signals": 1883,
+          "conversion": 0.13808,
+          "exact_address_rate": 0.07754,
+          "own_earlier_rate": 0.0085,
+          "control_rate": 0.00563,
+          "lift_vs_control": 13.77952,
+          "lift_vs_own": 16.25,
+          "median_days": 286.5,
+          "share_before_intro": 0.03452
+        },
+        {
+          "split": "target district: no map match (unknown)",
+          "signals": 1437,
+          "conversion": 0.13431,
+          "exact_address_rate": 0.0675,
+          "own_earlier_rate": 0.01949,
+          "control_rate": 0.00732,
+          "lift_vs_control": 9.22754,
+          "lift_vs_own": 6.89286,
+          "median_days": 307.0,
+          "share_before_intro": 0.0675
+        },
+        {
+          "split": "target district: residential (RS/RT/RM)",
+          "signals": 1331,
+          "conversion": 0.06912,
+          "exact_address_rate": 0.04959,
+          "own_earlier_rate": 0.00225,
+          "control_rate": 0.00251,
+          "lift_vs_control": 19.7411,
+          "lift_vs_own": 30.66667,
+          "median_days": 270.0,
+          "share_before_intro": 0.01578
+        },
+        {
+          "split": "target district: planned development (PD)",
+          "signals": 1093,
+          "conversion": 0.23056,
+          "exact_address_rate": 0.07045,
+          "own_earlier_rate": 0.03843,
+          "control_rate": 0.01037,
+          "lift_vs_control": 6.795,
+          "lift_vs_own": 6.0,
+          "median_days": 232.0,
+          "share_before_intro": 0.1473
+        },
+        {
+          "split": "target district: downtown (D)",
+          "signals": 106,
+          "conversion": 0.27358,
+          "exact_address_rate": 0.12264,
+          "own_earlier_rate": 0.00943,
+          "control_rate": 0.02301,
+          "lift_vs_control": 5.32909,
+          "lift_vs_own": 29.0,
+          "median_days": 303.0,
+          "share_before_intro": 0.04717
+        },
+        {
+          "split": "target district: manufacturing (M/PMD)",
+          "signals": 106,
+          "conversion": 0.00943,
+          "exact_address_rate": 0.0,
+          "own_earlier_rate": 0.00943,
+          "control_rate": 0.00331,
+          "lift_vs_control": 0.0,
+          "lift_vs_own": 1.0,
+          "median_days": 306.0,
+          "share_before_intro": 0.01887
+        },
+        {
+          "split": "target district: other (open space/transport)",
+          "signals": 49,
+          "conversion": 0.10204,
+          "exact_address_rate": 0.02041,
+          "own_earlier_rate": 0.0,
+          "control_rate": 0.00381,
+          "lift_vs_control": 5.35378,
+          "lift_vs_own": null,
+          "median_days": 210.0,
+          "share_before_intro": 0.06122
+        }
+      ],
+      "by_year": [
+        {
+          "year": 2012,
+          "signals": 471,
+          "conversion": 0.10403,
+          "own_earlier_rate": 0.03185,
+          "control_rate": 0.00521,
+          "lift_vs_control": 8.95743,
+          "lift_vs_own": 3.26667
+        },
+        {
+          "year": 2013,
+          "signals": 444,
+          "conversion": 0.12162,
+          "own_earlier_rate": 0.00676,
+          "control_rate": 0.00631,
+          "lift_vs_control": 11.08736,
+          "lift_vs_own": 18.0
+        },
+        {
+          "year": 2014,
+          "signals": 586,
+          "conversion": 0.17065,
+          "own_earlier_rate": 0.01365,
+          "control_rate": 0.00722,
+          "lift_vs_control": 12.06125,
+          "lift_vs_own": 12.5
+        },
+        {
+          "year": 2015,
+          "signals": 639,
+          "conversion": 0.15493,
+          "own_earlier_rate": 0.00939,
+          "control_rate": 0.00703,
+          "lift_vs_control": 11.14011,
+          "lift_vs_own": 16.5
+        },
+        {
+          "year": 2016,
+          "signals": 604,
+          "conversion": 0.14238,
+          "own_earlier_rate": 0.00497,
+          "control_rate": 0.00583,
+          "lift_vs_control": 13.06293,
+          "lift_vs_own": 28.66667
+        },
+        {
+          "year": 2017,
+          "signals": 633,
+          "conversion": 0.14692,
+          "own_earlier_rate": 0.01264,
+          "control_rate": 0.00603,
+          "lift_vs_control": 9.69556,
+          "lift_vs_own": 11.625
+        },
+        {
+          "year": 2018,
+          "signals": 606,
+          "conversion": 0.11386,
+          "own_earlier_rate": 0.0165,
+          "control_rate": 0.00733,
+          "lift_vs_control": 8.10093,
+          "lift_vs_own": 6.9
+        },
+        {
+          "year": 2019,
+          "signals": 557,
+          "conversion": 0.08797,
+          "own_earlier_rate": 0.01795,
+          "control_rate": 0.0066,
+          "lift_vs_control": 6.52378,
+          "lift_vs_own": 4.9
+        },
+        {
+          "year": 2020,
+          "signals": 421,
+          "conversion": 0.08551,
+          "own_earlier_rate": 0.01188,
+          "control_rate": 0.00531,
+          "lift_vs_control": 7.16181,
+          "lift_vs_own": 7.2
+        },
+        {
+          "year": 2021,
+          "signals": 499,
+          "conversion": 0.09018,
+          "own_earlier_rate": 0.02204,
+          "control_rate": 0.00762,
+          "lift_vs_control": 4.73087,
+          "lift_vs_own": 4.09091
+        },
+        {
+          "year": 2022,
+          "signals": 524,
+          "conversion": 0.09542,
+          "own_earlier_rate": 0.0229,
+          "control_rate": 0.00552,
+          "lift_vs_control": 8.30298,
+          "lift_vs_own": 4.16667
+        },
+        {
+          "year": 2023,
+          "signals": 388,
+          "conversion": 0.09021,
+          "own_earlier_rate": 0.0232,
+          "control_rate": 0.00679,
+          "lift_vs_control": 5.3137,
+          "lift_vs_own": 3.88889
+        },
+        {
+          "year": 2024,
+          "signals": 497,
+          "conversion": 0.09658,
+          "own_earlier_rate": 0.02012,
+          "control_rate": 0.00765,
+          "lift_vs_control": 7.89398,
+          "lift_vs_own": 4.8
+        }
+      ],
+      "gc_by_year": [
+        {
+          "year": 2012,
+          "first_big_permits": 49,
+          "gc_new_share": 0.77083
+        },
+        {
+          "year": 2013,
+          "first_big_permits": 54,
+          "gc_new_share": 0.72222
+        },
+        {
+          "year": 2014,
+          "first_big_permits": 100,
+          "gc_new_share": 0.78788
+        },
+        {
+          "year": 2015,
+          "first_big_permits": 99,
+          "gc_new_share": 0.7551
+        },
+        {
+          "year": 2016,
+          "first_big_permits": 86,
+          "gc_new_share": 0.82558
+        },
+        {
+          "year": 2017,
+          "first_big_permits": 93,
+          "gc_new_share": 0.8172
+        },
+        {
+          "year": 2018,
+          "first_big_permits": 69,
+          "gc_new_share": 0.85507
+        },
+        {
+          "year": 2019,
+          "first_big_permits": 49,
+          "gc_new_share": 0.67347
+        },
+        {
+          "year": 2020,
+          "first_big_permits": 36,
+          "gc_new_share": 0.71429
+        },
+        {
+          "year": 2021,
+          "first_big_permits": 45,
+          "gc_new_share": 0.77778
+        },
+        {
+          "year": 2022,
+          "first_big_permits": 50,
+          "gc_new_share": 0.89796
+        },
+        {
+          "year": 2023,
+          "first_big_permits": 35,
+          "gc_new_share": 0.65714
+        },
+        {
+          "year": 2024,
+          "first_big_permits": 48,
+          "gc_new_share": 0.72917
+        }
+      ]
+    },
+    "verdict": "Strong",
+    "notes": "Same controls and caveats as H34 (headline lift is the smaller of own-earlier-window and comparable-address lifts). 'GC new to the address' uses the contractor name key on the first $1M+ permit after the signal against every earlier permit at the site's addresses (role 'general contractor' only; owner-as-GC and blank GCs are counted separately as 'no GC named'). Names are cut at 30 characters, so spelling variants count as new (a ceiling on 'open'). Permit contractor names are known only once the permit is issued, so the opening for a GC is the time between the zoning signal and that permit.",
+    "score": 37.59905
+  },
+  {
+    "id": "H36",
+    "title": "ADU preapproval application \u2192 ADU-related or any new construction/renovation permit at the address",
+    "who": "ADU builders, architects and GCs; lenders and suppliers for coach houses and basement or attic units",
+    "data": "Chicago ADU preapproval applications (since 2026-03-31; applicant names not stored), Chicago permits (description text), parcel classes",
+    "signal": "One ADU preapproval submission per address per 365 days (any status; Pre-Certified is hindsight)",
+    "target": "A permit at the address after the submission whose description mentions an ADU/coach house/accessory unit, or any PERMIT - NEW CONSTRUCTION or RENOVATION/ALTERATION, within 120 days (the 365-day target cannot be observed: the feed starts 2026-03-31); baseline = same residential addresses' earlier window and residential addresses (same class bucket, same half-month) with no preapproval",
+    "metrics": {
+      "signals": 378,
+      "signals_total": 589,
+      "submissions_total": 616,
+      "precertified_signals": 560,
+      "first_submission": "2026-03-31",
+      "newest_permit": "2026-11-13",
+      "horizon_days": 120,
+      "conversion": 0.07672,
+      "baseline": 0.00334,
+      "lift": 4.14286,
+      "lift_vs_control": 24.13775,
+      "own_earlier_window": 0.01852,
+      "lift_vs_own_earlier": 4.14286,
+      "adu_only_conversion": 0.04233,
+      "adu_only_control_rate": 0.00011,
+      "adu_only_lift_vs_control": 385.16561,
+      "adu_permit_before_submission_share": 0.00265,
+      "any_permit_before_submission_share": 0.05556,
+      "median_days": 75.0,
+      "days_p25": 47.0,
+      "days_p75": 96.0,
+      "signals_per_week": 12.30769,
+      "adu_permit_so_far_all_signals_rate": 0.05772,
+      "adu_permit_so_far_precertified_rate": 0.05714,
+      "median_days_so_far": 119.0,
+      "adu_text_permit_since_2021_before_submission": 0.01019,
+      "provisional": true,
+      "by_horizon": [
+        {
+          "horizon_days": 120,
+          "signals_observed": 378,
+          "any_permit_rate": 0.07672,
+          "any_permit_control_rate": 0.00334,
+          "any_permit_lift_vs_control": 24.13775,
+          "any_permit_own_earlier_rate": 0.01852,
+          "adu_permit_rate": 0.04233,
+          "adu_permit_control_rate": 0.00011,
+          "adu_permit_lift_vs_control": 385.16561,
+          "median_days": 75.0
+        },
+        {
+          "horizon_days": 180,
+          "signals_observed": 256,
+          "any_permit_rate": 0.14844,
+          "any_permit_control_rate": 0.00495,
+          "any_permit_lift_vs_control": 31.15374,
+          "any_permit_own_earlier_rate": 0.04688,
+          "adu_permit_rate": 0.07422,
+          "adu_permit_control_rate": 0.00016,
+          "adu_permit_lift_vs_control": 469.06532,
+          "median_days": 125.5
+        },
+        {
+          "horizon_days": 365,
+          "signals_observed": 0,
+          "any_permit_rate": null,
+          "any_permit_control_rate": null,
+          "any_permit_lift_vs_control": null,
+          "any_permit_own_earlier_rate": null,
+          "adu_permit_rate": null,
+          "adu_permit_control_rate": null,
+          "adu_permit_lift_vs_control": null,
+          "median_days": null
+        }
+      ],
+      "by_status": [
+        {
+          "status_group": "Pre-Certified",
+          "signals": 560,
+          "adu_permit_so_far_rate": 0.05714,
+          "median_days_so_far": 119.0
+        },
+        {
+          "status_group": "Other (in progress)",
+          "signals": 16,
+          "adu_permit_so_far_rate": 0.0,
+          "median_days_so_far": null
+        },
+        {
+          "status_group": "Canceled or denied",
+          "signals": 13,
+          "adu_permit_so_far_rate": 0.15385,
+          "median_days_so_far": 122.5
+        }
+      ]
+    },
+    "verdict": "Strong (provisional)",
+    "notes": "PROVISIONAL: the feed has about 7.5 months of history, so only submissions up to 120 days before the newest permit have a full 120-day window and none has a full 365-day window. Headline lift is the smaller of own-earlier-window and comparable-address lifts. Baseline uses the same regex for ADU text, which only exists in permits since the 2021 pilot, so the own-earlier window is mostly renovation. Status is as of today. Preapproval is a required step before an ADU permit, so a high conversion is expected by construction; the open questions are lead time (the time between submission and permit) and how many owners never proceed.",
+    "score": 19.55939
+  },
+  {
+    "id": "H37",
+    "title": "Zoning reclassification + sale of the parcel in the prior year vs zoning alone \u2192 new construction",
+    "who": "Same as H34 (does adding a recent sale sharpen the zoning list?)",
+    "data": "City Clerk zoning reclassifications, Cook County sales (arm's-length filter as elsewhere), permits",
+    "signal": "Zoning reclassification introduced at an address whose parcel (PIN matched through permits or the tax roll) had a non-filtered sale in the 365 days before the introduction",
+    "target": "PERMIT - NEW CONSTRUCTION at the address or range within 730 days; baseline = zoning signals at PIN-matched addresses with no such sale, standardized to the same class bucket and year",
+    "metrics": {
+      "signals": 1178,
+      "signals_zoning_alone": 4353,
+      "conversion": 0.31409,
+      "baseline": 0.2092,
+      "zoning_alone_raw_rate": 0.18401,
+      "lift": 1.5037,
+      "lift_raw": 1.70692,
+      "difference_points": 13.00807,
+      "difference_ci95_low_points": 10.11829,
+      "difference_ci95_high_points": 15.89784,
+      "hits_with_sale": 370,
+      "hits_zoning_alone": 801,
+      "investor_buyer_signals": 625,
+      "investor_buyer_conversion": 0.368,
+      "signals_per_week": 1.98077,
+      "by_year": [
+        {
+          "year": 2012,
+          "signals_with_sale": 43,
+          "conversion": 0.34884,
+          "zoning_alone_rate": 0.15842,
+          "lift_vs_alone": 2.20203
+        },
+        {
+          "year": 2013,
+          "signals_with_sale": 86,
+          "conversion": 0.36047,
+          "zoning_alone_rate": 0.17794,
+          "lift_vs_alone": 2.02581
+        },
+        {
+          "year": 2014,
+          "signals_with_sale": 116,
+          "conversion": 0.38793,
+          "zoning_alone_rate": 0.24928,
+          "lift_vs_alone": 1.55618
+        },
+        {
+          "year": 2015,
+          "signals_with_sale": 113,
+          "conversion": 0.31858,
+          "zoning_alone_rate": 0.25193,
+          "lift_vs_alone": 1.26458
+        },
+        {
+          "year": 2016,
+          "signals_with_sale": 141,
+          "conversion": 0.43262,
+          "zoning_alone_rate": 0.21652,
+          "lift_vs_alone": 1.99804
+        },
+        {
+          "year": 2017,
+          "signals_with_sale": 130,
+          "conversion": 0.33846,
+          "zoning_alone_rate": 0.25849,
+          "lift_vs_alone": 1.3094
+        },
+        {
+          "year": 2018,
+          "signals_with_sale": 125,
+          "conversion": 0.424,
+          "zoning_alone_rate": 0.20541,
+          "lift_vs_alone": 2.06421
+        },
+        {
+          "year": 2019,
+          "signals_with_sale": 88,
+          "conversion": 0.22727,
+          "zoning_alone_rate": 0.13859,
+          "lift_vs_alone": 1.63993
+        },
+        {
+          "year": 2020,
+          "signals_with_sale": 57,
+          "conversion": 0.14035,
+          "zoning_alone_rate": 0.2,
+          "lift_vs_alone": 0.70175
+        },
+        {
+          "year": 2021,
+          "signals_with_sale": 69,
+          "conversion": 0.2029,
+          "zoning_alone_rate": 0.13565,
+          "lift_vs_alone": 1.49579
+        },
+        {
+          "year": 2022,
+          "signals_with_sale": 82,
+          "conversion": 0.21951,
+          "zoning_alone_rate": 0.125,
+          "lift_vs_alone": 1.7561
+        },
+        {
+          "year": 2023,
+          "signals_with_sale": 50,
+          "conversion": 0.14,
+          "zoning_alone_rate": 0.14829,
+          "lift_vs_alone": 0.9441
+        },
+        {
+          "year": 2024,
+          "signals_with_sale": 78,
+          "conversion": 0.23077,
+          "zoning_alone_rate": 0.10054,
+          "lift_vs_alone": 2.29522
+        }
+      ]
+    },
+    "verdict": "Weak",
+    "notes": "An ablation, not a stand-alone signal: lift is conversion with a prior-year sale divided by conversion without (class-bucket and year standardized). Only addresses whose PIN is known are compared. A sale after the introduction is never used. Sale prices are not used; investor buyers are a regex on the buyer name.",
+    "score": 4.67756
   }
 ]

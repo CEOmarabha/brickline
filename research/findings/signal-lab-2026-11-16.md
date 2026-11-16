@@ -9,9 +9,12 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | H08 | 311 porch inspection request → porch permit | **Strong** | 11.44× | 13.7% | 1.2% | 7.10 | Porch builders |
 | H33 | Build-out permit at a space with no licensee → a new business registers there within 365 days | **Strong** | 10.25× | 15.2% | 1.5% | 17.70 | Sellers to brand-new businesses: signage, POS/payments, insurance, cleaning, security, furniture, telecom, accountants, and the brokers and GCs that serve them |
 | H26 | Restaurant 'Out of Business' → new food license or renovation permit at the address within 365 days | **Strong** | 10.24× | 32.3% | 3.2% | 13.10 | Restaurant build-out contractors, equipment dealers, brokers, signage |
+| H34 | Council zoning reclassification introduced at an address → new-construction permit there within 730 days | **Strong** | 9.69× | 17.1% | 0.9% | 8.60 | GCs, commercial subcontractors, suppliers and brokers who want the earliest public trace of a project |
+| H35 | Council zoning reclassification at an address → $1M+ new construction or renovation permit within 730 days | **Strong** | 7.39× | 11.8% | 0.7% | 8.60 | Commercial subcontractors and GCs (the project is public before any permit or GC is) |
 | H17 | Complaint chain: 311 complaint → porch/masonry citation → permit (when to mail) | **Strong** | 6.26× | 12.3% | 2.0% | 47.80 | Porch builders, masons and tuckpointers |
 | H07 | 311 building complaint → city citation (earlier lead) | **Strong** | 5.85× | 31.6% | 5.4% | 255.40 | Porch, masonry, roofing, general repair contractors |
 | H30 | Commercial and multifamily reroof cycle model (as-of quarters 2016-2023, time-split validation) | **Strong** | 4.59× | 3.6% | 0.8% | 76.90 | Commercial roofers, roof-coating and sheet-metal contractors, roof inspection and consulting firms |
+| H36 | ADU preapproval application → ADU-related or any new construction/renovation permit at the address | **Strong (provisional)** | 4.14× | 7.7% | 0.3% | 12.30 | ADU builders, architects and GCs; lenders and suppliers for coach houses and basement or attic units |
 | H29 | Which trades are still open after a $1M+ commercial/multifamily permit (signs, elevator, electrical, ...) | **Strong** | 3.06× | 62.1% | 20.3% | 8.70 | Sign shops, elevator service, electricians and other trade subcontractors; suppliers selling to them |
 | H13 | Which buildings need masonry work: walls × age | **Useful** | 2.85× | 1.4% | 0.5% | — | Masons, tuckpointers |
 | H09 | Vacant-building complaint → property sells | **Useful** | 2.49× | 19.4% | 7.8% | 20.50 | Investors' contractors, rehab GCs, property managers (and investors themselves) |
@@ -20,6 +23,7 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | H14 | Which homes pull HVAC permits: A/C × heat type | **Useful** | 2.17× | 0.3% | 0.1% | — | HVAC contractors |
 | H10 | Complaint about unpermitted work → permit gets pulled | **Useful** | 2.17× | 18.9% | 8.7% | 70.60 | Expediters, architects, GCs who legalize work |
 | H03 | Neighbors re-roofed → you re-roof | **Useful** | 2.16× | 0.7% | 0.3% | — | Roofers |
+| H37 | Zoning reclassification + sale of the parcel in the prior year vs zoning alone → new construction | **Weak** | 1.50× | 31.4% | 20.9% | 2.00 | Same as H34 (does adding a recent sale sharpen the zoning list?) |
 | H23 | Restaurant pest violation → another pest violation within 180 days (recurring pest-control need) | **Weak** | 1.50× | 12.6% | 8.4% | 44.80 | Pest-control companies |
 | H15 | Assessor condition rating → renovation permits | **Weak** | 1.48× | 0.6% | 0.4% | — | General contractors, rehab crews |
 | H32 | Storefront turnover (new licensee after the previous one lapsed) → build-out permit at the address | **Weak** | 1.38× | 3.3% | 2.4% | 10.70 | Build-out contractors, signage, equipment and fixtures suppliers, brokers, cleaning and security vendors |
@@ -141,6 +145,111 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | License (pre-opening) | 1 | 0.0% | 3680 | 9.6% |
 | Other | 27 | 22.2% | 50 | 2.0% |
 | Re-inspection | 40 | 32.5% | 89 | 7.9% |
+
+## H34 — Council zoning reclassification introduced at an address → new-construction permit there within 730 days
+
+- **Signal:** A zoning reclassification ordinance introduced in Council at a parsed street address (one signal per address per 730 days; address ranges also match permits at same-side addresses inside the range). Second view: passed ordinances measured from the passage date
+- **Target:** PERMIT - NEW CONSTRUCTION at the address or inside its range within 730 days after the signal date; baselines = the same addresses' earlier 730-day window, comparable addresses (same community area, same class bucket, same year) with no zoning change within 730 days either side, and the subset of those with a permit in the prior year
+- **Data:** City Clerk eLMS zoning reclassification ordinances 2012+ (title addresses), Chicago permits, parcel classes from sales and the residential file, today's zoning map (target district of passed ordinances)
+- **Verdict:** Strong
+- **Notes:** Headline lift is the smaller of the two baselines named first (own earlier window, comparable addresses). Signals stop 730 days before the newest permit. Introduction dates since 2012-01-01; one application (App No.) is one project even when an original and a substitute ordinance exist (earliest introduction, earliest passage). Class comes from the latest sale or residential file, so addresses with neither are 'unknown class'. The target district of a passed ordinance is read from today's zoning map (matched by application number or Clerk record number, so ordinances later superseded are 'no map match'); titles state from/to districts for only a handful of matters. 'Never passed' is hindsight, not a filter available at introduction. Permit addresses are by street address without unit; multi-address titles give one signal per address.
+- Signals tested: 6,869; conversion 17.1% vs baseline 0.9%; median 313.0 days to target
+
+| split | signals | conversion | exact_address_rate | own_earlier_rate | control_rate | lift_vs_control | lift_vs_own | median_days | share_before_intro |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| all introduced (known at introduction) | 6869 | 17.1% | 10.3% | 1.8% | 0.9% | 11.26 | 9.69 | 313.00 | 7.7% |
+| introduced, later passed (hindsight) | 6121 | 18.0% | 10.9% | 1.7% | 0.9% | 11.91 | 10.48 | 311.50 | 7.4% |
+| introduced, never passed (hindsight) | 748 | 9.6% | 5.9% | 2.1% | 1.0% | 6.17 | 4.50 | 332.50 | 10.0% |
+
+| split | signals | conversion | exact_address_rate | own_earlier_rate | control_rate | lift_vs_control | lift_vs_own | median_days | share_before_intro |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| all passed (from passage date) | 6005 | 19.4% | 11.5% | 1.8% | 0.9% | 12.58 | 10.81 | 237.00 | 7.4% |
+| target district: business/commercial (B/C) | 1883 | 17.3% | 10.9% | 1.0% | 0.9% | 11.74 | 18.06 | 271.00 | 5.5% |
+| target district: no map match (unknown) | 1437 | 16.2% | 9.3% | 2.4% | 1.0% | 9.11 | 6.66 | 288.00 | 8.4% |
+| target district: residential (RS/RT/RM) | 1331 | 26.1% | 21.0% | 0.8% | 0.9% | 23.93 | 34.70 | 175.00 | 4.2% |
+| target district: planned development (PD) | 1093 | 21.7% | 6.3% | 3.9% | 0.9% | 7.40 | 5.51 | 238.00 | 14.1% |
+| target district: downtown (D) | 106 | 17.9% | 5.7% | 0.9% | 1.1% | 4.95 | 19.00 | 309.00 | 6.6% |
+| target district: manufacturing (M/PMD) | 106 | 2.8% | 0.0% | 0.9% | 0.5% | 0.00 | 3.00 | 34.00 | 2.8% |
+| target district: other (open space/transport) | 49 | 6.1% | 0.0% | 0.0% | 0.5% | 0.00 | — | 492.00 | 4.1% |
+| App No. with T1 suffix (Type 1) | 1547 | 27.0% | 18.8% | 0.6% | 1.2% | 15.98 | 41.70 | 243.00 | 4.7% |
+| App No. without T1 suffix | 4458 | 16.8% | 9.0% | 2.2% | 0.8% | 10.90 | 7.65 | 230.00 | 8.4% |
+
+| target | signals | conversion | exact_address_rate | own_earlier_rate | control_rate | lift_vs_control | lift_vs_own |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| new construction (headline) | 6869 | 17.1% | 10.3% | 1.8% | 0.9% | 11.26 | 9.69 |
+| new construction or renovation, cost $100k+ | 6869 | 27.6% | 18.0% | 4.2% | 2.4% | 7.46 | 6.51 |
+
+| year | signals | conversion | own_earlier_rate | control_rate | lift_vs_control | lift_vs_own |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2012 | 471 | 13.6% | 3.0% | 0.9% | 7.99 | 4.57 |
+| 2013 | 444 | 18.2% | 0.7% | 1.1% | 11.01 | 27.00 |
+| 2014 | 586 | 22.5% | 0.7% | 1.2% | 12.33 | 33.00 |
+| 2015 | 639 | 21.0% | 1.3% | 1.0% | 11.27 | 16.75 |
+| 2016 | 604 | 22.7% | 0.7% | 1.0% | 14.70 | 34.25 |
+| 2017 | 633 | 22.6% | 1.7% | 1.0% | 12.46 | 13.00 |
+| 2018 | 606 | 21.3% | 1.7% | 0.9% | 16.55 | 12.90 |
+| 2019 | 557 | 12.7% | 3.2% | 0.8% | 10.59 | 3.94 |
+| 2020 | 421 | 15.0% | 1.7% | 0.8% | 10.25 | 9.00 |
+| 2021 | 499 | 11.4% | 2.6% | 1.1% | 4.92 | 4.38 |
+| 2022 | 524 | 11.5% | 1.5% | 0.6% | 9.88 | 7.50 |
+| 2023 | 388 | 11.9% | 2.6% | 0.6% | 11.97 | 4.60 |
+| 2024 | 497 | 11.1% | 2.2% | 0.7% | 9.17 | 5.00 |
+
+- Key numbers (rates are fractions): signals = 6869; projects = 4957; project_conversion = 0.23; conversion = 0.17; baseline = 0.01; lift = 9.69; lift_vs_control = 11.26; conversion_exact_address = 0.10; lift_vs_control_site_vs_exact_control = 18.63; nc_permits_since_2014 = 20088; nc_permits_with_zoning_signal_before = 1849; nc_permit_coverage_share = 0.09; control_matched_share = 1.00; own_earlier_window = 0.02; lift_vs_own_earlier = 9.69; busy_control_rate = 0.02; lift_vs_busy_control = 7.68; signals_per_week = 8.60; projects_per_week_recent = 6.50; median_days = 313.00; days_p25 = 189.00; days_p75 = 454.00; permitted_before_intro_730 = 0.02; permitted_before_intro_ever = 0.08; passed_signals = 6005; passed_conversion = 0.19; passed_control_rate = 0.01; passed_conversion_exact_address = 0.12; passed_lift_vs_control = 12.58; passed_own_earlier_window = 0.02; passed_lift_vs_own_earlier = 10.81; passed_busy_control_rate = 0.02; passed_lift_vs_busy_control = 8.25; passed_median_days = 237.00; passed_days_p25 = 133.50; passed_days_p75 = 403.00; passed_permitted_before_intro = 0.07; passed_permitted_between_intro_and_passage = 0.01; passed_permitted_before_passage_730 = 0.02
+
+## H35 — Council zoning reclassification at an address → $1M+ new construction or renovation permit within 730 days
+
+- **Signal:** Same signals as H34 (introduction; passed ordinances from the passage date)
+- **Target:** PERMIT - NEW CONSTRUCTION or RENOVATION/ALTERATION with reported cost of $1,000,000+ at the address or inside its range within 730 days; GC opportunity = share of those permits whose named general contractor appears on no earlier permit at the site
+- **Data:** City Clerk eLMS zoning reclassification ordinances 2012+, Chicago permits and permit parties
+- **Verdict:** Strong
+- **Notes:** Same controls and caveats as H34 (headline lift is the smaller of own-earlier-window and comparable-address lifts). 'GC new to the address' uses the contractor name key on the first $1M+ permit after the signal against every earlier permit at the site's addresses (role 'general contractor' only; owner-as-GC and blank GCs are counted separately as 'no GC named'). Names are cut at 30 characters, so spelling variants count as new (a ceiling on 'open'). Permit contractor names are known only once the permit is issued, so the opening for a GC is the time between the zoning signal and that permit.
+- Signals tested: 6,869; conversion 11.8% vs baseline 0.7%; median 351.0 days to target
+
+| split | signals | conversion | exact_address_rate | own_earlier_rate | control_rate | lift_vs_control | lift_vs_own | median_days | share_before_intro |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| all passed (from passage date) | 6005 | 13.9% | 6.7% | 1.5% | 0.6% | 10.32 | 9.14 | 279.00 | 5.9% |
+| target district: business/commercial (B/C) | 1883 | 13.8% | 7.8% | 0.9% | 0.6% | 13.78 | 16.25 | 286.50 | 3.5% |
+| target district: no map match (unknown) | 1437 | 13.4% | 6.8% | 1.9% | 0.7% | 9.23 | 6.89 | 307.00 | 6.8% |
+| target district: residential (RS/RT/RM) | 1331 | 6.9% | 5.0% | 0.2% | 0.3% | 19.74 | 30.67 | 270.00 | 1.6% |
+| target district: planned development (PD) | 1093 | 23.1% | 7.0% | 3.8% | 1.0% | 6.79 | 6.00 | 232.00 | 14.7% |
+| target district: downtown (D) | 106 | 27.4% | 12.3% | 0.9% | 2.3% | 5.33 | 29.00 | 303.00 | 4.7% |
+| target district: manufacturing (M/PMD) | 106 | 0.9% | 0.0% | 0.9% | 0.3% | 0.00 | 1.00 | 306.00 | 1.9% |
+| target district: other (open space/transport) | 49 | 10.2% | 2.0% | 0.0% | 0.4% | 5.35 | — | 210.00 | 6.1% |
+
+| year | first_big_permits | gc_new_share |
+| --- | --- | --- |
+| 2012 | 49 | 77.1% |
+| 2013 | 54 | 72.2% |
+| 2014 | 100 | 78.8% |
+| 2015 | 99 | 75.5% |
+| 2016 | 86 | 82.6% |
+| 2017 | 93 | 81.7% |
+| 2018 | 69 | 85.5% |
+| 2019 | 49 | 67.3% |
+| 2020 | 36 | 71.4% |
+| 2021 | 45 | 77.8% |
+| 2022 | 50 | 89.8% |
+| 2023 | 35 | 65.7% |
+| 2024 | 48 | 72.9% |
+
+| year | signals | conversion | own_earlier_rate | control_rate | lift_vs_control | lift_vs_own |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2012 | 471 | 10.4% | 3.2% | 0.5% | 8.96 | 3.27 |
+| 2013 | 444 | 12.2% | 0.7% | 0.6% | 11.09 | 18.00 |
+| 2014 | 586 | 17.1% | 1.4% | 0.7% | 12.06 | 12.50 |
+| 2015 | 639 | 15.5% | 0.9% | 0.7% | 11.14 | 16.50 |
+| 2016 | 604 | 14.2% | 0.5% | 0.6% | 13.06 | 28.67 |
+| 2017 | 633 | 14.7% | 1.3% | 0.6% | 9.70 | 11.62 |
+| 2018 | 606 | 11.4% | 1.7% | 0.7% | 8.10 | 6.90 |
+| 2019 | 557 | 8.8% | 1.8% | 0.7% | 6.52 | 4.90 |
+| 2020 | 421 | 8.6% | 1.2% | 0.5% | 7.16 | 7.20 |
+| 2021 | 499 | 9.0% | 2.2% | 0.8% | 4.73 | 4.09 |
+| 2022 | 524 | 9.5% | 2.3% | 0.6% | 8.30 | 4.17 |
+| 2023 | 388 | 9.0% | 2.3% | 0.7% | 5.31 | 3.89 |
+| 2024 | 497 | 9.7% | 2.0% | 0.8% | 7.89 | 4.80 |
+
+- Key numbers (rates are fractions): signals = 6869; projects = 4957; project_conversion = 0.16; conversion = 0.12; baseline = 0.01; lift = 7.39; lift_vs_control = 8.91; conversion_exact_address = 0.06; own_earlier_window = 0.02; lift_vs_own_earlier = 7.39; busy_control_rate = 0.02; lift_vs_busy_control = 3.79; signals_per_week = 8.60; median_days = 351.00; days_p25 = 229.00; days_p75 = 496.00; permitted_big_before_intro_730 = 0.02; permitted_big_before_intro_ever = 0.06; passed_signals = 6005; passed_conversion = 0.14; passed_control_rate = 0.01; passed_conversion_exact_address = 0.07; passed_lift_vs_control = 10.32; passed_own_earlier_window = 0.02; passed_lift_vs_own_earlier = 9.14; passed_median_days = 279.00; passed_days_p25 = 154.00; passed_days_p75 = 434.00; big_permits_since_2014 = 10237; big_permits_with_zoning_signal_before = 1133; big_permit_coverage_share = 0.11; first_big_permits = 813; big_permit_with_gc_share = 0.99; big_permit_no_gc_named_share = 0.01; gc_new_to_address_share = 0.78; gc_new_to_address_share_passed = 0.78; no_gc_at_address_before_share = 0.47; any_permit_at_address_before_share = 0.76
 
 ## H17 — Complaint chain: 311 complaint → porch/masonry citation → permit (when to mail)
 
@@ -285,6 +394,29 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 - Key numbers (rates are fractions): signals = 347238; conversion = 0.04; baseline = 0.01; lift = 4.59; signals_per_week = 76.92; p_at_100_rate = 0.07; lift_at_100 = 9.57; hits_at_1000 = 427; best_baseline_lift_at_1000 = 4.86; lift_vs_best_baseline = 0.94; flats_p_at_1000_rate = 0.01; flats_base_rate = 0.00; flats_lift_at_1000 = 3.30
 - Tuning (time-split validation): {"flats": {"min_cell_size": 3000, "validation_log_loss_skill": {"1000": 0.00491, "300": 0.00492, "3000": 0.00571}}, "main": {"min_cell_size": 300, "validation_log_loss_skill": {"1000": 0.07214, "300": 0.07726, "3000": 0.0376}}}
+
+## H36 — ADU preapproval application → ADU-related or any new construction/renovation permit at the address
+
+- **Signal:** One ADU preapproval submission per address per 365 days (any status; Pre-Certified is hindsight)
+- **Target:** A permit at the address after the submission whose description mentions an ADU/coach house/accessory unit, or any PERMIT - NEW CONSTRUCTION or RENOVATION/ALTERATION, within 120 days (the 365-day target cannot be observed: the feed starts 2026-03-31); baseline = same residential addresses' earlier window and residential addresses (same class bucket, same half-month) with no preapproval
+- **Data:** Chicago ADU preapproval applications (since 2026-03-31; applicant names not stored), Chicago permits (description text), parcel classes
+- **Verdict:** Strong (provisional)
+- **Notes:** PROVISIONAL: the feed has about 7.5 months of history, so only submissions up to 120 days before the newest permit have a full 120-day window and none has a full 365-day window. Headline lift is the smaller of own-earlier-window and comparable-address lifts. Baseline uses the same regex for ADU text, which only exists in permits since the 2021 pilot, so the own-earlier window is mostly renovation. Status is as of today. Preapproval is a required step before an ADU permit, so a high conversion is expected by construction; the open questions are lead time (the time between submission and permit) and how many owners never proceed.
+- Signals tested: 378; conversion 7.7% vs baseline 0.3%; median 75.0 days to target
+
+| status_group | signals | adu_permit_so_far_rate | median_days_so_far |
+| --- | --- | --- | --- |
+| Pre-Certified | 560 | 5.7% | 119.00 |
+| Other (in progress) | 16 | 0.0% | — |
+| Canceled or denied | 13 | 15.4% | 122.50 |
+
+| horizon_days | signals_observed | any_permit_rate | any_permit_control_rate | any_permit_lift_vs_control | any_permit_own_earlier_rate | adu_permit_rate | adu_permit_control_rate | adu_permit_lift_vs_control | median_days |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 120 | 378 | 7.7% | 0.3% | 24.14 | 1.9% | 4.2% | 0.0% | 385.17 | 75.00 |
+| 180 | 256 | 14.8% | 0.5% | 31.15 | 4.7% | 7.4% | 0.0% | 469.07 | 125.50 |
+| 365 | 0 | — | — | — | — | — | — | — | — |
+
+- Key numbers (rates are fractions): signals = 378; signals_total = 589; submissions_total = 616; precertified_signals = 560; horizon_days = 120; conversion = 0.08; baseline = 0.00; lift = 4.14; lift_vs_control = 24.14; own_earlier_window = 0.02; lift_vs_own_earlier = 4.14; adu_only_conversion = 0.04; adu_only_control_rate = 0.00; adu_only_lift_vs_control = 385.17; adu_permit_before_submission_share = 0.00; any_permit_before_submission_share = 0.06; median_days = 75.00; days_p25 = 47.00; days_p75 = 96.00; signals_per_week = 12.31; adu_permit_so_far_all_signals_rate = 0.06; adu_permit_so_far_precertified_rate = 0.06; median_days_so_far = 119.00; adu_text_permit_since_2021_before_submission = 0.01
 
 ## H29 — Which trades are still open after a $1M+ commercial/multifamily permit (signs, elevator, electrical, ...)
 
@@ -461,6 +593,32 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | 0 | 11893502 | 0.3% |
 | 1 | 531810 | 0.5% |
 | 2+ | 25930 | 0.7% |
+
+## H37 — Zoning reclassification + sale of the parcel in the prior year vs zoning alone → new construction
+
+- **Signal:** Zoning reclassification introduced at an address whose parcel (PIN matched through permits or the tax roll) had a non-filtered sale in the 365 days before the introduction
+- **Target:** PERMIT - NEW CONSTRUCTION at the address or range within 730 days; baseline = zoning signals at PIN-matched addresses with no such sale, standardized to the same class bucket and year
+- **Data:** City Clerk zoning reclassifications, Cook County sales (arm's-length filter as elsewhere), permits
+- **Verdict:** Weak
+- **Notes:** An ablation, not a stand-alone signal: lift is conversion with a prior-year sale divided by conversion without (class-bucket and year standardized). Only addresses whose PIN is known are compared. A sale after the introduction is never used. Sale prices are not used; investor buyers are a regex on the buyer name.
+
+| year | signals_with_sale | conversion | zoning_alone_rate | lift_vs_alone |
+| --- | --- | --- | --- | --- |
+| 2012 | 43 | 34.9% | 15.8% | 2.20 |
+| 2013 | 86 | 36.0% | 17.8% | 2.03 |
+| 2014 | 116 | 38.8% | 24.9% | 1.56 |
+| 2015 | 113 | 31.9% | 25.2% | 1.26 |
+| 2016 | 141 | 43.3% | 21.7% | 2.00 |
+| 2017 | 130 | 33.8% | 25.8% | 1.31 |
+| 2018 | 125 | 42.4% | 20.5% | 2.06 |
+| 2019 | 88 | 22.7% | 13.9% | 1.64 |
+| 2020 | 57 | 14.0% | 20.0% | 0.70 |
+| 2021 | 69 | 20.3% | 13.6% | 1.50 |
+| 2022 | 82 | 22.0% | 12.5% | 1.76 |
+| 2023 | 50 | 14.0% | 14.8% | 0.94 |
+| 2024 | 78 | 23.1% | 10.1% | 2.30 |
+
+- Key numbers (rates are fractions): signals = 1178; signals_zoning_alone = 4353; conversion = 0.31; baseline = 0.21; zoning_alone_raw_rate = 0.18; lift = 1.50; lift_raw = 1.71; difference_points = 13.01; difference_ci95_low_points = 10.12; difference_ci95_high_points = 15.90; hits_with_sale = 370; hits_zoning_alone = 801; investor_buyer_signals = 625; investor_buyer_conversion = 0.37; signals_per_week = 1.98
 
 ## H23 — Restaurant pest violation → another pest violation within 180 days (recurring pest-control need)
 

@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import sys
 from collections.abc import Callable
-from datetime import date
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import duckdb
@@ -52,6 +53,8 @@ def result(
         verdict = "Weak"
     else:
         verdict = "No signal"
+    if metrics.get("provisional"):
+        verdict = f"{verdict} (provisional)"
     return {
         "id": hid,
         "title": title,
@@ -3302,6 +3305,932 @@ def h33_buildout_permit_to_new_license(con) -> dict:
     )
 
 
+# --- Round 5: Council zoning reclassifications and ADU preapprovals -------------------------------------------
+R5_START = "2012-01-01"
+Z_WINDOW = 730
+Z_MIN_SPLIT = 25  # fewest signals for a split row to be reported
+R5_BUCKETS_RES = (
+    "single-family/other residential (2xx)",
+    "2-6 unit flats (211)",
+    "mixed-use up to 6 units (212)",
+    "multifamily 7+ (3xx)",
+)
+ADU_RE = r"\bADU\b|ADDITIONAL DWELLING|ACCESSORY DWELLING|ACCESSORY UNIT|COACH ?HOUSE|COUCH HOUSE"
+HORIZON_PRIMARY = (
+    120  # ADU preapprovals only exist since 2026-03-31, so the 365-day target cannot be observed yet
+)
+
+
+def dist_type_sql(cls: str) -> str:
+    return f"""CASE
+      WHEN {cls} IS NULL THEN 'no map match (unknown)'
+      WHEN regexp_matches({cls}, '^(RS|RT|RM)') THEN 'residential (RS/RT/RM)'
+      WHEN regexp_matches({cls}, '^[BC][0-9]') THEN 'business/commercial (B/C)'
+      WHEN regexp_matches({cls}, '^PD') THEN 'planned development (PD)'
+      WHEN regexp_matches({cls}, '^D[CXRS]') THEN 'downtown (D)'
+      WHEN regexp_matches({cls}, '^(M[0-9]|PMD)') THEN 'manufacturing (M/PMD)'
+      ELSE 'other (open space/transport)' END"""
+
+
+def ensure_r5(con) -> None:
+    """Temp tables for round 5 (idempotent): zp (one row per zoning application), zk (its addresses), zsite (the permit
+    address keys inside each address range), addr_ca, ustrat/zstrat (community area x class strata)."""
+    ensure_r4(con)
+    if con.execute("SELECT count(*) FROM duckdb_tables() WHERE table_name = 'r5_ready'").fetchone()[0]:
+        return
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE zm AS
+        SELECT DISTINCT matter_id, record_no, coalesce(nullif(upper(app_no), 'TBD'), matter_id) AS proj,
+          intro_date, passed_date, coalesce(type1, false) AS type1
+        FROM zoning_changes WHERE intro_date IS NOT NULL
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE zd_app AS
+        SELECT app_no, first(zone_class ORDER BY a DESC, zone_class) AS zc FROM (
+          SELECT app_no, zone_class, round(sum(area)) AS a FROM zoning_districts
+          WHERE app_no IS NOT NULL AND zone_class IS NOT NULL GROUP BY 1, 2) GROUP BY app_no
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE zd_doc AS
+        SELECT clerk_docn, first(zone_class ORDER BY a DESC, zone_class) AS zc FROM (
+          SELECT clerk_docn, zone_class, round(sum(area)) AS a FROM zoning_districts
+          WHERE clerk_docn IS NOT NULL AND zone_class IS NOT NULL GROUP BY 1, 2) GROUP BY clerk_docn
+    """)
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE zp AS
+        SELECT proj, intro, passed_date, type1, to_class, {dist_type_sql("to_class")} AS dtype FROM (
+          SELECT m.proj, min(m.intro_date) AS intro, min(m.passed_date) AS passed_date, bool_or(m.type1) AS type1,
+            CASE WHEN min(m.passed_date) IS NULL THEN NULL ELSE coalesce(min(a.zc), min(d.zc)) END AS to_class
+          FROM zm m LEFT JOIN zd_app a ON a.app_no = m.proj LEFT JOIN zd_doc d ON d.clerk_docn = m.record_no
+          GROUP BY m.proj)
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE zk AS
+        SELECT proj, k, lo, CASE WHEN hi >= lo AND hi - lo <= 400 THEN hi ELSE lo END AS hi,
+          regexp_extract(k, '^(\\d+) ([NSEW]) (\\S+)', 2) AS dir, regexp_extract(k, '^(\\d+) ([NSEW]) (\\S+)', 3) AS core
+        FROM (
+          SELECT coalesce(nullif(upper(app_no), 'TBD'), matter_id) AS proj, address_key AS k,
+            min(addr_num) AS lo, max(coalesce(addr_num_to, addr_num)) AS hi
+          FROM zoning_changes WHERE address_key IS NOT NULL AND intro_date IS NOT NULL GROUP BY 1, 2)
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE pk AS
+        SELECT address_key AS pkey, try_cast(regexp_extract(address_key, '^(\\d+) ([NSEW]) (\\S+)', 1) AS INTEGER) AS num,
+          regexp_extract(address_key, '^(\\d+) ([NSEW]) (\\S+)', 2) AS dir,
+          regexp_extract(address_key, '^(\\d+) ([NSEW]) (\\S+)', 3) AS core
+        FROM (SELECT DISTINCT address_key FROM p WHERE address_key IS NOT NULL)
+        WHERE regexp_matches(address_key, '^\\d+ [NSEW] \\S+')
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE zsite AS
+        SELECT proj, k, k AS pkey FROM zk
+        UNION
+        SELECT zk.proj, zk.k, pk.pkey FROM zk JOIN pk ON pk.dir = zk.dir AND pk.core = zk.core
+          AND pk.num BETWEEN zk.lo AND zk.hi AND pk.num % 2 = zk.lo % 2
+        WHERE zk.dir <> '' AND zk.hi > zk.lo
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE addr_ca AS
+        SELECT address_key, first(ca ORDER BY n DESC, ca) AS ca FROM (
+          SELECT address_key, community_area AS ca, count(*) AS n FROM (
+            SELECT address_key, community_area FROM permits
+            UNION ALL SELECT address_key, community_area FROM sr311
+            UNION ALL SELECT address_key, community_area FROM biz_license_history)
+          WHERE community_area IS NOT NULL AND address_key IS NOT NULL GROUP BY ALL) GROUP BY address_key
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE ustrat AS
+        SELECT a.address_key AS k, a.bucket, coalesce(c.ca::VARCHAR, '?') || ' | ' || a.bucket AS grp
+        FROM addr_cls a LEFT JOIN addr_ca c USING (address_key)
+    """)
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE zstrat AS
+        SELECT z.k, coalesce(u.bucket, '{BUCKET_UNKNOWN}') AS bucket,
+          coalesce(u.grp, coalesce(c.ca::VARCHAR, '?') || ' | {BUCKET_UNKNOWN}') AS grp
+        FROM (SELECT DISTINCT k FROM zk) z LEFT JOIN ustrat u USING (k) LEFT JOIN addr_ca c ON c.address_key = z.k
+    """)
+    con.execute("CREATE OR REPLACE TEMP TABLE r5_ready AS SELECT 1 AS x")
+
+
+def _z_episodes(con, name: str, src_sql: str, end_sql: str) -> None:
+    """Temp table <name>: one signal per address per 730 days (chain rule as in same_property), limited to
+    R5_START..end. src_sql yields k, d, proj, passed, passed_date, type1, dtype, intro."""
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE {name} AS
+        WITH s AS (
+          SELECT k, d, min(proj) AS proj, bool_or(passed) AS passed, min(passed_date) AS passed_date,
+            bool_or(type1) AS type1, min(dtype) AS dtype, min(intro) AS intro
+          FROM ({src_sql}) GROUP BY k, d),
+        c AS (SELECT *, lag(d) OVER (PARTITION BY k ORDER BY d) AS prev FROM s)
+        SELECT c.k, c.d, c.proj, c.passed, c.passed_date, c.type1, c.dtype, c.intro, z.grp, year(c.d) AS yr
+        FROM c JOIN zstrat z ON z.k = c.k
+        WHERE (c.prev IS NULL OR c.d - c.prev > {Z_WINDOW}) AND c.d >= DATE '{R5_START}' AND c.d <= {end_sql}
+    """)
+
+
+Z_SRC_A = """SELECT zk.k, zp.intro AS d, zk.proj, zp.passed_date IS NOT NULL AS passed, zp.passed_date, zp.type1,
+    zp.dtype, zp.intro FROM zk JOIN zp USING (proj)"""
+Z_SRC_B = f"""SELECT zk.k, zp.passed_date AS d, zk.proj, true AS passed, zp.passed_date, zp.type1, zp.dtype, zp.intro
+    FROM zk JOIN zp USING (proj) WHERE zp.passed_date IS NOT NULL AND zp.intro >= DATE '{R5_START}'"""
+
+
+def _z_outcomes(con, name: str, ep: str, tgt: str, w: int) -> None:
+    """Temp table <name>: each episode with permit outcomes from tgt (k, d, id): days to the first one after d,
+    own earlier window, and what existed before the signal (within w days, ever, before introduction, between
+    introduction and d)."""
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE {name} AS
+        SELECT e.k, e.d, e.proj, e.passed, e.passed_date, e.type1, e.dtype, e.intro, e.grp, e.yr,
+          min(t.d - e.d) FILTER (WHERE t.d > e.d AND t.d <= e.d + INTERVAL {w} DAY) AS days_after,
+          coalesce(bool_or(t.d > e.d AND t.d <= e.d + INTERVAL {w} DAY AND t.pkey = e.k), false) AS hit_exact,
+          coalesce(bool_or(t.d > e.d - INTERVAL {2 * w} DAY AND t.d <= e.d - INTERVAL {w} DAY), false) AS own_earlier,
+          coalesce(bool_or(t.d > e.d - INTERVAL {w} DAY AND t.d <= e.d), false) AS before_w,
+          coalesce(bool_or(t.d <= e.d), false) AS before_any,
+          coalesce(bool_or(t.d <= e.intro), false) AS before_intro,
+          coalesce(bool_or(t.d > e.intro AND t.d <= e.d), false) AS between_intro_d
+        FROM {ep} e LEFT JOIN {tgt} t ON t.k = e.k AND t.d <= e.d + INTERVAL {w} DAY
+        GROUP BY e.k, e.d, e.proj, e.passed, e.passed_date, e.type1, e.dtype, e.intro, e.grp, e.yr
+    """)
+
+
+def _z_ctl_rows(con, tp: str, w: int, last_d: str, busy: bool) -> list[dict]:
+    """Rows (cell, grp, yr, n, hits) for comparable addresses: semi-annual as-of dates, every class-known address
+    (or only those with a non-target permit in the prior 365 days when busy) minus addresses touched by a zoning
+    reclassification within +/- w days; hit = a target permit at the address in the w days after the date."""
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE cd AS
+        SELECT unnest(generate_series(DATE '{R5_START}', DATE '{last_d}', INTERVAL 6 MONTH))::DATE AS d
+    """)
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE cx AS
+        SELECT DISTINCT cd.d, s.pkey AS k FROM cd
+        JOIN zp ON (zp.intro > cd.d - INTERVAL {w} DAY AND zp.intro <= cd.d + INTERVAL {w} DAY)
+                OR (zp.passed_date > cd.d - INTERVAL {w} DAY AND zp.passed_date <= cd.d + INTERVAL {w} DAY)
+        JOIN zsite s ON s.proj = zp.proj
+    """)
+    cell = "busy" if busy else "ctl"
+    if busy:
+        con.execute(f"""
+            CREATE OR REPLACE TEMP TABLE pa AS
+            SELECT DISTINCT p.address_key AS k, p.issue_date AS d FROM p
+            LEFT JOIN {tp} x ON x.id = p.id WHERE p.address_key IS NOT NULL AND x.id IS NULL
+        """)
+        con.execute("""
+            CREATE OR REPLACE TEMP TABLE pool AS
+            SELECT DISTINCT cd.d, u.k, u.grp FROM cd
+            JOIN pa ON pa.d > cd.d - INTERVAL 365 DAY AND pa.d <= cd.d
+            JOIN ustrat u ON u.k = pa.k
+            WHERE NOT EXISTS (SELECT 1 FROM cx WHERE cx.d = cd.d AND cx.k = pa.k)
+        """)
+        n_sql = "SELECT d, grp, count(*) AS n FROM pool GROUP BY ALL"
+        h_sql = f"""SELECT cd.d, u.grp, count(DISTINCT t.k) AS hits FROM cd
+          JOIN {tp} t ON t.d > cd.d AND t.d <= cd.d + INTERVAL {w} DAY
+          JOIN pool u ON u.d = cd.d AND u.k = t.k GROUP BY ALL"""
+    else:
+        n_sql = """
+            SELECT cd.d, u.grp, u.n - coalesce(x.n, 0) AS n FROM cd
+            CROSS JOIN (SELECT grp, count(*) AS n FROM ustrat GROUP BY grp) u
+            LEFT JOIN (SELECT cx.d, s.grp, count(*) AS n FROM cx JOIN ustrat s ON s.k = cx.k GROUP BY ALL) x
+              ON x.d = cd.d AND x.grp = u.grp"""
+        h_sql = f"""SELECT cd.d, u.grp, count(DISTINCT t.k) AS hits FROM cd
+          JOIN {tp} t ON t.d > cd.d AND t.d <= cd.d + INTERVAL {w} DAY
+          JOIN ustrat u ON u.k = t.k
+          WHERE NOT EXISTS (SELECT 1 FROM cx WHERE cx.d = cd.d AND cx.k = t.k) GROUP BY ALL"""
+    return q(
+        con,
+        f"""
+        WITH n AS ({n_sql}), h AS ({h_sql})
+        SELECT '{cell}' AS cell, n.grp, year(n.d) AS yr, sum(n.n)::BIGINT AS n,
+          coalesce(sum(h.hits), 0)::BIGINT AS hits
+        FROM n LEFT JOIN h ON h.d = n.d AND h.grp = n.grp
+        GROUP BY ALL ORDER BY n.grp, yr
+    """,
+    )
+
+
+def _z_sig_rows(con, oc: str, cell: str) -> list[dict]:
+    return q(
+        con,
+        f"""
+        SELECT '{cell}' AS cell, grp, yr, passed, type1, dtype, count(*) AS n, count(days_after) AS hits,
+          count(*) FILTER (WHERE hit_exact) AS hits_exact, count(*) FILTER (WHERE own_earlier) AS own
+        FROM {oc} GROUP BY ALL ORDER BY grp, yr, passed, type1, dtype
+    """,
+    )
+
+
+def _z_summary(con, oc: str, where: str = "true") -> dict:
+    r = one(
+        con,
+        f"""
+        SELECT count(*) AS signals, count(DISTINCT proj) AS projects, count(days_after) AS hits,
+          avg((days_after IS NOT NULL)::INT) AS conversion, avg(hit_exact::INT) AS exact_conversion,
+          avg(own_earlier::INT) AS own_earlier_rate,
+          avg(before_w::INT) AS before_window_share, avg(before_any::INT) AS before_ever_share,
+          avg(before_intro::INT) AS before_intro_share, avg(between_intro_d::INT) AS between_share,
+          median(days_after) AS median_days, quantile_cont(days_after, 0.25) AS p25_days,
+          quantile_cont(days_after, 0.75) AS p75_days
+        FROM {oc} WHERE {where}
+    """,
+    )
+    pr = one(
+        con,
+        f"""SELECT avg(hit::INT) AS project_conversion FROM (
+              SELECT proj, bool_or(days_after IS NOT NULL) AS hit FROM {oc} WHERE {where} GROUP BY proj)""",
+    )
+    r["project_conversion"] = pr["project_conversion"]
+    return r
+
+
+def _z_split_row(label: str, summ: dict, rows: list[dict], cell: str, pred) -> dict:
+    lf = _z_lifts(rows, cell, summ, pred)
+    conv = summ["conversion"]
+    own = summ["own_earlier_rate"]
+    return {
+        "split": label,
+        "signals": summ["signals"],
+        "conversion": conv,
+        "exact_address_rate": summ["exact_conversion"],
+        "own_earlier_rate": own,
+        "control_rate": lf["control_rate"],
+        "lift_vs_control": lf["lift_vs_control_exact"],
+        "lift_vs_own": lf["lift_vs_own"],
+        "median_days": summ["median_days"],
+        "share_before_intro": summ["before_intro_share"],
+    }
+
+
+def z_study(con, label: str, tp: str, w: int = Z_WINDOW, with_busy: bool = True) -> dict:
+    """Zoning signals (A: from introduction, B: passed ordinances from the passage date) against target permits tp
+    (id, k, d). Returns metrics for both plus the comparison cells."""
+    max_issue = one(con, "SELECT max(issue_date) AS d FROM permits")["d"]
+    end = f"DATE '{max_issue}' - INTERVAL {w} DAY"
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE tz AS
+        SELECT DISTINCT s.k, t.d, t.id, s.pkey FROM zsite s JOIN {tp} t ON t.k = s.pkey
+    """)
+    _z_episodes(con, "ea", Z_SRC_A, end)
+    _z_episodes(con, "eb", Z_SRC_B, end)
+    _z_outcomes(con, "oa", "ea", "tz", w)
+    _z_outcomes(con, "ob", "eb", "tz", w)
+    last_d = str(max_issue - timedelta(days=w))
+    ctl = _z_ctl_rows(con, tp, w, last_d, False)
+    busy = _z_ctl_rows(con, tp, w, last_d, True) if with_busy else []
+    rows = _z_sig_rows(con, "oa", "A") + _z_sig_rows(con, "ob", "B") + ctl + busy
+    return {
+        "label": label,
+        "max_issue": max_issue,
+        "rows": rows,
+        "A": _z_summary(con, "oa"),
+        "B": _z_summary(con, "ob"),
+    }
+
+
+def _z_lifts(rows: list[dict], cell: str, summ: dict, pred=lambda r: True, ctl_cell: str = "ctl") -> dict:
+    """Lift of the signal cells against the control cells. The control counts permits at the exact address key, so
+    the like-for-like numerator is the exact-address conversion (`lift_vs_control_exact`); the site conversion
+    (address range and same-side neighbours inside it) is `lift_vs_control`."""
+    c = _std_rate(rows, lambda r: r["cell"] == cell and pred(r), lambda r: r["cell"] == ctl_cell)
+    xrows = [dict(r, hits=r["hits_exact"]) if r["cell"] == cell else r for r in rows]
+    cx = _std_rate(xrows, lambda r: r["cell"] == cell and pred(r), lambda r: r["cell"] == ctl_cell)
+    conv = summ["conversion"]
+    own = summ["own_earlier_rate"]
+    return {
+        "control_rate": c["control_std_rate"],
+        "lift_vs_control": c["lift"],
+        "lift_vs_control_exact": cx["lift"],
+        "exact_matched_rate": cx["matched_rate"],
+        "matched_share": c["matched_signals"] / c["signals"] if c["signals"] else None,
+        "control_cells": c["control_signals"],
+        "own_earlier_rate": own,
+        "lift_vs_own": conv / own if own else None,
+    }
+
+
+def _headline(a: dict) -> float | None:
+    vals = [v for v in (a["lift_vs_control_exact"], a["lift_vs_own"]) if v]
+    return min(vals) if len(vals) == 2 else None
+
+
+def _z_year_table(con, rows: list[dict], oc: str, cell: str) -> list[dict]:
+    out = []
+    for r in q(con, f"SELECT yr FROM {oc} GROUP BY yr ORDER BY yr"):
+        y = r["yr"]
+        s = _z_summary(con, oc, f"yr = {y}")
+        lf = _z_lifts([x for x in rows if x["yr"] == y], cell, s)
+        out.append(
+            {
+                "year": y,
+                "signals": s["signals"],
+                "conversion": s["conversion"],
+                "own_earlier_rate": s["own_earlier_rate"],
+                "control_rate": lf["control_rate"],
+                "lift_vs_control": lf["lift_vs_control_exact"],
+                "lift_vs_own": lf["lift_vs_own"],
+            }
+        )
+    return out
+
+
+def _z_coverage(con, tp: str, end_d: str) -> dict:
+    """Of the target permits issued 2014-01-01..end (two years after the first signals), the share that had a zoning
+    signal (introduction) at the site in the 730 days before them. Uses temp tables ea and tz of the last study."""
+    return one(
+        con,
+        f"""
+        SELECT count(*) AS permits, count(*) FILTER (WHERE EXISTS (
+            SELECT 1 FROM tz t JOIN ea e ON e.k = t.k WHERE t.id = x.id AND x.d > e.d AND x.d <= e.d + INTERVAL {Z_WINDOW} DAY
+          )) AS covered
+        FROM {tp} x WHERE x.d >= DATE '2014-01-01' AND x.d <= DATE '{end_d}'
+    """,
+    )
+
+
+def _tp(con, name: str, where: str) -> str:
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE {name} AS
+        SELECT id, address_key AS k, issue_date AS d FROM p WHERE address_key IS NOT NULL AND ({where})
+    """)
+    return name
+
+
+def _z_volume(con) -> dict:
+    max_issue = one(con, "SELECT max(issue_date) AS d FROM permits")["d"]
+    _z_episodes(con, "ev", Z_SRC_A, f"DATE '{max_issue}'")
+    v = one(
+        con,
+        f"""SELECT count(*) FILTER (WHERE d > DATE '{max_issue}' - INTERVAL 365 DAY) / 52.0 AS per_week,
+              count(DISTINCT proj) FILTER (WHERE d > DATE '{max_issue}' - INTERVAL 365 DAY) / 52.0 AS projects_per_week,
+              count(*) AS episodes FROM ev""",
+    )
+    return v
+
+
+def h34_zoning_to_new_construction(con) -> dict:
+    """Council zoning reclassification introduced (or passed) at an address -> new-construction permit at the address
+    or within the parsed address range within 730 days."""
+    ensure_r5(con)
+    tp = _tp(con, "tp_nc", "permit_type = 'PERMIT - NEW CONSTRUCTION'")
+    st = z_study(con, "new construction", tp)
+    rows, A, B = st["rows"], st["A"], st["B"]
+    la = _z_lifts(rows, "A", A)
+    lb = _z_lifts(rows, "B", B)
+    busy_a = _z_lifts(rows, "A", A, ctl_cell="busy")
+    busy_b = _z_lifts(rows, "B", B, ctl_cell="busy")
+    vol = _z_volume(con)
+
+    by_status = []
+    for label, pred_sql, pred in (
+        ("introduced, later passed (hindsight)", "passed", lambda r: bool(r["passed"])),
+        ("introduced, never passed (hindsight)", "NOT passed", lambda r: not r["passed"]),
+    ):
+        s = _z_summary(con, "oa", pred_sql)
+        by_status.append(_z_split_row(label, s, rows, "A", pred))
+    by_status.insert(0, _z_split_row("all introduced (known at introduction)", A, rows, "A", lambda r: True))
+
+    by_split = [_z_split_row("all passed (from passage date)", B, rows, "B", lambda r: True)]
+    types = [r["dtype"] for r in q(con, "SELECT dtype FROM ob GROUP BY dtype ORDER BY count(*) DESC, dtype")]
+    for dt in types:
+        s = _z_summary(con, "ob", f"dtype = '{dt}'")
+        if s["signals"] >= Z_MIN_SPLIT:
+            by_split.append(
+                _z_split_row(f"target district: {dt}", s, rows, "B", lambda r, dt=dt: r["dtype"] == dt)
+            )
+    for label, flag in (("App No. with T1 suffix (Type 1)", True), ("App No. without T1 suffix", False)):
+        s = _z_summary(con, "ob", f"type1 = {str(flag).lower()}")
+        if s["signals"] >= Z_MIN_SPLIT:
+            by_split.append(_z_split_row(label, s, rows, "B", lambda r, flag=flag: bool(r["type1"]) == flag))
+
+    by_year = _z_year_table(con, rows, "oa", "A")
+    cov = _z_coverage(con, tp, str(st["max_issue"]))
+
+    by_target = [
+        {
+            "target": "new construction (headline)",
+            "signals": A["signals"],
+            "conversion": A["conversion"],
+            "exact_address_rate": A["exact_conversion"],
+            "own_earlier_rate": la["own_earlier_rate"],
+            "control_rate": la["control_rate"],
+            "lift_vs_control": la["lift_vs_control_exact"],
+            "lift_vs_own": la["lift_vs_own"],
+        },
+    ]
+    tp2 = _tp(
+        con,
+        "tp_major",
+        "permit_type IN ('PERMIT - NEW CONSTRUCTION', 'PERMIT - RENOVATION/ALTERATION') AND reported_cost >= 100000",
+    )
+    st2 = z_study(con, "major", tp2, with_busy=False)
+    l2 = _z_lifts(st2["rows"], "A", st2["A"])
+    by_target.append(
+        {
+            "target": "new construction or renovation, cost $100k+",
+            "signals": st2["A"]["signals"],
+            "conversion": st2["A"]["conversion"],
+            "exact_address_rate": st2["A"]["exact_conversion"],
+            "own_earlier_rate": l2["own_earlier_rate"],
+            "control_rate": l2["control_rate"],
+            "lift_vs_control": l2["lift_vs_control_exact"],
+            "lift_vs_own": l2["lift_vs_own"],
+        }
+    )
+
+    metrics = {
+        "signals": A["signals"],
+        "projects": A["projects"],
+        "project_conversion": A["project_conversion"],
+        "conversion": A["conversion"],
+        "baseline": la["control_rate"],
+        "lift": _headline(la),
+        "lift_vs_control": la["lift_vs_control_exact"],
+        "conversion_exact_address": A["exact_conversion"],
+        "lift_vs_control_site_vs_exact_control": la["lift_vs_control"],
+        "nc_permits_since_2014": cov["permits"],
+        "nc_permits_with_zoning_signal_before": cov["covered"],
+        "nc_permit_coverage_share": cov["covered"] / cov["permits"] if cov["permits"] else None,
+        "control_matched_share": la["matched_share"],
+        "own_earlier_window": A["own_earlier_rate"],
+        "lift_vs_own_earlier": la["lift_vs_own"],
+        "busy_control_rate": busy_a["control_rate"],
+        "lift_vs_busy_control": busy_a["lift_vs_control_exact"],
+        "signals_per_week": vol["per_week"],
+        "projects_per_week_recent": vol["projects_per_week"],
+        "median_days": A["median_days"],
+        "days_p25": A["p25_days"],
+        "days_p75": A["p75_days"],
+        "permitted_before_intro_730": A["before_window_share"],
+        "permitted_before_intro_ever": A["before_ever_share"],
+        "passed_signals": B["signals"],
+        "passed_conversion": B["conversion"],
+        "passed_control_rate": lb["control_rate"],
+        "passed_conversion_exact_address": B["exact_conversion"],
+        "passed_lift_vs_control": lb["lift_vs_control_exact"],
+        "passed_own_earlier_window": B["own_earlier_rate"],
+        "passed_lift_vs_own_earlier": lb["lift_vs_own"],
+        "passed_busy_control_rate": busy_b["control_rate"],
+        "passed_lift_vs_busy_control": busy_b["lift_vs_control_exact"],
+        "passed_median_days": B["median_days"],
+        "passed_days_p25": B["p25_days"],
+        "passed_days_p75": B["p75_days"],
+        "passed_permitted_before_intro": B["before_intro_share"],
+        "passed_permitted_between_intro_and_passage": B["between_share"],
+        "passed_permitted_before_passage_730": B["before_window_share"],
+        "by_status": by_status,
+        "by_split": by_split,
+        "by_target": by_target,
+        "by_year": by_year,
+    }
+    return result(
+        "H34",
+        "Council zoning reclassification introduced at an address → new-construction permit there within 730 days",
+        who="GCs, commercial subcontractors, suppliers and brokers who want the earliest public trace of a project",
+        data="City Clerk eLMS zoning reclassification ordinances 2012+ (title addresses), Chicago permits, parcel classes "
+        "from sales and the residential file, today's zoning map (target district of passed ordinances)",
+        signal="A zoning reclassification ordinance introduced in Council at a parsed street address (one signal per "
+        "address per 730 days; address ranges also match permits at same-side addresses inside the range). Second "
+        "view: passed ordinances measured from the passage date",
+        target="PERMIT - NEW CONSTRUCTION at the address or inside its range within 730 days after the signal date; "
+        "baselines = the same addresses' earlier 730-day window, comparable addresses (same community area, same "
+        "class bucket, same year) with no zoning change within 730 days either side, and the subset of those with a "
+        "permit in the prior year",
+        metrics=_round_deep(metrics),
+        notes="Headline lift is the smaller of the two baselines named first (own earlier window, comparable "
+        "addresses). Signals stop 730 days before the newest permit. Introduction dates since 2012-01-01; one "
+        "application (App No.) is one project even when an original and a substitute ordinance exist (earliest "
+        "introduction, earliest passage). Class comes from the latest sale or residential file, so addresses with "
+        "neither are 'unknown class'. The target district of a passed ordinance is read from today's zoning map "
+        "(matched by application number or Clerk record number, so ordinances later superseded are 'no map match'); "
+        "titles state from/to districts for only a handful of matters. 'Never passed' is hindsight, not a filter "
+        "available at introduction. Permit addresses are by street address without unit; multi-address titles give "
+        "one signal per address.",
+    )
+
+
+def h35_zoning_to_big_permit(con) -> dict:
+    """Same signals, target = a $1M+ new construction or renovation permit; and is the GC new to the address?"""
+    ensure_r5(con)
+    tp = _tp(
+        con,
+        "tp_big",
+        f"permit_type IN ('PERMIT - NEW CONSTRUCTION', 'PERMIT - RENOVATION/ALTERATION') AND reported_cost >= {BIG_COST}",
+    )
+    st = z_study(con, "big", tp)
+    rows, A, B = st["rows"], st["A"], st["B"]
+    la = _z_lifts(rows, "A", A)
+    lb = _z_lifts(rows, "B", B)
+    busy_a = _z_lifts(rows, "A", A, ctl_cell="busy")
+    vol = _z_volume(con)
+    cov = _z_coverage(con, tp, str(st["max_issue"]))
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE gcn AS
+        SELECT DISTINCT permit_id, name_key FROM permit_parties WHERE role = 'gc' AND name_key <> ''
+    """)
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE bigp AS
+        SELECT e.k, e.d AS sd, e.passed, first(t.id ORDER BY t.d, t.id) AS pid, min(t.d) AS pd
+        FROM ea e JOIN tz t ON t.k = e.k AND t.d > e.d AND t.d <= e.d + INTERVAL {Z_WINDOW} DAY
+        GROUP BY e.k, e.d, e.passed
+    """)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE bigx AS
+        SELECT b.k, b.sd, b.pid, b.pd, b.passed,
+          EXISTS (SELECT 1 FROM gcn g WHERE g.permit_id = b.pid) AS has_gc,
+          EXISTS (SELECT 1 FROM gcn g WHERE g.permit_id = b.pid AND EXISTS (
+            SELECT 1 FROM zsite s JOIN p p2 ON p2.address_key = s.pkey AND p2.issue_date < b.pd AND p2.id <> b.pid
+            JOIN gcn g2 ON g2.permit_id = p2.id AND g2.name_key = g.name_key WHERE s.k = b.k)) AS gc_seen,
+          EXISTS (SELECT 1 FROM zsite s JOIN p p2 ON p2.address_key = s.pkey AND p2.issue_date < b.pd AND p2.id <> b.pid
+            JOIN gcn g2 ON g2.permit_id = p2.id WHERE s.k = b.k) AS any_gc_before,
+          EXISTS (SELECT 1 FROM zsite s JOIN p p2 ON p2.address_key = s.pkey AND p2.issue_date < b.pd AND p2.id <> b.pid
+            WHERE s.k = b.k) AS any_permit_before
+        FROM bigp b
+    """)
+    g = one(
+        con,
+        """
+        SELECT count(*) AS first_big_permits, avg(has_gc::INT) AS with_gc_share,
+          avg((has_gc AND NOT gc_seen)::INT) FILTER (WHERE has_gc) AS gc_new_to_address_share,
+          avg((has_gc AND NOT any_gc_before)::INT) FILTER (WHERE has_gc) AS no_gc_at_address_before_share,
+          avg(any_permit_before::INT) AS any_permit_before_share,
+          avg((NOT has_gc)::INT) AS no_gc_named_share
+        FROM bigx
+    """,
+    )
+    g_pass = one(
+        con,
+        """SELECT avg((has_gc AND NOT gc_seen)::INT) FILTER (WHERE has_gc) AS gc_new_passed, count(*) AS n
+           FROM bigx WHERE passed""",
+    )
+    gc_year = q(
+        con,
+        """
+        SELECT year(sd) AS year, count(*) AS first_big_permits,
+          avg((has_gc AND NOT gc_seen)::INT) FILTER (WHERE has_gc) AS gc_new_share
+        FROM bigx GROUP BY 1 ORDER BY 1
+    """,
+    )
+    by_split = [_z_split_row("all passed (from passage date)", B, rows, "B", lambda r: True)]
+    for dt in [
+        r["dtype"] for r in q(con, "SELECT dtype FROM ob GROUP BY dtype ORDER BY count(*) DESC, dtype")
+    ]:
+        s = _z_summary(con, "ob", f"dtype = '{dt}'")
+        if s["signals"] >= Z_MIN_SPLIT:
+            by_split.append(
+                _z_split_row(f"target district: {dt}", s, rows, "B", lambda r, dt=dt: r["dtype"] == dt)
+            )
+    metrics = {
+        "signals": A["signals"],
+        "projects": A["projects"],
+        "project_conversion": A["project_conversion"],
+        "conversion": A["conversion"],
+        "baseline": la["control_rate"],
+        "lift": _headline(la),
+        "lift_vs_control": la["lift_vs_control_exact"],
+        "conversion_exact_address": A["exact_conversion"],
+        "own_earlier_window": A["own_earlier_rate"],
+        "lift_vs_own_earlier": la["lift_vs_own"],
+        "busy_control_rate": busy_a["control_rate"],
+        "lift_vs_busy_control": busy_a["lift_vs_control_exact"],
+        "signals_per_week": vol["per_week"],
+        "median_days": A["median_days"],
+        "days_p25": A["p25_days"],
+        "days_p75": A["p75_days"],
+        "permitted_big_before_intro_730": A["before_window_share"],
+        "permitted_big_before_intro_ever": A["before_ever_share"],
+        "passed_signals": B["signals"],
+        "passed_conversion": B["conversion"],
+        "passed_control_rate": lb["control_rate"],
+        "passed_conversion_exact_address": B["exact_conversion"],
+        "passed_lift_vs_control": lb["lift_vs_control_exact"],
+        "passed_own_earlier_window": B["own_earlier_rate"],
+        "passed_lift_vs_own_earlier": lb["lift_vs_own"],
+        "passed_median_days": B["median_days"],
+        "passed_days_p25": B["p25_days"],
+        "passed_days_p75": B["p75_days"],
+        "big_permits_since_2014": cov["permits"],
+        "big_permits_with_zoning_signal_before": cov["covered"],
+        "big_permit_coverage_share": cov["covered"] / cov["permits"] if cov["permits"] else None,
+        "first_big_permits": g["first_big_permits"],
+        "big_permit_with_gc_share": g["with_gc_share"],
+        "big_permit_no_gc_named_share": g["no_gc_named_share"],
+        "gc_new_to_address_share": g["gc_new_to_address_share"],
+        "gc_new_to_address_share_passed": g_pass["gc_new_passed"],
+        "no_gc_at_address_before_share": g["no_gc_at_address_before_share"],
+        "any_permit_at_address_before_share": g["any_permit_before_share"],
+        "by_split": by_split,
+        "by_year": _z_year_table(con, rows, "oa", "A"),
+        "gc_by_year": gc_year,
+    }
+    return result(
+        "H35",
+        "Council zoning reclassification at an address → $1M+ new construction or renovation permit within 730 days",
+        who="Commercial subcontractors and GCs (the project is public before any permit or GC is)",
+        data="City Clerk eLMS zoning reclassification ordinances 2012+, Chicago permits and permit parties",
+        signal="Same signals as H34 (introduction; passed ordinances from the passage date)",
+        target=f"PERMIT - NEW CONSTRUCTION or RENOVATION/ALTERATION with reported cost of ${BIG_COST:,}+ at the address "
+        f"or inside its range within {Z_WINDOW} days; GC opportunity = share of those permits whose named general "
+        "contractor appears on no earlier permit at the site",
+        metrics=_round_deep(metrics),
+        notes="Same controls and caveats as H34 (headline lift is the smaller of own-earlier-window and "
+        "comparable-address lifts). 'GC new to the address' uses the contractor name key on the first $1M+ permit "
+        "after the signal against every earlier permit at the site's addresses (role 'general contractor' only; "
+        "owner-as-GC and blank GCs are counted separately as 'no GC named'). Names are cut at 30 characters, so spelling "
+        "variants count as new (a ceiling on 'open'). Permit contractor names are known only once the permit is issued, "
+        "so the opening for a GC is the time between the zoning signal and that permit.",
+    )
+
+
+def h36_adu_preapproval(con) -> dict:
+    """Chicago ADU preapproval application -> ADU-related or any new construction/renovation permit at the address."""
+    ensure_r5(con)
+    max_issue = one(con, "SELECT max(issue_date) AS d FROM permits")["d"]
+    tp_u = _tp(
+        con,
+        "tp_adu_any",
+        f"regexp_matches(description, '{ADU_RE}') OR permit_type IN ('PERMIT - NEW CONSTRUCTION', 'PERMIT - RENOVATION/ALTERATION')",
+    )
+    tp_a = _tp(con, "tp_adu_only", f"regexp_matches(description, '{ADU_RE}')")
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE adu_ep AS
+        SELECT k, d, status, grp, bucket FROM (
+          SELECT a.address_key AS k, a.submitted_date AS d, a.status,
+            coalesce(c.bucket, 'unknown class') AS bucket, coalesce(c.bucket, 'unknown class') AS grp,
+            lag(a.submitted_date) OVER (PARTITION BY a.address_key ORDER BY a.submitted_date, a.adu_id) AS prev
+          FROM adu_preapprovals a LEFT JOIN addr_cls c ON c.address_key = a.address_key
+          WHERE a.address_key IS NOT NULL)
+        WHERE prev IS NULL OR d - prev > 365
+    """)
+    first_d = one(con, "SELECT min(d) AS d FROM adu_ep")["d"]
+    n_sig = one(con, "SELECT count(*) AS n FROM adu_ep")["n"]
+    n_all = one(con, "SELECT count(*) AS n FROM adu_preapprovals")["n"]
+    n_cert = one(con, "SELECT count(*) AS n FROM adu_ep WHERE status LIKE 'Pre-Certified%'")["n"]
+    res_list = ", ".join(f"'{b}'" for b in R5_BUCKETS_RES)
+
+    def horizon(h: int) -> dict:
+        end = f"DATE '{max_issue}' - INTERVAL {h} DAY"
+        out: dict = {"horizon_days": h}
+        for tag, tp in (("any", tp_u), ("adu", tp_a)):
+            con.execute(f"""
+                CREATE OR REPLACE TEMP TABLE tzz AS SELECT id, k, d FROM {tp}
+            """)
+            con.execute(f"""
+                CREATE OR REPLACE TEMP TABLE adu_o AS
+                SELECT e.k, e.d, e.grp, e.status,
+                  (2 * (month(e.d) - 3)) + (CASE WHEN day(e.d) >= 16 THEN 1 ELSE 0 END) AS yr,
+                  min(t.d - e.d) FILTER (WHERE t.d > e.d AND t.d <= e.d + INTERVAL {h} DAY) AS days_after,
+                  coalesce(bool_or(t.d > e.d - INTERVAL {2 * h} DAY AND t.d <= e.d - INTERVAL {h} DAY), false) AS own_earlier,
+                  coalesce(bool_or(t.d > e.d - INTERVAL 365 DAY AND t.d <= e.d), false) AS before_365
+                FROM adu_ep e LEFT JOIN tzz t ON t.k = e.k AND t.d <= e.d + INTERVAL {h} DAY
+                WHERE e.d <= {end} GROUP BY e.k, e.d, e.grp, e.status
+            """)
+            s = one(
+                con,
+                """SELECT count(*) AS signals, avg((days_after IS NOT NULL)::INT) AS conversion,
+                     avg(own_earlier::INT) AS own, avg(before_365::INT) AS before_365,
+                     median(days_after) AS med, quantile_cont(days_after, 0.25) AS p25,
+                     quantile_cont(days_after, 0.75) AS p75 FROM adu_o""",
+            )
+            if s["signals"]:
+                last = one(con, f"SELECT {end} AS d")["d"]
+                con.execute(f"""
+                    CREATE OR REPLACE TEMP TABLE adu_cd AS
+                    SELECT unnest(generate_series(DATE '2026-03-01', DATE '{last}', INTERVAL 1 MONTH))::DATE AS d
+                    UNION SELECT unnest(generate_series(DATE '2026-03-16', DATE '{last}', INTERVAL 1 MONTH))::DATE
+                """)
+                ctl = q(
+                    con,
+                    f"""
+                    WITH u AS (SELECT k, bucket AS grp FROM ustrat WHERE bucket IN ({res_list})
+                               AND k NOT IN (SELECT address_key FROM adu_preapprovals WHERE address_key IS NOT NULL)),
+                    n AS (SELECT cd.d, g.grp, g.n FROM adu_cd cd
+                          CROSS JOIN (SELECT grp, count(*) AS n FROM u GROUP BY grp) g),
+                    hh AS (SELECT cd.d, u.grp, count(DISTINCT t.k) AS hits FROM adu_cd cd
+                           JOIN tzz t ON t.d > cd.d AND t.d <= cd.d + INTERVAL {h} DAY JOIN u ON u.k = t.k GROUP BY ALL)
+                    SELECT 'ctl' AS cell, n.grp, (2 * (month(n.d) - 3)) + (CASE WHEN day(n.d) >= 16 THEN 1 ELSE 0 END) AS yr,
+                      sum(n.n)::BIGINT AS n, coalesce(sum(hh.hits), 0)::BIGINT AS hits
+                    FROM n LEFT JOIN hh ON hh.d = n.d AND hh.grp = n.grp GROUP BY ALL ORDER BY ALL
+                """,
+                )
+                sig = q(
+                    con,
+                    """SELECT 'sig' AS cell, grp, yr, count(*) AS n, count(days_after) AS hits FROM adu_o
+                       GROUP BY ALL ORDER BY ALL""",
+                )
+                c = _std_rate(sig + ctl, lambda r: r["cell"] == "sig", lambda r: r["cell"] == "ctl")
+                s.update(control_rate=c["control_std_rate"], lift_vs_control=c["lift"])
+            out[tag] = s
+        return out
+
+    horizons = {h: horizon(h) for h in (HORIZON_PRIMARY, 180, 365)}
+    prim = horizons[HORIZON_PRIMARY]["any"]
+    prim_adu = horizons[HORIZON_PRIMARY]["adu"]
+    own = prim["own"]
+    lift_own = prim["conversion"] / own if own else None
+    lifts = [v for v in (prim.get("lift_vs_control"), lift_own) if v]
+    lift = min(lifts) if len(lifts) == 2 else None
+    tab = []
+    for h, v in horizons.items():
+        a, b = v["any"], v["adu"]
+        tab.append(
+            {
+                "horizon_days": h,
+                "signals_observed": a["signals"],
+                "any_permit_rate": a.get("conversion"),
+                "any_permit_control_rate": a.get("control_rate"),
+                "any_permit_lift_vs_control": a.get("lift_vs_control"),
+                "any_permit_own_earlier_rate": a.get("own"),
+                "adu_permit_rate": b.get("conversion"),
+                "adu_permit_control_rate": b.get("control_rate"),
+                "adu_permit_lift_vs_control": b.get("lift_vs_control"),
+                "median_days": a.get("med"),
+            }
+        )
+    so_far = one(
+        con,
+        """
+        SELECT count(*) AS signals, avg((t.first_d IS NOT NULL)::INT) AS adu_permit_so_far_rate,
+          median(t.first_d - e.d) FILTER (WHERE t.first_d IS NOT NULL) AS median_days_so_far,
+          avg((t.first_d IS NOT NULL)::INT) FILTER (WHERE e.status LIKE 'Pre-Certified%') AS adu_permit_so_far_precertified_rate,
+          avg((o.any_d IS NOT NULL)::INT) AS prior_adu_permit_share
+        FROM adu_ep e
+        LEFT JOIN (SELECT e2.k, e2.d, min(t.d) AS first_d FROM adu_ep e2 JOIN tp_adu_only t ON t.k = e2.k AND t.d > e2.d
+                   GROUP BY ALL) t ON t.k = e.k AND t.d = e.d
+        LEFT JOIN (SELECT e3.k, e3.d, min(t.d) AS any_d FROM adu_ep e3 JOIN tp_adu_only t ON t.k = e3.k AND t.d <= e3.d
+                   AND t.d >= DATE '2021-01-01' GROUP BY ALL) o ON o.k = e.k AND o.d = e.d
+    """,
+    )
+    weekly = one(
+        con,
+        f"""SELECT count(*) FILTER (WHERE d > DATE '{max_issue}' - INTERVAL 91 DAY) / 13.0 AS per_week FROM adu_ep""",
+    )
+    by_status = q(
+        con,
+        """
+        SELECT CASE WHEN status LIKE 'Pre-Certified%' THEN 'Pre-Certified' WHEN status IN ('Canceled', 'Denied') THEN
+                 'Canceled or denied' ELSE 'Other (in progress)' END AS status_group, count(*) AS signals,
+          avg((t.first_d IS NOT NULL)::INT) AS adu_permit_so_far_rate,
+          median(t.first_d - e.d) FILTER (WHERE t.first_d IS NOT NULL) AS median_days_so_far
+        FROM adu_ep e LEFT JOIN (SELECT e2.k, e2.d, min(t.d) AS first_d FROM adu_ep e2
+          JOIN tp_adu_only t ON t.k = e2.k AND t.d > e2.d GROUP BY ALL) t ON t.k = e.k AND t.d = e.d
+        GROUP BY 1 ORDER BY 2 DESC, 1
+    """,
+    )
+    metrics = {
+        "signals": prim["signals"],
+        "signals_total": n_sig,
+        "submissions_total": n_all,
+        "precertified_signals": n_cert,
+        "first_submission": str(first_d),
+        "newest_permit": str(max_issue),
+        "horizon_days": HORIZON_PRIMARY,
+        "conversion": prim["conversion"],
+        "baseline": prim.get("control_rate"),
+        "lift": lift,
+        "lift_vs_control": prim.get("lift_vs_control"),
+        "own_earlier_window": own,
+        "lift_vs_own_earlier": lift_own,
+        "adu_only_conversion": prim_adu["conversion"],
+        "adu_only_control_rate": prim_adu.get("control_rate"),
+        "adu_only_lift_vs_control": prim_adu.get("lift_vs_control"),
+        "adu_permit_before_submission_share": prim_adu["before_365"],
+        "any_permit_before_submission_share": prim["before_365"],
+        "median_days": prim["med"],
+        "days_p25": prim["p25"],
+        "days_p75": prim["p75"],
+        "signals_per_week": weekly["per_week"],
+        "adu_permit_so_far_all_signals_rate": so_far["adu_permit_so_far_rate"],
+        "adu_permit_so_far_precertified_rate": so_far["adu_permit_so_far_precertified_rate"],
+        "median_days_so_far": so_far["median_days_so_far"],
+        "adu_text_permit_since_2021_before_submission": so_far["prior_adu_permit_share"],
+        "provisional": True,
+        "by_horizon": tab,
+        "by_status": by_status,
+    }
+    return result(
+        "H36",
+        "ADU preapproval application → ADU-related or any new construction/renovation permit at the address",
+        who="ADU builders, architects and GCs; lenders and suppliers for coach houses and basement or attic units",
+        data="Chicago ADU preapproval applications (since 2026-03-31; applicant names not stored), Chicago permits "
+        "(description text), parcel classes",
+        signal="One ADU preapproval submission per address per 365 days (any status; Pre-Certified is hindsight)",
+        target=f"A permit at the address after the submission whose description mentions an ADU/coach house/accessory "
+        f"unit, or any PERMIT - NEW CONSTRUCTION or RENOVATION/ALTERATION, within {HORIZON_PRIMARY} days (the 365-day "
+        "target cannot be observed: the feed starts 2026-03-31); baseline = same residential addresses' earlier "
+        "window and residential addresses (same class bucket, same half-month) with no preapproval",
+        metrics=_round_deep(metrics),
+        notes="PROVISIONAL: the feed has about 7.5 months of history, so only submissions up to "
+        f"{HORIZON_PRIMARY} days before the newest permit have a full {HORIZON_PRIMARY}-day window and none has a full "
+        "365-day window. Headline lift is the smaller of own-earlier-window and comparable-address lifts. Baseline "
+        "uses the same regex for ADU text, which only exists in permits since the 2021 pilot, so the own-earlier "
+        "window is mostly renovation. Status is as of today. Preapproval is a required step before an ADU permit, so "
+        "a high conversion is expected by construction; the open questions are lead time (the time between "
+        "submission and permit) and how many owners never proceed.",
+    )
+
+
+def h37_zoning_plus_sale(con) -> dict:
+    """Ablation: zoning introduced at a parcel that also sold in the prior 365 days vs zoning alone -> new construction."""
+    ensure_r5(con)
+    max_issue = one(con, "SELECT max(issue_date) AS d FROM permits")["d"]
+    tp = _tp(con, "tp_nc", "permit_type = 'PERMIT - NEW CONSTRUCTION'")
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE tz AS
+        SELECT DISTINCT s.k, t.d, t.id, s.pkey FROM zsite s JOIN {tp} t ON t.k = s.pkey
+    """)
+    end = f"DATE '{max_issue}' - INTERVAL {Z_WINDOW} DAY"
+    _z_episodes(con, "ea", Z_SRC_A, end)
+    _z_outcomes(con, "oa", "ea", "tz", Z_WINDOW)
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE zpin AS
+        SELECT DISTINCT s.k, m.pin10 FROM zsite s JOIN addr_map m ON m.address_key = s.pkey WHERE m.pin10 IS NOT NULL
+    """)
+    con.execute(
+        """
+        CREATE OR REPLACE TEMP TABLE sale_flag AS
+        SELECT o.k, o.d, o.yr, o.bucket_known, o.days_after, o.passed,
+          EXISTS (SELECT 1 FROM zpin z JOIN sales s ON s.pin10 = z.pin10 AND NOT s.filtered_out
+                  AND s.sale_date > o.d - INTERVAL 365 DAY AND s.sale_date <= o.d WHERE z.k = o.k) AS sold_365,
+          EXISTS (SELECT 1 FROM zpin z JOIN sales s ON s.pin10 = z.pin10 AND NOT s.filtered_out
+                  AND s.sale_date > o.d - INTERVAL 365 DAY AND s.sale_date <= o.d
+                  AND regexp_matches(upper(coalesce(s.buyer_name, '')), '__INV__') WHERE z.k = o.k) AS investor_sold_365,
+          EXISTS (SELECT 1 FROM zpin z WHERE z.k = o.k) AS pin_known
+        FROM (SELECT oa.*, st.bucket AS bucket_known FROM oa JOIN zstrat st ON st.k = oa.k) o
+    """.replace("__INV__", INVESTOR_RE.replace("'", "''"))
+    )
+    rows = q(
+        con,
+        """
+        SELECT CASE WHEN sold_365 THEN 'S' ELSE 'N' END AS cell, coalesce(bucket_known, 'unknown class') AS grp, yr,
+          count(*) AS n, count(days_after) AS hits, 0 AS own
+        FROM sale_flag WHERE pin_known GROUP BY ALL ORDER BY ALL
+    """,
+    )
+    std = _std_rate(rows, lambda r: r["cell"] == "S", lambda r: r["cell"] == "N", min_ctl=5)
+    s_n, n_n = std["signals"], std["control_signals"]
+    s_hits = round(std["rate"] * s_n) if s_n else 0
+    n_hits = round(std["control_raw_rate"] * n_n) if n_n else 0
+    p1, p0 = std["rate"], std["control_raw_rate"]
+    se = math.sqrt(p1 * (1 - p1) / s_n + p0 * (1 - p0) / n_n) if s_n and n_n else None
+    inv = one(
+        con,
+        """SELECT count(*) FILTER (WHERE investor_sold_365) AS n, avg((days_after IS NOT NULL)::INT)
+             FILTER (WHERE investor_sold_365) AS conv FROM sale_flag WHERE pin_known""",
+    )
+    by_year = []
+    for y in sorted({r["yr"] for r in rows}):
+        sub = [r for r in rows if r["yr"] == y]
+        h = _std_rate(sub, lambda r: r["cell"] == "S", lambda r: r["cell"] == "N", min_ctl=1)
+        if h["signals"] and h["control_signals"]:
+            by_year.append(
+                {
+                    "year": y,
+                    "signals_with_sale": h["signals"],
+                    "conversion": h["rate"],
+                    "zoning_alone_rate": h["control_raw_rate"],
+                    "lift_vs_alone": h["rate"] / h["control_raw_rate"] if h["control_raw_rate"] else None,
+                }
+            )
+    vol = one(
+        con,
+        f"""SELECT count(*) FILTER (WHERE d > DATE '{max_issue}' - INTERVAL 730 DAY AND sold_365) / 104.0 AS per_week
+            FROM (SELECT o.k, o.d, EXISTS (SELECT 1 FROM zpin z JOIN sales s ON s.pin10 = z.pin10 AND NOT s.filtered_out
+                  AND s.sale_date > o.d - INTERVAL 365 DAY AND s.sale_date <= o.d WHERE z.k = o.k) AS sold_365
+                  FROM (SELECT * FROM ({Z_SRC_A}) WHERE d <= DATE '{max_issue}') o)""",
+    )
+    metrics = {
+        "signals": s_n,
+        "signals_zoning_alone": n_n,
+        "conversion": p1,
+        "baseline": std["control_std_rate"],
+        "zoning_alone_raw_rate": p0,
+        "lift": std["lift"],
+        "lift_raw": p1 / p0 if p0 else None,
+        "difference_points": (p1 - p0) * 100,
+        "difference_ci95_low_points": (p1 - p0 - 1.96 * se) * 100 if se else None,
+        "difference_ci95_high_points": (p1 - p0 + 1.96 * se) * 100 if se else None,
+        "hits_with_sale": s_hits,
+        "hits_zoning_alone": n_hits,
+        "investor_buyer_signals": inv["n"],
+        "investor_buyer_conversion": inv["conv"],
+        "signals_per_week": vol["per_week"],
+        "by_year": by_year,
+    }
+    return result(
+        "H37",
+        "Zoning reclassification + sale of the parcel in the prior year vs zoning alone → new construction",
+        who="Same as H34 (does adding a recent sale sharpen the zoning list?)",
+        data="City Clerk zoning reclassifications, Cook County sales (arm's-length filter as elsewhere), permits",
+        signal="Zoning reclassification introduced at an address whose parcel (PIN matched through permits or the tax "
+        "roll) had a non-filtered sale in the 365 days before the introduction",
+        target="PERMIT - NEW CONSTRUCTION at the address or range within 730 days; baseline = zoning signals at "
+        "PIN-matched addresses with no such sale, standardized to the same class bucket and year",
+        metrics=_round_deep(metrics),
+        notes="An ablation, not a stand-alone signal: lift is conversion with a prior-year sale divided by conversion "
+        "without (class-bucket and year standardized). Only addresses whose PIN is known are compared. A sale after "
+        "the introduction is never used. Sale prices are not used; investor buyers are a regex on the buyer name.",
+    )
+
+
 HYPOTHESES: dict[str, Callable] = {
     "H01": h01_solar_neighbors,
     "H02": h02_reroof_then_solar,
@@ -3336,11 +4265,16 @@ HYPOTHESES: dict[str, Callable] = {
     "H31": h31_new_business_legitimacy,
     "H32": h32_storefront_turnover,
     "H33": h33_buildout_permit_to_new_license,
+    "H34": h34_zoning_to_new_construction,
+    "H35": h35_zoning_to_big_permit,
+    "H36": h36_adu_preapproval,
+    "H37": h37_zoning_plus_sale,
 }
 
 
 # ----------------------------------------------------------------------------------------------------------
 ROUND4 = ("H29", "H30", "H31", "H32", "H33")
+ROUND5 = ("H34", "H35", "H36", "H37")
 
 
 def fmt(x, pct=False) -> str:
@@ -3364,7 +4298,9 @@ def render(results: list[dict], generated: str) -> str:
         "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     order = {"Strong": 0, "Useful": 1, "Weak": 2, "Descriptive": 3, "No signal": 4}
-    ranked = sorted(results, key=lambda r: (order[r["verdict"]], -(r["metrics"].get("lift") or 0)))
+    ranked = sorted(
+        results, key=lambda r: (order[r["verdict"].split(" (")[0]], -(r["metrics"].get("lift") or 0))
+    )
     for r in ranked:
         m = r["metrics"]
         ratio = r["id"] in ("H04", "H05")
@@ -3394,6 +4330,11 @@ def render(results: list[dict], generated: str) -> str:
             )
         for key in (
             "by_neighbors",
+            "by_status",
+            "by_split",
+            "by_target",
+            "by_horizon",
+            "gc_by_year",
             "groups",
             "complaint_basis",
             "loyalty",
@@ -3444,7 +4385,7 @@ def render(results: list[dict], generated: str) -> str:
                         )
                         + " |"
                     )
-        if r["id"] in ROUND4:
+        if r["id"] in ROUND4 + ROUND5:
             scalars = [
                 f"{k} = {fmt(v)}"
                 for k, v in m.items()
@@ -3473,7 +4414,7 @@ def main() -> int:
     for hid in wanted:
         print(f"running {hid} ...", flush=True)
         results.append(HYPOTHESES[hid](con))
-    generated = date.today().isoformat()
+    generated = os.environ.get("SIGNAL_LAB_DATE") or datetime.now(UTC).date().isoformat()
     OUT.mkdir(parents=True, exist_ok=True)
     stem = f"{OUT / f'signal-lab-{generated}'}{'.partial' if partial else ''}"
     Path(stem + ".json").write_text(json.dumps(_round_deep(results), indent=2, default=str))

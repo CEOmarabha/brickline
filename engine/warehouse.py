@@ -3,6 +3,7 @@
     uv run python -m engine.warehouse sync     # download raw CSV pages (resumable)
     uv run python -m engine.warehouse build    # (re)build normalized tables in data/warehouse.duckdb
     uv run python -m engine.warehouse sync --only overture biz_licenses biz_owners   # free contact sources
+    uv run python -m engine.warehouse sync --only clerk adu_preapprovals zoning_districts   # round 5 sources
 
 Raw pages are kept under data/raw/<dataset>/ so tables can be rebuilt without re-downloading.
 """
@@ -18,7 +19,7 @@ from pathlib import Path
 import duckdb
 
 from engine.classify.trades import PERMIT_TRADES, VIOLATION_TRADES, sql_flags
-from engine.collect import hmda, noaa, overture, swdi
+from engine.collect import clerk, hmda, noaa, overture, swdi
 from engine.collect.socrata import export_csv
 
 DATA = Path("data")
@@ -115,6 +116,25 @@ DATASETS = [
         "account_number,doing_business_as_name,owner_first_name,owner_middle_initial,owner_last_name,"
         "owner_name_suffix,owner_name,owner_title",
     ),
+    # Applicant names and mailing addresses are deliberately not selected: only the property and the request.
+    Dataset(
+        "adu_preapprovals",
+        CHICAGO,
+        "j4h8-ug9m",
+        "id,submission_date,status,action_date,address,street_number,street_direction,street_name,zip,ward,zoning,"
+        "latitude,longitude,coach_house,conversion_unit,principal_building_built_year,dwelling_units_in_lot,"
+        "max_number_of_adu_allowed,max_number_coach_house_units_allowed,adu_applying_for,"
+        "number_affordable_units_required,property_owner_occupied",
+    ),
+    # Today's zoning map without geometry: zone_class per polygon plus the application number (`ordinance`),
+    # passage date (`ordinance_1`) and Clerk record number (`clerk_docn`) of the change that created it.
+    Dataset(
+        "zoning_districts",
+        CHICAGO,
+        "dj47-wfun",
+        "case_numbe,case_type,zoning_id,zone_type,zone_class,create_dat,edit_date,pd_prefix,pd_num,ordinance,"
+        "ordinance_1,clerk_docn,zoning_rel,shape_area",
+    ),
     Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community,the_geom"),
     Dataset("tracts_2010", CHICAGO, "74p9-q2aq", "geoid10,commarea,the_geom"),
     Dataset("tracts_2020", CHICAGO, "7qjk-677h", "tract_fips,tract_ce,commarea,the_geom"),
@@ -206,6 +226,9 @@ def sync(names: list[str] | None = None) -> None:
             continue
         print(f"sync {ds.name} ({ds.domain}/{ds.dataset_id})")
         export_csv(ds.domain, ds.dataset_id, ds.select, ds.where, RAW / ds.name)
+    if not names or "clerk" in names:
+        print("sync City Clerk zoning reclassification ordinances")
+        clerk.sync(RAW / "clerk")
     if not names or "noaa" in names:
         print("sync noaa storm events")
         noaa.sync(RAW / "noaa")
@@ -542,6 +565,66 @@ def build() -> None:
         FROM {_csv("biz_licenses")}
     """)
 
+    print("build adu_preapprovals")
+    con.execute(f"""
+        CREATE TABLE adu_preapprovals AS
+        SELECT id AS adu_id,
+            try_cast(submission_date AS TIMESTAMP)::DATE AS submitted_date,
+            try_cast(action_date AS TIMESTAMP)::DATE AS action_date,
+            status,
+            {address_key_sql("address")} AS address_key, address,
+            try_cast(ward AS INTEGER) AS ward, zoning,
+            try_cast(latitude AS DOUBLE) AS lat, try_cast(longitude AS DOUBLE) AS lon,
+            try_cast(coach_house AS BOOLEAN) AS coach_house,
+            try_cast(conversion_unit AS BOOLEAN) AS conversion_unit,
+            try_cast(principal_building_built_year AS INTEGER) AS year_built,
+            try_cast(dwelling_units_in_lot AS INTEGER) AS units_on_lot,
+            try_cast(max_number_of_adu_allowed AS INTEGER) AS max_adus,
+            try_cast(adu_applying_for AS INTEGER) AS adus_applied
+        FROM {_csv("adu_preapprovals")}
+        WHERE try_cast(submission_date AS TIMESTAMP) IS NOT NULL
+    """)
+
+    print("build zoning_districts")
+    con.execute(f"""
+        CREATE TABLE zoning_districts AS
+        SELECT try_cast(zoning_id AS INTEGER) AS zoning_id, zone_class,
+            try_cast(zone_type AS INTEGER) AS zone_type,
+            upper(nullif(trim(ordinance), '')) AS app_no,
+            try_cast(try_cast(ordinance_1 AS TIMESTAMP) AS DATE) AS ordinance_date,
+            nullif(trim(clerk_docn), '') AS clerk_docn,
+            try_cast(try_cast(create_dat AS TIMESTAMP) AS DATE) AS created,
+            try_cast(shape_area AS DOUBLE) AS area,
+            try_cast(pd_num AS INTEGER) AS pd_num
+        FROM {_csv("zoning_districts")}
+    """)
+
+    zoning_json = clerk.write_flat(RAW / "clerk") if (RAW / "clerk" / "list").exists() else None
+    if zoning_json:
+        print("build zoning_changes")
+        con.execute(f"""
+            CREATE TABLE zoning_changes AS
+            SELECT matter_id, record_no, file_year, title,
+                try_cast(intro_date AS DATE) AS intro_date,
+                try_cast(final_action_date AS DATE) AS final_action_date,
+                status, sub_status,
+                sub_status IN ('Passed', 'Passed as Substitute') AS passed,
+                CASE WHEN sub_status IN ('Passed', 'Passed as Substitute')
+                     THEN try_cast(final_action_date AS DATE) END AS passed_date,
+                sponsor, committee, map_no, app_no, type1, planned_development, from_district, to_district,
+                addr_idx::INTEGER AS addr_idx, try_cast(addr_num AS INTEGER) AS addr_num,
+                try_cast(addr_num_to AS INTEGER) AS addr_num_to, addr_dir, addr_street,
+                CASE WHEN addr_text IS NULL THEN NULL ELSE {address_key_sql("addr_text")} END AS address_key
+            FROM read_json('{zoning_json}', format='newline_delimited', sample_size=-1,
+                columns={{matter_id: 'VARCHAR', record_no: 'VARCHAR', file_year: 'INTEGER', title: 'VARCHAR',
+                    intro_date: 'VARCHAR', final_action_date: 'VARCHAR', status: 'VARCHAR',
+                    sub_status: 'VARCHAR', legacy_status: 'VARCHAR', sponsor: 'VARCHAR',
+                    committee: 'VARCHAR', map_no: 'VARCHAR', app_no: 'VARCHAR', type1: 'BOOLEAN',
+                    planned_development: 'BOOLEAN', from_district: 'VARCHAR', to_district: 'VARCHAR',
+                    addr_idx: 'INTEGER', addr_num: 'INTEGER', addr_num_to: 'INTEGER', addr_dir: 'VARCHAR',
+                    addr_street: 'VARCHAR', addr_text: 'VARCHAR'}})
+        """)
+
     print("build biz_owners")
     con.execute(f"""
         CREATE TABLE biz_owners AS
@@ -573,6 +656,9 @@ def build() -> None:
         "places",
         "biz_licenses",
         "biz_owners",
+        "adu_preapprovals",
+        "zoning_districts",
+        *(["zoning_changes"] if zoning_json else []),
     ):
         n = con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
         print(f"  {t}: {n:,} rows")

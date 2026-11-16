@@ -25,6 +25,7 @@ select = ["E", "F", "W", "I", "B", "UP"]
 "engine/score/licenses.py" = ["E501"]
 "engine/enrich/*.py" = ["E501"]
 "engine/collect/overture.py" = ["E501"]
+"engine/collect/clerk.py" = ["E501"]
 
 [build-system]
 requires = ["hatchling"]
