@@ -1,0 +1,1795 @@
+{
+  "generated_on": "2026-11-16",
+  "demolition": {
+    "summary": {
+      "demolitions": 15488,
+      "nc_within_2y": 0.306172520661157,
+      "nc_applied_after_demo": 0.13358729338842976,
+      "median_days_demo_to_nc_application": -8.0,
+      "median_days_demo_to_nc_issue": 16.0,
+      "p25_days_to_nc_issue": -6.0,
+      "p75_days_to_nc_issue": 63.0,
+      "median_nc_reported_cost": 444450.0,
+      "demolitions_without_nc_within_60d": 11965,
+      "later_nc_61_730d": 0.10188048474717927
+    },
+    "recall": {
+      "nc_permits_2012_2026": 22595,
+      "share_preceded_by_demo": 0.12339013055985838
+    },
+    "by_year": [
+      {
+        "year": 2010,
+        "demolitions": 1123,
+        "nc_within_2y": 0.15
+      },
+      {
+        "year": 2011,
+        "demolitions": 1114,
+        "nc_within_2y": 0.18
+      },
+      {
+        "year": 2012,
+        "demolitions": 1516,
+        "nc_within_2y": 0.183
+      },
+      {
+        "year": 2013,
+        "demolitions": 1395,
+        "nc_within_2y": 0.32
+      },
+      {
+        "year": 2014,
+        "demolitions": 1177,
+        "nc_within_2y": 0.411
+      },
+      {
+        "year": 2015,
+        "demolitions": 1170,
+        "nc_within_2y": 0.456
+      },
+      {
+        "year": 2016,
+        "demolitions": 1252,
+        "nc_within_2y": 0.371
+      },
+      {
+        "year": 2017,
+        "demolitions": 1176,
+        "nc_within_2y": 0.362
+      },
+      {
+        "year": 2018,
+        "demolitions": 1108,
+        "nc_within_2y": 0.332
+      },
+      {
+        "year": 2019,
+        "demolitions": 1046,
+        "nc_within_2y": 0.302
+      },
+      {
+        "year": 2020,
+        "demolitions": 711,
+        "nc_within_2y": 0.297
+      },
+      {
+        "year": 2021,
+        "demolitions": 848,
+        "nc_within_2y": 0.29
+      },
+      {
+        "year": 2022,
+        "demolitions": 754,
+        "nc_within_2y": 0.314
+      },
+      {
+        "year": 2023,
+        "demolitions": 581,
+        "nc_within_2y": 0.31
+      },
+      {
+        "year": 2024,
+        "demolitions": 517,
+        "nc_within_2y": 0.358
+      }
+    ],
+    "roles_on_followon_nc": [
+      {
+        "role": "gc",
+        "share_named": 0.979
+      },
+      {
+        "role": "masonry",
+        "share_named": 0.932
+      },
+      {
+        "role": "electrical",
+        "share_named": 0.925
+      },
+      {
+        "role": "plumbing",
+        "share_named": 0.91
+      },
+      {
+        "role": "architect",
+        "share_named": 0.909
+      },
+      {
+        "role": "hvac",
+        "share_named": 0.894
+      }
+    ],
+    "volume": {
+      "demolitions_per_week_last_year": 13.2
+    }
+  },
+  "sale": {
+    "rates": [
+      {
+        "segment": "single-family",
+        "sales": 164400,
+        "post_roofing": 0.018710462287104622,
+        "pre_roofing": 0.0055170316301703165,
+        "post_masonry": 0.017682481751824818,
+        "pre_masonry": 0.007214111922141119,
+        "post_porch": 0.025961070559610704,
+        "pre_porch": 0.011021897810218978,
+        "post_windows_doors": 0.018175182481751824,
+        "pre_windows_doors": 0.004470802919708029,
+        "post_electrical": 0.04169099756690998,
+        "pre_electrical": 0.011125304136253041,
+        "post_plumbing": 0.027585158150851583,
+        "pre_plumbing": 0.00933698296836983,
+        "post_hvac": 0.010784671532846716,
+        "pre_hvac": 0.003984184914841849,
+        "post_solar": 0.004361313868613138,
+        "pre_solar": 0.0005352798053527981,
+        "post_interior_buildout": 0.027858880778588807,
+        "pre_interior_buildout": 0.008248175182481752,
+        "post_major": 0.021891727493917275,
+        "pre_major": 0.011441605839416058,
+        "post_any_permit": 0.12018248175182482,
+        "pre_any_permit": 0.041867396593673965,
+        "cut": "segment"
+      },
+      {
+        "segment": "2-6 unit flat",
+        "sales": 75066,
+        "post_roofing": 0.03077291983054912,
+        "pre_roofing": 0.005741614046305917,
+        "post_masonry": 0.06500945834332454,
+        "pre_masonry": 0.015399781525590813,
+        "post_porch": 0.08431247169157807,
+        "pre_porch": 0.02283324008206112,
+        "post_windows_doors": 0.02840167319425572,
+        "pre_windows_doors": 0.005355287347134522,
+        "post_electrical": 0.07670583220099646,
+        "pre_electrical": 0.01873018410465457,
+        "post_plumbing": 0.05428556203873924,
+        "pre_plumbing": 0.013215037433724989,
+        "post_hvac": 0.023033064236804946,
+        "pre_hvac": 0.005728292435989662,
+        "post_solar": 0.0011989449284629525,
+        "pre_solar": 0.0002797538166413556,
+        "post_interior_buildout": 0.053925878560200355,
+        "pre_interior_buildout": 0.010430820877627688,
+        "post_major": 0.05499160738550076,
+        "pre_major": 0.009937921295926251,
+        "post_any_permit": 0.21938027868808782,
+        "pre_any_permit": 0.061692377374577036,
+        "cut": "segment"
+      },
+      {
+        "segment": "commercial/industrial",
+        "sales": 7621,
+        "post_roofing": 0.0436950531426322,
+        "pre_roofing": 0.019157590867340243,
+        "post_masonry": 0.0852906442724052,
+        "pre_masonry": 0.038052748983073086,
+        "post_porch": 0.01784542710930324,
+        "pre_porch": 0.011547041070725626,
+        "post_windows_doors": 0.03332895945413988,
+        "pre_windows_doors": 0.010234877312688623,
+        "post_electrical": 0.10825351003805275,
+        "pre_electrical": 0.05996588374229104,
+        "post_plumbing": 0.05930980186327254,
+        "pre_plumbing": 0.024799895026899357,
+        "post_hvac": 0.030967064689673272,
+        "pre_hvac": 0.01771421073349954,
+        "post_solar": 0.0006560818790185015,
+        "pre_solar": 0.0001312163758037003,
+        "post_interior_buildout": 0.0885710536674977,
+        "pre_interior_buildout": 0.03870883086209159,
+        "post_major": 0.09919958010759743,
+        "pre_major": 0.045532082403884004,
+        "post_any_permit": 0.28618291562787035,
+        "pre_any_permit": 0.15089883217425534,
+        "cut": "segment"
+      },
+      {
+        "segment": "apartment 7+",
+        "sales": 5891,
+        "post_roofing": 0.025292819555253778,
+        "pre_roofing": 0.014598540145985401,
+        "post_masonry": 0.12697334917671024,
+        "pre_masonry": 0.05381089797996944,
+        "post_porch": 0.09268375488032592,
+        "pre_porch": 0.04634187744016296,
+        "post_windows_doors": 0.034119843829570534,
+        "pre_windows_doors": 0.011712782210151079,
+        "post_electrical": 0.1137328127652351,
+        "pre_electrical": 0.044644372772025126,
+        "post_plumbing": 0.08962824647767781,
+        "pre_plumbing": 0.02495331862162621,
+        "post_hvac": 0.03089458496010864,
+        "pre_hvac": 0.01137328127652351,
+        "post_solar": 0.00033950093362756747,
+        "pre_solar": 0.00016975046681378373,
+        "post_interior_buildout": 0.06586318112374809,
+        "pre_interior_buildout": 0.01544729248005432,
+        "post_major": 0.059582413851638094,
+        "pre_major": 0.022067560685791885,
+        "post_any_permit": 0.3130198608046172,
+        "pre_any_permit": 0.1649974537429978,
+        "cut": "segment"
+      },
+      {
+        "segment": "single-family / individual buyer",
+        "sales": 141213,
+        "post_roofing": 0.013971801463038105,
+        "pre_roofing": 0.0058705643248142874,
+        "post_masonry": 0.011252505080976964,
+        "pre_masonry": 0.007846303102405586,
+        "post_porch": 0.016733586851068953,
+        "pre_porch": 0.012024388689426612,
+        "post_windows_doors": 0.011188771572022405,
+        "pre_windows_doors": 0.004893317187511065,
+        "post_electrical": 0.03375751524293089,
+        "pre_electrical": 0.011953573679477102,
+        "post_plumbing": 0.017540877964493353,
+        "pre_plumbing": 0.01019027993173433,
+        "post_hvac": 0.006982359981021577,
+        "pre_hvac": 0.004404693618859454,
+        "post_solar": 0.0048083391755716545,
+        "pre_solar": 0.0005736015805910221,
+        "post_interior_buildout": 0.01808615354110457,
+        "pre_interior_buildout": 0.009135136283486648,
+        "post_major": 0.012789190796881306,
+        "pre_major": 0.012548419763052977,
+        "post_any_permit": 0.09139385184083619,
+        "pre_any_permit": 0.045378258375645304,
+        "cut": "buyer"
+      },
+      {
+        "segment": "2-6 unit flat / individual buyer",
+        "sales": 56422,
+        "post_roofing": 0.019300981886498175,
+        "pre_roofing": 0.006345042713835029,
+        "post_masonry": 0.041721314380915246,
+        "pre_masonry": 0.016057566197582505,
+        "post_porch": 0.05526213179256319,
+        "pre_porch": 0.024352203041366843,
+        "post_windows_doors": 0.02000992520647974,
+        "pre_windows_doors": 0.00588422955584701,
+        "post_electrical": 0.06477969586331572,
+        "pre_electrical": 0.019371876218496332,
+        "post_plumbing": 0.03847789869199957,
+        "pre_plumbing": 0.01460423239162029,
+        "post_hvac": 0.016713338768565452,
+        "pre_hvac": 0.0059196767218460886,
+        "post_solar": 0.0014887809719612917,
+        "pre_solar": 0.00035447165999078373,
+        "post_interior_buildout": 0.03661692247704796,
+        "pre_interior_buildout": 0.01152032894970047,
+        "post_major": 0.02919074120024104,
+        "pre_major": 0.011626670447697706,
+        "post_any_permit": 0.16482932189571445,
+        "pre_any_permit": 0.06467335436531849,
+        "cut": "buyer"
+      },
+      {
+        "segment": "single-family / investor buyer",
+        "sales": 23187,
+        "post_roofing": 0.04756975891663432,
+        "pre_roofing": 0.003363953939707595,
+        "post_masonry": 0.05684219605813602,
+        "pre_masonry": 0.003363953939707595,
+        "post_porch": 0.08215810583516625,
+        "pre_porch": 0.004916548065726485,
+        "post_windows_doors": 0.06072368137318325,
+        "pre_windows_doors": 0.0018976150429119766,
+        "post_electrical": 0.09000733169448398,
+        "pre_electrical": 0.006080993660240652,
+        "post_plumbing": 0.08875663087074653,
+        "pre_plumbing": 0.0041402510027170394,
+        "post_hvac": 0.0339414326993574,
+        "pre_hvac": 0.0014232112821839823,
+        "post_solar": 0.0016388493552421616,
+        "pre_solar": 0.0003018933022814508,
+        "post_interior_buildout": 0.0873765472031742,
+        "pre_interior_buildout": 0.0028464225643679646,
+        "post_major": 0.07732781299866305,
+        "pre_major": 0.004700909992668306,
+        "post_any_permit": 0.2955104153189287,
+        "pre_any_permit": 0.02048561694052702,
+        "cut": "buyer"
+      },
+      {
+        "segment": "2-6 unit flat / investor buyer",
+        "sales": 18644,
+        "post_roofing": 0.06549023814632053,
+        "pre_roofing": 0.003915468783522849,
+        "post_masonry": 0.13548594722162627,
+        "pre_masonry": 0.013409139669598799,
+        "post_porch": 0.17222698991632696,
+        "pre_porch": 0.018236429950654366,
+        "post_windows_doors": 0.05379746835443038,
+        "pre_windows_doors": 0.0037545591074876635,
+        "post_electrical": 0.1127976829006651,
+        "pre_electrical": 0.016788242866337694,
+        "post_plumbing": 0.10212400772366445,
+        "pre_plumbing": 0.009010941857970392,
+        "post_hvac": 0.042158335121218624,
+        "pre_hvac": 0.005149109633125939,
+        "post_solar": 0.00032181935207037116,
+        "pre_solar": 5.363655867839519e-05,
+        "post_interior_buildout": 0.10630765930057927,
+        "pre_interior_buildout": 0.00713366230422656,
+        "post_major": 0.13307230208109846,
+        "pre_major": 0.004827290281055567,
+        "post_any_permit": 0.38446685260673674,
+        "pre_any_permit": 0.05267110062218408,
+        "cut": "buyer"
+      },
+      {
+        "segment": "commercial/industrial / investor buyer",
+        "sales": 4621,
+        "post_roofing": 0.05020558320709803,
+        "pre_roofing": 0.017528673447305777,
+        "post_masonry": 0.09002380437134819,
+        "pre_masonry": 0.03029647262497295,
+        "post_porch": 0.017528673447305777,
+        "pre_porch": 0.005842891149101926,
+        "post_windows_doors": 0.033758926639255574,
+        "pre_windows_doors": 0.009305345163384549,
+        "post_electrical": 0.11274615884007791,
+        "pre_electrical": 0.0605929452499459,
+        "post_plumbing": 0.06232417225708721,
+        "pre_plumbing": 0.025102791603549016,
+        "post_hvac": 0.03202769963211426,
+        "pre_hvac": 0.01990911058212508,
+        "post_solar": 0.00021640337589266391,
+        "pre_solar": 0.0,
+        "post_interior_buildout": 0.0917550313784895,
+        "pre_interior_buildout": 0.03700497727764553,
+        "post_major": 0.11426098247132656,
+        "pre_major": 0.0341917333910409,
+        "post_any_permit": 0.3072927937675828,
+        "pre_any_permit": 0.15040034624540144,
+        "cut": "buyer"
+      },
+      {
+        "segment": "apartment 7+ / investor buyer",
+        "sales": 4242,
+        "post_roofing": 0.027817067421027818,
+        "pre_roofing": 0.009665252239509665,
+        "post_masonry": 0.1364922206506365,
+        "pre_masonry": 0.04974068835454974,
+        "post_porch": 0.10018859028760019,
+        "pre_porch": 0.04054691183404055,
+        "post_windows_doors": 0.03748231966053748,
+        "pre_windows_doors": 0.01272984441301273,
+        "post_electrical": 0.11716171617161716,
+        "pre_electrical": 0.03818953323903819,
+        "post_plumbing": 0.0924092409240924,
+        "pre_plumbing": 0.019801980198019802,
+        "post_hvac": 0.033946251768033946,
+        "pre_hvac": 0.008722300801508723,
+        "post_solar": 0.0,
+        "pre_solar": 0.00023573785950023574,
+        "post_interior_buildout": 0.07024988213107025,
+        "pre_interior_buildout": 0.013908533710513909,
+        "post_major": 0.0652993870815653,
+        "pre_major": 0.01272984441301273,
+        "post_any_permit": 0.3161244695898161,
+        "pre_any_permit": 0.13767090994813766,
+        "cut": "buyer"
+      },
+      {
+        "segment": "commercial/industrial / individual buyer",
+        "sales": 3000,
+        "post_roofing": 0.033666666666666664,
+        "pre_roofing": 0.021666666666666667,
+        "post_masonry": 0.078,
+        "pre_masonry": 0.05,
+        "post_porch": 0.018333333333333333,
+        "pre_porch": 0.02033333333333333,
+        "post_windows_doors": 0.03266666666666666,
+        "pre_windows_doors": 0.011666666666666667,
+        "post_electrical": 0.10133333333333333,
+        "pre_electrical": 0.059,
+        "post_plumbing": 0.05466666666666667,
+        "pre_plumbing": 0.024333333333333332,
+        "post_hvac": 0.029333333333333333,
+        "pre_hvac": 0.014333333333333333,
+        "post_solar": 0.0013333333333333333,
+        "pre_solar": 0.0003333333333333333,
+        "post_interior_buildout": 0.08366666666666667,
+        "pre_interior_buildout": 0.04133333333333333,
+        "post_major": 0.076,
+        "pre_major": 0.063,
+        "post_any_permit": 0.25366666666666665,
+        "pre_any_permit": 0.15166666666666667,
+        "cut": "buyer"
+      },
+      {
+        "segment": "apartment 7+ / individual buyer",
+        "sales": 1649,
+        "post_roofing": 0.01879927228623408,
+        "pre_roofing": 0.0272892662219527,
+        "post_masonry": 0.10248635536688902,
+        "pre_masonry": 0.06428138265615524,
+        "post_porch": 0.07337780473013948,
+        "pre_porch": 0.061249241964827165,
+        "post_windows_doors": 0.025469981807155852,
+        "pre_windows_doors": 0.009096422073984234,
+        "post_electrical": 0.10491206791995149,
+        "pre_electrical": 0.061249241964827165,
+        "post_plumbing": 0.08247422680412371,
+        "pre_plumbing": 0.03820497271073378,
+        "post_hvac": 0.02304426925409339,
+        "pre_hvac": 0.018192844147968467,
+        "post_solar": 0.001212856276531231,
+        "pre_solar": 0.0,
+        "post_interior_buildout": 0.0545785324439054,
+        "pre_interior_buildout": 0.019405700424499697,
+        "post_major": 0.04487568223165555,
+        "pre_major": 0.04608853850818678,
+        "post_any_permit": 0.30503335354760464,
+        "pre_any_permit": 0.23529411764705882,
+        "cut": "buyer"
+      }
+    ],
+    "timing": [
+      {
+        "segment": "2-6 unit flat",
+        "median_days_to_first_permit": 96.0,
+        "p25": 42.0,
+        "p75": 187.0
+      },
+      {
+        "segment": "apartment 7+",
+        "median_days_to_first_permit": 115.0,
+        "p25": 50.0,
+        "p75": 200.0
+      },
+      {
+        "segment": "commercial/industrial",
+        "median_days_to_first_permit": 116.0,
+        "p25": 49.0,
+        "p75": 218.0
+      },
+      {
+        "segment": "single-family",
+        "median_days_to_first_permit": 93.0,
+        "p25": 38.0,
+        "p75": 187.0
+      }
+    ],
+    "trades": [
+      "roofing",
+      "masonry",
+      "porch",
+      "windows_doors",
+      "electrical",
+      "plumbing",
+      "hvac",
+      "solar",
+      "interior_buildout",
+      "major",
+      "any_permit"
+    ],
+    "volume": {
+      "chicago_sales_per_week_2024": 516.0
+    }
+  },
+  "violation": {
+    "rates": [
+      {
+        "trade": "windows_doors",
+        "episodes": 49744,
+        "episodes_per_week": 68.3,
+        "permit_90d": 0.0038597619813444837,
+        "permit_180d": 0.008161788356384689,
+        "permit_365d": 0.01602203280797684,
+        "baseline_same_address_prior_year": 0.005588613702155034,
+        "median_days_to_permit": 175.0
+      },
+      {
+        "trade": "masonry",
+        "episodes": 47173,
+        "episodes_per_week": 64.8,
+        "permit_90d": 0.02098658130710364,
+        "permit_180d": 0.05257244610264346,
+        "permit_365d": 0.10376698535179021,
+        "baseline_same_address_prior_year": 0.012782735887054034,
+        "median_days_to_permit": 178.0
+      },
+      {
+        "trade": "porch",
+        "episodes": 38091,
+        "episodes_per_week": 52.3,
+        "permit_90d": 0.022603764668819405,
+        "permit_180d": 0.07203801422908299,
+        "permit_365d": 0.15336956236381297,
+        "baseline_same_address_prior_year": 0.010763697461342574,
+        "median_days_to_permit": 188.0
+      },
+      {
+        "trade": "roofing",
+        "episodes": 16231,
+        "episodes_per_week": 22.3,
+        "permit_90d": 0.004559176883740989,
+        "permit_180d": 0.010905058221921015,
+        "permit_365d": 0.020885958967408046,
+        "baseline_same_address_prior_year": 0.0032653564167334113,
+        "median_days_to_permit": 174.0
+      },
+      {
+        "trade": "elevator",
+        "episodes": 15334,
+        "episodes_per_week": 21.1,
+        "permit_90d": 0.05725838007043172,
+        "permit_180d": 0.0993217686187557,
+        "permit_365d": 0.15547150123907655,
+        "baseline_same_address_prior_year": 0.10688665710186514,
+        "median_days_to_permit": 133.0
+      },
+      {
+        "trade": "hvac",
+        "episodes": 10023,
+        "episodes_per_week": 13.8,
+        "permit_90d": 0.004788985333732416,
+        "permit_180d": 0.008979347500748278,
+        "permit_365d": 0.018357777112640927,
+        "baseline_same_address_prior_year": 0.009079118028534372,
+        "median_days_to_permit": 189.5
+      },
+      {
+        "trade": "electrical",
+        "episodes": 9026,
+        "episodes_per_week": 12.4,
+        "permit_90d": 0.11300686904498117,
+        "permit_180d": 0.19465987148238423,
+        "permit_365d": 0.28717039663195215,
+        "baseline_same_address_prior_year": 0.037890538444493686,
+        "median_days_to_permit": 120.0
+      },
+      {
+        "trade": "plumbing",
+        "episodes": 8686,
+        "episodes_per_week": 11.9,
+        "permit_90d": 0.04823854478471103,
+        "permit_180d": 0.08220124338015197,
+        "permit_365d": 0.13043978816486299,
+        "baseline_same_address_prior_year": 0.011052268017499424,
+        "median_days_to_permit": 132.0
+      }
+    ],
+    "by_category": [
+      {
+        "trade": "masonry",
+        "inspection_category": "COMPLAINT",
+        "episodes": 36808,
+        "permit_365d": 0.09457183221038905
+      },
+      {
+        "trade": "masonry",
+        "inspection_category": "PERIODIC",
+        "episodes": 10363,
+        "permit_365d": 0.13644697481424298
+      },
+      {
+        "trade": "masonry",
+        "inspection_category": "PERMIT",
+        "episodes": 2,
+        "permit_365d": 0.0
+      },
+      {
+        "trade": "porch",
+        "inspection_category": "COMPLAINT",
+        "episodes": 32932,
+        "permit_365d": 0.1528300740920685
+      },
+      {
+        "trade": "porch",
+        "inspection_category": "PERIODIC",
+        "episodes": 5115,
+        "permit_365d": 0.15757575757575756
+      },
+      {
+        "trade": "porch",
+        "inspection_category": "PERMIT",
+        "episodes": 44,
+        "permit_365d": 0.06818181818181818
+      },
+      {
+        "trade": "roofing",
+        "inspection_category": "COMPLAINT",
+        "episodes": 14592,
+        "permit_365d": 0.019668311403508772
+      },
+      {
+        "trade": "roofing",
+        "inspection_category": "PERIODIC",
+        "episodes": 1639,
+        "permit_365d": 0.03172666259914582
+      },
+      {
+        "trade": "windows_doors",
+        "inspection_category": "COMPLAINT",
+        "episodes": 39063,
+        "permit_365d": 0.013951821416685866
+      },
+      {
+        "trade": "windows_doors",
+        "inspection_category": "PERIODIC",
+        "episodes": 10676,
+        "permit_365d": 0.02341701011614837
+      },
+      {
+        "trade": "windows_doors",
+        "inspection_category": "PERMIT",
+        "episodes": 5,
+        "permit_365d": 0.4
+      }
+    ],
+    "winners": [
+      {
+        "trade": "masonry",
+        "contractor": "BATISTE MASONRY",
+        "permits": 84
+      },
+      {
+        "trade": "masonry",
+        "contractor": "RONALD L WALTERS GENERAL AND",
+        "permits": 53
+      },
+      {
+        "trade": "masonry",
+        "contractor": "MAGDIEL PILLADO",
+        "permits": 45
+      },
+      {
+        "trade": "masonry",
+        "contractor": "EDMAR",
+        "permits": 28
+      },
+      {
+        "trade": "masonry",
+        "contractor": "CHICAGO CONCRETE CREATIONS",
+        "permits": 23
+      },
+      {
+        "trade": "porch",
+        "contractor": "FRACKIEL BUILDERS",
+        "permits": 129
+      },
+      {
+        "trade": "porch",
+        "contractor": "MR PORCH",
+        "permits": 51
+      },
+      {
+        "trade": "porch",
+        "contractor": "GONZON CONSTRUCTION",
+        "permits": 49
+      },
+      {
+        "trade": "porch",
+        "contractor": "SOLID REMODELERS",
+        "permits": 41
+      },
+      {
+        "trade": "porch",
+        "contractor": "EMTRAC CONSTRUCTION",
+        "permits": 20
+      }
+    ]
+  },
+  "rotation": {
+    "electrical": {
+      "base": {
+        "test_jobs": 12910,
+        "base_rate": 0.1407436096049574
+      },
+      "quintiles": [
+        {
+          "quintile": 1,
+          "prior_rate_range": "0.00\u20130.06",
+          "jobs": 2582,
+          "observed_new_sub_rate": 0.05615801704105345
+        },
+        {
+          "quintile": 2,
+          "prior_rate_range": "0.06\u20130.11",
+          "jobs": 2582,
+          "observed_new_sub_rate": 0.060418280402788536
+        },
+        {
+          "quintile": 3,
+          "prior_rate_range": "0.11\u20130.18",
+          "jobs": 2582,
+          "observed_new_sub_rate": 0.11890007745933386
+        },
+        {
+          "quintile": 4,
+          "prior_rate_range": "0.18\u20130.29",
+          "jobs": 2582,
+          "observed_new_sub_rate": 0.168861347792409
+        },
+        {
+          "quintile": 5,
+          "prior_rate_range": "0.29\u20131.00",
+          "jobs": 2582,
+          "observed_new_sub_rate": 0.29938032532920217
+        }
+      ]
+    },
+    "plumbing": {
+      "base": {
+        "test_jobs": 11603,
+        "base_rate": 0.13306903387055072
+      },
+      "quintiles": [
+        {
+          "quintile": 1,
+          "prior_rate_range": "0.00\u20130.06",
+          "jobs": 2321,
+          "observed_new_sub_rate": 0.05644118914261095
+        },
+        {
+          "quintile": 2,
+          "prior_rate_range": "0.06\u20130.12",
+          "jobs": 2321,
+          "observed_new_sub_rate": 0.05385609651012495
+        },
+        {
+          "quintile": 3,
+          "prior_rate_range": "0.12\u20130.18",
+          "jobs": 2321,
+          "observed_new_sub_rate": 0.10426540284360189
+        },
+        {
+          "quintile": 4,
+          "prior_rate_range": "0.18\u20130.30",
+          "jobs": 2320,
+          "observed_new_sub_rate": 0.1560344827586207
+        },
+        {
+          "quintile": 5,
+          "prior_rate_range": "0.30\u20131.00",
+          "jobs": 2320,
+          "observed_new_sub_rate": 0.29482758620689653
+        }
+      ]
+    },
+    "hvac": {
+      "base": {
+        "test_jobs": 11119,
+        "base_rate": 0.15585933986869321
+      },
+      "quintiles": [
+        {
+          "quintile": 1,
+          "prior_rate_range": "0.00\u20130.07",
+          "jobs": 2224,
+          "observed_new_sub_rate": 0.05620503597122302
+        },
+        {
+          "quintile": 2,
+          "prior_rate_range": "0.07\u20130.12",
+          "jobs": 2224,
+          "observed_new_sub_rate": 0.06564748201438848
+        },
+        {
+          "quintile": 3,
+          "prior_rate_range": "0.12\u20130.20",
+          "jobs": 2224,
+          "observed_new_sub_rate": 0.125
+        },
+        {
+          "quintile": 4,
+          "prior_rate_range": "0.20\u20130.33",
+          "jobs": 2224,
+          "observed_new_sub_rate": 0.19964028776978418
+        },
+        {
+          "quintile": 5,
+          "prior_rate_range": "0.33\u20131.00",
+          "jobs": 2223,
+          "observed_new_sub_rate": 0.3328834907782276
+        }
+      ]
+    }
+  },
+  "restaurant": {
+    "summary": {
+      "restaurant_permits": 5191,
+      "license_within_1y": 0.29397033326911964
+    },
+    "timing": {
+      "matched": 1526,
+      "median_days_permit_issue_to_license_application": 90.0,
+      "median_days_permit_issue_to_license_issue": 174.0,
+      "median_days_permit_application_to_license_issue": 200.0
+    },
+    "recall": {
+      "new_food_licenses_2013_2025": 14057,
+      "share_preceded_by_restaurant_permit": 0.11794835313367005
+    }
+  },
+  "composite": {
+    "train_base": {
+      "base_rate": 0.004583023874106604,
+      "rows": 2972928
+    },
+    "weights": [
+      {
+        "feature": "sold_365",
+        "label": "recent sale (365d)",
+        "w_present": 1.2137090292369124,
+        "w_absent": -0.22892570705621246,
+        "train_rate_if_present": 0.015258878367927092,
+        "lift_if_present": 3.329434623750808,
+        "n_present": 239205
+      },
+      {
+        "feature": "investor_sold_365",
+        "label": "recent sale to company/investor buyer (365d)",
+        "w_present": 2.1916677543032024,
+        "w_absent": -0.11732568161806202,
+        "train_rate_if_present": 0.03956043956043956,
+        "lift_if_present": 8.63195144671842,
+        "n_present": 42315
+      },
+      {
+        "feature": "demo_365",
+        "label": "demolition permit (365d)",
+        "w_present": 3.019446667342355,
+        "w_absent": -0.030088611360386815,
+        "train_rate_if_present": 0.08601057340382269,
+        "lift_if_present": 18.76721041969026,
+        "n_present": 4918
+      },
+      {
+        "feature": "violations_365",
+        "label": "any building violation (365d)",
+        "w_present": 1.7654623975962627,
+        "w_absent": -0.20380130032487007,
+        "train_rate_if_present": 0.02619793396217948,
+        "lift_if_present": 5.716298819692795,
+        "n_present": 111421
+      },
+      {
+        "feature": "violations3_365",
+        "label": "3+ building violations (365d)",
+        "w_present": 1.7911111178337837,
+        "w_absent": -0.11816876203031994,
+        "train_rate_if_present": 0.0268547402685474,
+        "lift_if_present": 5.859611690061805,
+        "n_present": 66357
+      },
+      {
+        "feature": "vacant_viol_730",
+        "label": "vacant-building / board-up violation (730d)",
+        "w_present": 1.522017795909,
+        "w_absent": -0.029881441227207112,
+        "train_rate_if_present": 0.020621904684582283,
+        "lift_if_present": 4.499628466064282,
+        "n_present": 24634
+      },
+      {
+        "feature": "small_permit_180",
+        "label": "any non-major permit (180d)",
+        "w_present": 2.2309530788233194,
+        "w_absent": -0.29856737313450793,
+        "train_rate_if_present": 0.04109309128452207,
+        "lift_if_present": 8.966370765967827,
+        "n_present": 92984
+      },
+      {
+        "feature": "major_permit_1095",
+        "label": "major permit already in last 3 years",
+        "w_present": 2.5555402054932665,
+        "w_absent": -0.28773662012005413,
+        "train_rate_if_present": 0.05596818617893727,
+        "lift_if_present": 12.212065159675277,
+        "n_present": 64626
+      }
+    ],
+    "test_base": {
+      "base_rate": 0.004556674990671374,
+      "rows": 2229696,
+      "snapshots": 6
+    },
+    "precision_at_k": [
+      {
+        "k_per_snapshot": 100,
+        "precision": 0.04833333333333333,
+        "lift_vs_base": 10.607149606299211
+      },
+      {
+        "k_per_snapshot": 500,
+        "precision": 0.12966666666666668,
+        "lift_vs_base": 28.456422047244097
+      },
+      {
+        "k_per_snapshot": 2000,
+        "precision": 0.07433333333333333,
+        "lift_vs_base": 16.313064566929135
+      }
+    ],
+    "best_single_signal": {
+      "precision_demo_only": 0.07023575638506876
+    },
+    "precision_at_k_combo": [
+      {
+        "k_per_snapshot": 100,
+        "precision": 0.25666666666666665,
+        "lift_vs_base": 56.32762204724409
+      },
+      {
+        "k_per_snapshot": 500,
+        "precision": 0.18566666666666667,
+        "lift_vs_base": 40.74608503937008
+      },
+      {
+        "k_per_snapshot": 2000,
+        "precision": 0.12375,
+        "lift_vs_base": 27.15796062992126
+      },
+      {
+        "k_per_snapshot": 10000,
+        "precision": 0.05015,
+        "lift_vs_base": 11.005832125984252
+      }
+    ],
+    "top_combos": [
+      {
+        "sold_365": false,
+        "investor_sold_365": false,
+        "demo_365": false,
+        "violations_365": true,
+        "violations3_365": true,
+        "vacant_viol_730": false,
+        "small_permit_180": true,
+        "major_permit_1095": true,
+        "n": 2809,
+        "hits": 728,
+        "rate": 0.24224546519601903,
+        "test_n": 979,
+        "test_rate": 0.24821246169560776
+      },
+      {
+        "sold_365": false,
+        "investor_sold_365": false,
+        "demo_365": false,
+        "violations_365": true,
+        "violations3_365": false,
+        "vacant_viol_730": false,
+        "small_permit_180": true,
+        "major_permit_1095": true,
+        "n": 2596,
+        "hits": 427,
+        "rate": 0.1530459959852723,
+        "test_n": 1085,
+        "test_rate": 0.16497695852534563
+      },
+      {
+        "sold_365": false,
+        "investor_sold_365": false,
+        "demo_365": false,
+        "violations_365": false,
+        "violations3_365": false,
+        "vacant_viol_730": false,
+        "small_permit_180": true,
+        "major_permit_1095": true,
+        "n": 6290,
+        "hits": 865,
+        "rate": 0.13342320566638233,
+        "test_n": 5882,
+        "test_rate": 0.12631757905474328
+      },
+      {
+        "sold_365": false,
+        "investor_sold_365": false,
+        "demo_365": true,
+        "violations_365": false,
+        "violations3_365": false,
+        "vacant_viol_730": false,
+        "small_permit_180": true,
+        "major_permit_1095": false,
+        "n": 545,
+        "hits": 80,
+        "rate": 0.10861289231519641,
+        "test_n": 317,
+        "test_rate": 0.12618296529968454
+      },
+      {
+        "sold_365": true,
+        "investor_sold_365": true,
+        "demo_365": false,
+        "violations_365": false,
+        "violations3_365": false,
+        "vacant_viol_730": false,
+        "small_permit_180": true,
+        "major_permit_1095": true,
+        "n": 637,
+        "hits": 65,
+        "rate": 0.07875341072260612,
+        "test_n": 535,
+        "test_rate": 0.09345794392523364
+      },
+      {
+        "sold_365": true,
+        "investor_sold_365": false,
+        "demo_365": false,
+        "violations_365": false,
+        "violations3_365": false,
+        "vacant_viol_730": false,
+        "small_permit_180": true,
+        "major_permit_1095": true,
+        "n": 1033,
+        "hits": 86,
+        "rate": 0.07049197467544309,
+        "test_n": 716,
+        "test_rate": 0.06843575418994413
+      },
+      {
+        "sold_365": true,
+        "investor_sold_365": true,
+        "demo_365": false,
+        "violations_365": true,
+        "violations3_365": true,
+        "vacant_viol_730": true,
+        "small_permit_180": false,
+        "major_permit_1095": false,
+        "n": 374,
+        "hits": 37,
+        "rate": 0.06605680274359116,
+        "test_n": 19,
+        "test_rate": 0.21052631578947367
+      },
+      {
+        "sold_365": true,
+        "investor_sold_365": true,
+        "demo_365": false,
+        "violations_365": true,
+        "violations3_365": false,
+        "vacant_viol_730": true,
+        "small_permit_180": false,
+        "major_permit_1095": false,
+        "n": 324,
+        "hits": 32,
+        "rate": 0.06281794804355215,
+        "test_n": 2,
+        "test_rate": 0.5
+      },
+      {
+        "sold_365": true,
+        "investor_sold_365": true,
+        "demo_365": false,
+        "violations_365": false,
+        "violations3_365": false,
+        "vacant_viol_730": false,
+        "small_permit_180": false,
+        "major_permit_1095": true,
+        "n": 1082,
+        "hits": 67,
+        "rate": 0.05297707080719292,
+        "test_n": 1189,
+        "test_rate": 0.03952901597981497
+      },
+      {
+        "sold_365": true,
+        "investor_sold_365": false,
+        "demo_365": false,
+        "violations_365": true,
+        "violations3_365": false,
+        "vacant_viol_730": false,
+        "small_permit_180": true,
+        "major_permit_1095": true,
+        "n": 402,
+        "hits": 30,
+        "rate": 0.05135648633691249,
+        "test_n": 96,
+        "test_rate": 0.0625
+      },
+      {
+        "sold_365": false,
+        "investor_sold_365": false,
+        "demo_365": false,
+        "violations_365": true,
+        "violations3_365": true,
+        "vacant_viol_730": false,
+        "small_permit_180": false,
+        "major_permit_1095": true,
+        "n": 2721,
+        "hits": 147,
+        "rate": 0.050639029364882335,
+        "test_n": 1271,
+        "test_rate": 0.06451612903225806
+      },
+      {
+        "sold_365": false,
+        "investor_sold_365": false,
+        "demo_365": true,
+        "violations_365": false,
+        "violations3_365": false,
+        "vacant_viol_730": false,
+        "small_permit_180": true,
+        "major_permit_1095": true,
+        "n": 573,
+        "hits": 32,
+        "rate": 0.04258292985099783,
+        "test_n": 263,
+        "test_rate": 0.06463878326996197
+      }
+    ]
+  },
+  "sr311": {
+    "complaint": {
+      "signals": 96864,
+      "conversion": 0.3157,
+      "baseline": 0.054,
+      "median_days": 32.0,
+      "signals_per_week": 255.4038,
+      "first_signal": "2018-11-03",
+      "last_signal": "2025-10-31",
+      "lift": 5.8453,
+      "by_year": [
+        {
+          "year": 2018,
+          "signals": 217,
+          "conversion": 0.5391705069124424
+        },
+        {
+          "year": 2019,
+          "signals": 15001,
+          "conversion": 0.4961669222051863
+        },
+        {
+          "year": 2020,
+          "signals": 13125,
+          "conversion": 0.2953904761904762
+        },
+        {
+          "year": 2021,
+          "signals": 14881,
+          "conversion": 0.330958940931389
+        },
+        {
+          "year": 2022,
+          "signals": 14294,
+          "conversion": 0.20351196306142438
+        },
+        {
+          "year": 2023,
+          "signals": 14033,
+          "conversion": 0.22539727784507946
+        },
+        {
+          "year": 2024,
+          "signals": 13725,
+          "conversion": 0.2860473588342441
+        },
+        {
+          "year": 2025,
+          "signals": 11588,
+          "conversion": 0.3639109423541595
+        }
+      ],
+      "window_days": 120,
+      "period": "2016-01-01 to 2025-10-31",
+      "key": "address",
+      "label": "'Building Violation' 311 complaint \u2192 building violation"
+    },
+    "porch_request": {
+      "signals": 3014,
+      "conversion": 0.1367,
+      "baseline": 0.0119,
+      "median_days": 149.5,
+      "signals_per_week": 7.1154,
+      "first_signal": "2018-07-23",
+      "last_signal": "2025-10-31",
+      "lift": 11.4444,
+      "by_year": [
+        {
+          "year": 2018,
+          "signals": 2,
+          "conversion": 0.0
+        },
+        {
+          "year": 2019,
+          "signals": 457,
+          "conversion": 0.14442013129102846
+        },
+        {
+          "year": 2020,
+          "signals": 440,
+          "conversion": 0.10681818181818181
+        },
+        {
+          "year": 2021,
+          "signals": 441,
+          "conversion": 0.13151927437641722
+        },
+        {
+          "year": 2022,
+          "signals": 498,
+          "conversion": 0.1646586345381526
+        },
+        {
+          "year": 2023,
+          "signals": 418,
+          "conversion": 0.145933014354067
+        },
+        {
+          "year": 2024,
+          "signals": 429,
+          "conversion": 0.14918414918414918
+        },
+        {
+          "year": 2025,
+          "signals": 329,
+          "conversion": 0.1033434650455927
+        }
+      ],
+      "window_days": 365,
+      "period": "2016-01-01 to 2025-10-31",
+      "key": "address",
+      "label": "'Porch Inspection Request' 311 call \u2192 porch permit"
+    },
+    "vacant": {
+      "signals": 9307,
+      "conversion": 0.1937,
+      "baseline": 0.0778,
+      "median_days": 167.0,
+      "signals_per_week": 20.5,
+      "first_signal": "2018-07-03",
+      "last_signal": "2025-06-30",
+      "lift": 2.4903,
+      "by_year": [
+        {
+          "year": 2018,
+          "signals": 83,
+          "conversion": 0.24096385542168675
+        },
+        {
+          "year": 2019,
+          "signals": 2052,
+          "conversion": 0.1817738791423002
+        },
+        {
+          "year": 2020,
+          "signals": 1426,
+          "conversion": 0.2026647966339411
+        },
+        {
+          "year": 2021,
+          "signals": 1377,
+          "conversion": 0.18445896877269427
+        },
+        {
+          "year": 2022,
+          "signals": 1345,
+          "conversion": 0.1970260223048327
+        },
+        {
+          "year": 2023,
+          "signals": 1176,
+          "conversion": 0.1836734693877551
+        },
+        {
+          "year": 2024,
+          "signals": 1347,
+          "conversion": 0.20341499628804752
+        },
+        {
+          "year": 2025,
+          "signals": 501,
+          "conversion": 0.22355289421157684
+        }
+      ],
+      "window_days": 365,
+      "period": "2016-01-01 to 2025-06-30",
+      "key": "parcel (pin10)",
+      "label": "'Vacant/Abandoned Building Complaint' \u2192 property sale"
+    }
+  },
+  "closed_restaurant": {
+    "period": "2016-01-01 to 2025-11-01",
+    "split": "2016-01-01 to 2020-12-31 vs 2021-01-01 to 2025-11-01",
+    "labels": {
+      "license": "New retail food license, different business name (headline)",
+      "license_after30": "...issued 31+ days after the closure was recorded",
+      "license_any": "Any new retail food license, including the same name",
+      "permit": "Renovation, build-out or new-construction permit"
+    },
+    "views": {
+      "license": {
+        "signals": 7943,
+        "conversion": 0.3233,
+        "baseline": 0.0316,
+        "lift": 10.2351,
+        "median_days": 19.0,
+        "days_p25": 6.0,
+        "days_p75": 112.0,
+        "episodes_per_week": 12.1154,
+        "by_year": [
+          {
+            "year": 2016,
+            "signals": 932,
+            "conversion": 0.3219,
+            "control_conversion": 0.0416
+          },
+          {
+            "year": 2017,
+            "signals": 826,
+            "conversion": 0.3208,
+            "control_conversion": 0.0584
+          },
+          {
+            "year": 2018,
+            "signals": 726,
+            "conversion": 0.3664,
+            "control_conversion": 0.0493
+          },
+          {
+            "year": 2019,
+            "signals": 943,
+            "conversion": 0.2948,
+            "control_conversion": 0.0404
+          },
+          {
+            "year": 2020,
+            "signals": 668,
+            "conversion": 0.3189,
+            "control_conversion": 0.0257
+          },
+          {
+            "year": 2021,
+            "signals": 794,
+            "conversion": 0.2897,
+            "control_conversion": 0.0405
+          },
+          {
+            "year": 2022,
+            "signals": 787,
+            "conversion": 0.3126,
+            "control_conversion": 0.0332
+          },
+          {
+            "year": 2023,
+            "signals": 786,
+            "conversion": 0.369,
+            "control_conversion": 0.0388
+          },
+          {
+            "year": 2024,
+            "signals": 886,
+            "conversion": 0.3115,
+            "control_conversion": 0.0323
+          },
+          {
+            "year": 2025,
+            "signals": 595,
+            "conversion": 0.3429,
+            "control_conversion": 0.0359
+          }
+        ]
+      },
+      "license_after30": {
+        "signals": 7943,
+        "conversion": 0.1504,
+        "baseline": 0.0299,
+        "lift": 5.0283,
+        "median_days": 154.0,
+        "days_p25": 82.0,
+        "days_p75": 252.5,
+        "episodes_per_week": 12.1154,
+        "by_year": [
+          {
+            "year": 2016,
+            "signals": 932,
+            "conversion": 0.162,
+            "control_conversion": 0.0357
+          },
+          {
+            "year": 2017,
+            "signals": 826,
+            "conversion": 0.1368,
+            "control_conversion": 0.0432
+          },
+          {
+            "year": 2018,
+            "signals": 726,
+            "conversion": 0.1529,
+            "control_conversion": 0.0336
+          },
+          {
+            "year": 2019,
+            "signals": 943,
+            "conversion": 0.1474,
+            "control_conversion": 0.03
+          },
+          {
+            "year": 2020,
+            "signals": 668,
+            "conversion": 0.1677,
+            "control_conversion": 0.0206
+          },
+          {
+            "year": 2021,
+            "signals": 794,
+            "conversion": 0.1373,
+            "control_conversion": 0.0334
+          },
+          {
+            "year": 2022,
+            "signals": 787,
+            "conversion": 0.1385,
+            "control_conversion": 0.0294
+          },
+          {
+            "year": 2023,
+            "signals": 786,
+            "conversion": 0.1603,
+            "control_conversion": 0.03
+          },
+          {
+            "year": 2024,
+            "signals": 886,
+            "conversion": 0.1366,
+            "control_conversion": 0.028
+          },
+          {
+            "year": 2025,
+            "signals": 595,
+            "conversion": 0.1748,
+            "control_conversion": 0.0316
+          }
+        ]
+      },
+      "license_any": {
+        "signals": 7943,
+        "conversion": 0.4298,
+        "baseline": 0.0477,
+        "lift": 9.0197,
+        "median_days": 15.0,
+        "days_p25": 5.0,
+        "days_p75": 84.0,
+        "episodes_per_week": 12.1154,
+        "by_year": [
+          {
+            "year": 2016,
+            "signals": 932,
+            "conversion": 0.4356,
+            "control_conversion": 0.1054
+          },
+          {
+            "year": 2017,
+            "signals": 826,
+            "conversion": 0.4504,
+            "control_conversion": 0.2015
+          },
+          {
+            "year": 2018,
+            "signals": 726,
+            "conversion": 0.4972,
+            "control_conversion": 0.187
+          },
+          {
+            "year": 2019,
+            "signals": 943,
+            "conversion": 0.3871,
+            "control_conversion": 0.1234
+          },
+          {
+            "year": 2020,
+            "signals": 668,
+            "conversion": 0.3892,
+            "control_conversion": 0.1399
+          },
+          {
+            "year": 2021,
+            "signals": 794,
+            "conversion": 0.3741,
+            "control_conversion": 0.1363
+          },
+          {
+            "year": 2022,
+            "signals": 787,
+            "conversion": 0.4219,
+            "control_conversion": 0.1158
+          },
+          {
+            "year": 2023,
+            "signals": 786,
+            "conversion": 0.4606,
+            "control_conversion": 0.1347
+          },
+          {
+            "year": 2024,
+            "signals": 886,
+            "conversion": 0.4233,
+            "control_conversion": 0.1272
+          },
+          {
+            "year": 2025,
+            "signals": 595,
+            "conversion": 0.4773,
+            "control_conversion": 0.1516
+          }
+        ]
+      },
+      "permit": {
+        "signals": 7943,
+        "conversion": 0.1102,
+        "baseline": 0.0619,
+        "lift": 1.7798,
+        "median_days": 113.0,
+        "days_p25": 40.0,
+        "days_p75": 210.5,
+        "episodes_per_week": 12.1154,
+        "by_year": [
+          {
+            "year": 2016,
+            "signals": 932,
+            "conversion": 0.117,
+            "control_conversion": 0.0831
+          },
+          {
+            "year": 2017,
+            "signals": 826,
+            "conversion": 0.1235,
+            "control_conversion": 0.0787
+          },
+          {
+            "year": 2018,
+            "signals": 726,
+            "conversion": 0.1198,
+            "control_conversion": 0.0848
+          },
+          {
+            "year": 2019,
+            "signals": 943,
+            "conversion": 0.1283,
+            "control_conversion": 0.0677
+          },
+          {
+            "year": 2020,
+            "signals": 668,
+            "conversion": 0.0853,
+            "control_conversion": 0.0402
+          },
+          {
+            "year": 2021,
+            "signals": 794,
+            "conversion": 0.1159,
+            "control_conversion": 0.0567
+          },
+          {
+            "year": 2022,
+            "signals": 787,
+            "conversion": 0.1067,
+            "control_conversion": 0.0583
+          },
+          {
+            "year": 2023,
+            "signals": 786,
+            "conversion": 0.0992,
+            "control_conversion": 0.0577
+          },
+          {
+            "year": 2024,
+            "signals": 886,
+            "conversion": 0.0948,
+            "control_conversion": 0.0514
+          },
+          {
+            "year": 2025,
+            "signals": 595,
+            "conversion": 0.1025,
+            "control_conversion": 0.0439
+          }
+        ]
+      }
+    },
+    "stability": {
+      "license": {
+        "early": {
+          "signals": 4095,
+          "conversion": 0.3228,
+          "baseline": 0.0316,
+          "lift": 10.2305,
+          "median_days": 17.0,
+          "days_p25": 5.0,
+          "days_p75": 112.0,
+          "episodes_per_week": 12.1154
+        },
+        "late": {
+          "signals": 3848,
+          "conversion": 0.3238,
+          "baseline": 0.0314,
+          "lift": 10.3156,
+          "median_days": 20.0,
+          "days_p25": 7.0,
+          "days_p75": 112.0,
+          "episodes_per_week": 12.1154
+        }
+      },
+      "license_after30": {
+        "early": {
+          "signals": 4095,
+          "conversion": 0.1529,
+          "baseline": 0.03,
+          "lift": 5.0935,
+          "median_days": 153.0,
+          "days_p25": 82.0,
+          "days_p75": 248.0,
+          "episodes_per_week": 12.1154
+        },
+        "late": {
+          "signals": 3848,
+          "conversion": 0.1479,
+          "baseline": 0.0296,
+          "lift": 4.9975,
+          "median_days": 155.0,
+          "days_p25": 82.0,
+          "days_p75": 261.0,
+          "episodes_per_week": 12.1154
+        }
+      },
+      "license_any": {
+        "early": {
+          "signals": 4095,
+          "conversion": 0.4308,
+          "baseline": 0.0484,
+          "lift": 8.9048,
+          "median_days": 13.0,
+          "days_p25": 4.0,
+          "days_p75": 85.0,
+          "episodes_per_week": 12.1154
+        },
+        "late": {
+          "signals": 3848,
+          "conversion": 0.4288,
+          "baseline": 0.0466,
+          "lift": 9.2019,
+          "median_days": 17.0,
+          "days_p25": 6.0,
+          "days_p75": 84.0,
+          "episodes_per_week": 12.1154
+        }
+      },
+      "permit": {
+        "early": {
+          "signals": 4095,
+          "conversion": 0.1162,
+          "baseline": 0.0705,
+          "lift": 1.6483,
+          "median_days": 112.0,
+          "days_p25": 36.0,
+          "days_p75": 209.5,
+          "episodes_per_week": 12.1154
+        },
+        "late": {
+          "signals": 3848,
+          "conversion": 0.1037,
+          "baseline": 0.052,
+          "lift": 1.9959,
+          "median_days": 117.0,
+          "days_p25": 43.0,
+          "days_p75": 210.5,
+          "episodes_per_week": 12.1154
+        }
+      }
+    },
+    "closures_per_week": 13.0769
+  },
+  "market": {
+    "rows": [
+      {
+        "trade": "roofing",
+        "permits_last_12m": 4192,
+        "median_reported_cost": 23810.0,
+        "distinct_contractors": 817,
+        "contractors_5plus_jobs": 110,
+        "top10_share": 0.42214532871972316
+      },
+      {
+        "trade": "porch",
+        "permits_last_12m": 1727,
+        "median_reported_cost": 20000.0,
+        "distinct_contractors": 677,
+        "contractors_5plus_jobs": 34,
+        "top10_share": 0.34952076677316296
+      },
+      {
+        "trade": "windows_doors",
+        "permits_last_12m": 606,
+        "median_reported_cost": 9000.0,
+        "distinct_contractors": 321,
+        "contractors_5plus_jobs": 16,
+        "top10_share": 0.19444444444444445
+      },
+      {
+        "trade": "solar",
+        "permits_last_12m": 1708,
+        "median_reported_cost": 20390.0,
+        "distinct_contractors": 56,
+        "contractors_5plus_jobs": 27,
+        "top10_share": 0.8671369782480893
+      },
+      {
+        "trade": "fence",
+        "permits_last_12m": 1059,
+        "median_reported_cost": 5416.0,
+        "distinct_contractors": 242,
+        "contractors_5plus_jobs": 14,
+        "top10_share": 0.5762032085561497
+      },
+      {
+        "trade": "garage",
+        "permits_last_12m": 1911,
+        "median_reported_cost": 20000.0,
+        "distinct_contractors": 455,
+        "contractors_5plus_jobs": 42,
+        "top10_share": 0.40043763676148797
+      },
+      {
+        "trade": "concrete_flatwork",
+        "permits_last_12m": 540,
+        "median_reported_cost": 37772.5,
+        "distinct_contractors": 339,
+        "contractors_5plus_jobs": 21,
+        "top10_share": 0.22820919175911253
+      },
+      {
+        "trade": "masonry",
+        "permits_last_12m": 2987,
+        "median_reported_cost": 20000.0,
+        "distinct_contractors": 444,
+        "contractors_5plus_jobs": 117,
+        "top10_share": 0.19312906220984216
+      },
+      {
+        "trade": "hvac",
+        "permits_last_12m": 792,
+        "median_reported_cost": 37000.0,
+        "distinct_contractors": 135,
+        "contractors_5plus_jobs": 1,
+        "top10_share": 0.19428571428571428
+      },
+      {
+        "trade": "plumbing",
+        "permits_last_12m": 2434,
+        "median_reported_cost": 20000.0,
+        "distinct_contractors": 521,
+        "contractors_5plus_jobs": 111,
+        "top10_share": 0.23589065255731922
+      },
+      {
+        "trade": "electrical",
+        "permits_last_12m": 6402,
+        "median_reported_cost": 5000.0,
+        "distinct_contractors": 848,
+        "contractors_5plus_jobs": 231,
+        "top10_share": 0.2605409037460104
+      }
+    ]
+  }
+}
