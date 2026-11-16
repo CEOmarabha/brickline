@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
+import { PUBLIC_HOSTS } from "./src/lib/allowed-origins";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  experimental: {
+    serverActions: { allowedOrigins: [...PUBLIC_HOSTS] },
+  },
   allowedDevOrigins: ["127.0.0.1"],
   partialPrefetching: true,
   serverExternalPackages: ["@electric-sql/pglite"],

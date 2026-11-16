@@ -1,4 +1,5 @@
 import type { ToolContext } from "@/lib/assistant-tools";
+import { isAllowedOrigin } from "@/lib/allowed-origins";
 import { askAssistant, assistantConfigured, type ChatTurn, QUICK_QUESTIONS, type QuickKey, quickAnswer } from "@/lib/assistant";
 import { sql } from "@/lib/db";
 import { getOutcomes } from "@/lib/outcomes";
@@ -14,10 +15,10 @@ function json(body: unknown, status = 200) {
 }
 
 export async function POST(request: Request) {
-  // Browsers send Origin on cross-site POSTs; reject any that don't match the host serving this app.
+  // Browsers send Origin on cross-site POSTs; reject any that don't match this app's host.
   const origin = request.headers.get("origin");
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) return json({ error: "Bad origin" }, 403);
+  if (origin && !isAllowedOrigin(origin, host)) return json({ error: "Bad origin" }, 403);
   const owner = await viewerId();
   if (!owner) return json({ error: "Sign in required" }, 401);
 
