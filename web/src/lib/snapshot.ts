@@ -191,6 +191,100 @@ export interface ClosedRestaurantOutcome {
   daysP75: number;
 }
 
+export interface PermitContractor {
+  name: string;
+  role: string;
+}
+
+export interface NewBusinessModel {
+  period: string;
+  signals: number;
+  /** Share of signals followed by a new business license at the address within 365 days. */
+  rate: number;
+  /** Matched control: comparable unlicensed addresses with no renovation permit nearby, same class and year mix. */
+  matchedRate: number;
+  lift: number;
+  /** Control: unlicensed addresses with some other permit in the prior 90 days. */
+  busyRate: number;
+  liftVsBusy: number;
+  medianDays: number;
+  daysP25: number;
+  daysP75: number;
+  perWeek: number;
+  byClass: { class: string; signals: number; rate: number; matchedRate: number; lift: number }[];
+  byGroup: { group: string; share: number }[];
+}
+
+/** A build-out permit at a commercial, mixed-use or 7+ unit address with no business license since (H33). */
+export interface NewBusinessSpace {
+  id: string;
+  address: string;
+  communityArea: number | null;
+  class: string;
+  permitDate: string;
+  ageDays: number;
+  reportedCost: number | null;
+  workDescription: string;
+  contractors: PermitContractor[];
+  applicant: string | null;
+  owner: { name: string | null; company: boolean; mailing: string | null };
+  alsoClosedRestaurant: boolean;
+  /** The class's historical rate of a new license within a year, not adjusted for time passed. */
+  classRate: number;
+  /** `classRate` conditioned on the days since the permit (no license yet). */
+  historicalRate: number;
+  sourceUrl: string;
+}
+
+export interface OpenTradeRow {
+  trade: string;
+  label: string;
+  signals: number;
+  /** Share of big permits followed by any permit for this trade at the address within 540 days. */
+  followOnRate: number;
+  /** Share of big permits followed by this trade's permit with a contractor not named on the big permit. */
+  newContractorRate: number;
+  /** Share of the trade's follow-on permits whose contractor was not named on the big permit. */
+  newShare: number | null;
+  lockedShare: number | null;
+  unnamedShare: number | null;
+  liftVsBusy: number | null;
+  medianDays: number | null;
+  daysP25: number | null;
+  daysP75: number | null;
+  mostlyLockedIn: boolean;
+}
+
+export interface OpenTradesModel {
+  period: string;
+  bigPermits: number;
+  perWeek: number;
+  perWeekClassKnown: number;
+  medianDays: number;
+  daysP25: number;
+  daysP75: number;
+  headlineTrades: string[];
+  followOnRate: number;
+  liftVsBusy: number;
+  byTrade: OpenTradeRow[];
+}
+
+export interface BigPermit {
+  id: string;
+  address: string;
+  communityArea: number | null;
+  class: string;
+  permitType: string;
+  permitDate: string;
+  ageDays: number;
+  reportedCost: number;
+  description: string;
+  contractors: PermitContractor[];
+  /** Follow-on trade keys (see `OpenTradeRow.trade`) already seen at the address since the permit. */
+  appeared: string[];
+  sourceUrl: string;
+}
+
 export interface Snapshot {
   meta: {
     generatedAt: string;
@@ -243,6 +337,8 @@ export interface Snapshot {
   commercial: {
     preApplication: { baseRate: number; projects: PreAppProject[] };
     gcTargets: Record<"electrical" | "plumbing" | "hvac", GcTarget[]>;
+    newBusiness: { model: NewBusinessModel; spacesTotal: number; spaces: NewBusinessSpace[] };
+    openTrades: { model: OpenTradesModel; recentTotal: number; recent: BigPermit[] };
   };
 }
 

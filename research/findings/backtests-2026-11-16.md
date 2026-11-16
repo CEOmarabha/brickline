@@ -256,6 +256,75 @@ Out-of-time stability (2016-01-01 to 2020-12-31 vs 2021-01-01 to 2025-11-01): co
 | Any new retail food license, including the same name | 4,095 / 3,848 | 43.1% vs 4.8% (8.90x) | 42.9% vs 4.7% (9.20x) |
 | Renovation, build-out or new-construction permit | 4,095 / 3,848 | 11.6% vs 7.0% (1.65x) | 10.4% vs 5.2% (2.00x) |
 
+## BT9 - Build-out permit at an unlicensed space -> new business (signal-lab H33)
+
+Signal: a renovation/alteration, interior build-out or new-construction permit at a street address whose parcel class is commercial/industrial (5xx), mixed-use (212) or multifamily 7+ (3xx) with no premises-based business license in force on the permit date (license terms and cancellations as known on that date); first such permit at the address in 365 days. Outcome: the first license of a new account at that address (application type ISSUE) within 365 days after the permit. Matched control: same-class address-quarters (quarterly as-of dates) with no license in force and no renovation permit within a year either side, standardized to the signals' class x year mix. Busy control: the same but with some other (non-build-out) permit in the prior 90 days. Signals 2016-01-01 to 2025-11-13, so every window is complete; the period end is the lab's (newest license record minus 365 days on the 2026-11-13 warehouse), fixed here so the numbers do not move. Same definitions as signal-lab H33 (all headline numbers reproduce its output on the same warehouse). Method notes: class comes from the latest Cook County sale or the residential file, so addresses with no sale since 2010 are not in the universe; matching is by street address without unit, so a permit for one tenant counts for the whole building and another tenant's license counts as the outcome; premises licenses only (peddlers, special events, home-based and add-ons dropped) and history starts 2014, so conversion is a floor. The control needs no renovation permit nearby, so the matched lift partly measures 'an active space': against addresses with some other recent permit the lift is much smaller (busy-control rows). The multifamily rows are mostly residential build-outs where a business license is unlikely. Which kind of business arrives is an outcome, not something the permit predicts.
+
+| Measure | Value |
+| --- | --- |
+| Permits (signals) | 9,011 |
+| New business license within 365 days | 15.2% |
+| Matched control (no license, no build-out permit nearby) | 1.5% |
+| Lift vs matched control | 10.25x |
+| Busy control (other permit in prior 90 days) | 6.1% |
+| Lift vs busy control | 2.48x |
+| Same address, earlier 365-day window | 0.4% |
+| Days from permit to license: median (middle half) | 157 (92-238) |
+| Licenses within 90 / 180 days of the permit (of those that come) | 24.1% / 59.2% |
+| Share of licenses more than 30 days after the permit | 94.4% |
+| Conversion counting only licenses 31+ days after the permit | 14.3% |
+| Permits per week (last 52 weeks to the newest license record) | 17.7 |
+
+By class of the address:
+
+| Class | Permits | New license within 365 days | Matched control | Lift |
+| --- | --- | --- | --- | --- |
+| commercial/industrial (5xx) | 4,028 | 21.3% | 1.2% | 17.3x |
+| mixed-use up to 6 units (212) | 2,047 | 16.2% | 3.2% | 5.1x |
+| multifamily 7+ (3xx) | 2,936 | 6.0% | 0.6% | 9.5x |
+
+By reported cost of the permit:
+
+| Permit cost | Permits | New license | Matched control | Lift | Busy control | Lift vs busy |
+| --- | --- | --- | --- | --- | --- | --- |
+| no cost reported | 13 | 15.4% | 1.2% | 12.6x | 5.6% | 2.7x |
+| under $25k | 2,300 | 11.1% | 1.7% | 6.7x | 6.2% | 1.8x |
+| $25k-$100k | 2,740 | 15.3% | 1.5% | 10.4x | 5.9% | 2.6x |
+| $100k+ | 3,958 | 17.5% | 1.4% | 12.5x | 6.2% | 2.8x |
+
+By year of the permit (control standardized to that year's class mix):
+
+| Year | Permits | New license | Matched control | Lift | Median days to license |
+| --- | --- | --- | --- | --- | --- |
+| 2016 | 1,033 | 17.7% | 1.6% | 11.3x | 146 |
+| 2017 | 1,046 | 16.5% | 1.6% | 10.6x | 160 |
+| 2018 | 1,041 | 16.4% | 1.5% | 11.3x | 144 |
+| 2019 | 941 | 13.8% | 1.4% | 9.8x | 141 |
+| 2020 | 890 | 10.7% | 1.2% | 9.0x | 178 |
+| 2021 | 820 | 14.6% | 1.5% | 10.0x | 152 |
+| 2022 | 927 | 13.6% | 1.5% | 9.3x | 161 |
+| 2023 | 834 | 13.9% | 1.5% | 9.0x | 168 |
+| 2024 | 805 | 16.9% | 1.5% | 11.0x | 164 |
+| 2025 | 674 | 17.4% | 1.7% | 10.5x | 161 |
+
+Type of the first new licensee (share of conversions, by license group):
+
+| License group | New licenses | Share | Median days | Middle half (days) |
+| --- | --- | --- | --- | --- |
+| food & drink | 760 | 55.6% | 165 | 106-240 |
+| retail | 214 | 15.7% | 120 | 72-207 |
+| other | 159 | 11.6% | 153 | 85-256 |
+| health/fitness/childcare | 136 | 10.0% | 166 | 91-256 |
+| personal services/beauty | 75 | 5.5% | 127 | 72-211 |
+| auto | 23 | 1.7% | 163 | 80-339 |
+
+Out-of-time stability (2016-2020 vs 2021-2025, signal years): conversion vs matched control (lift).
+
+| Period | Permits | New license | Matched control | Lift | Busy control | Lift vs busy | Median days |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Early | 4,951 | 15.2% | 1.4% | 10.53x | 5.9% | 2.57x | 154 |
+| Late | 4,060 | 15.2% | 1.5% | 9.94x | 6.4% | 2.38x | 160 |
+
 ## BT0 — Market size: contractors active in owner-facing trades (last 12 months, non-major permits)
 
 | Trade | Permits | Median reported cost | Distinct contractors | With 5+ jobs | Top-10 share |

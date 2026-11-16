@@ -1,7 +1,7 @@
 import "server-only";
 
 import { callBrief, draftEmail, outreachStatus } from "@/lib/assistant-outreach";
-import { pct } from "@/lib/format";
+import { liftLabel, pct } from "@/lib/format";
 import { buildInsights } from "@/lib/insights";
 import { DEFAULT_FILTERS, queryLeads } from "@/lib/lead-query";
 import type { SegmentOutcome } from "@/lib/outcomes";
@@ -93,6 +93,19 @@ export const TOOL_DEFS = [
     description:
       "Properties likely to apply for a $100k+ permit within 180 days (pre-application signal), in this workspace's areas.",
     input_schema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 15 } } },
+  },
+  {
+    name: "commercial_opportunities",
+    description:
+      "The two citywide commercial pilot lists on /commercial (read-only, not filtered by workspace). list='new_business': build-out permits at commercial, mixed-use and 7+ unit addresses with no business license yet (model: how often a new business license follows within a year vs comparable addresses, timing, who arrives; plus the newest spaces with class, permit date, cost, work, contractors and the historical new-license rate). list='open_trades': trades that follow a $1M+ permit (per-trade follow-on rate, share going to a contractor not on the big permit, timing, mostly-locked-in flag; plus recent big permits with the trades that have already appeared). These are targeting lists for sellers, not a chance of work for any trade. Owner names and mailing addresses are not included.",
+    input_schema: {
+      type: "object",
+      properties: {
+        list: { type: "string", enum: ["new_business", "open_trades"] },
+        limit: { type: "integer", minimum: 1, maximum: 15 },
+      },
+      required: ["list"],
+    },
   },
   {
     name: "outreach_status",
@@ -362,6 +375,93 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
           recent_gcs: p.recentGcs,
         })),
       };
+    }
+    case "commercial_opportunities": {
+      const { newBusiness, openTrades } = snap.commercial;
+      const limit = int(input.limit, 8, 15);
+      const days = (lo: number | null, hi: number | null) => (lo === null || hi === null ? null : `${lo.toFixed(0)}-${hi.toFixed(0)}`);
+      if (str(input.list) === "new_business") {
+        const m = newBusiness.model;
+        return {
+          what: "Build-out permits at commercial, mixed-use or 7+ unit addresses with no business license in force on the permit date (and none since). A targeting list for sellers to new businesses, not a chance of work for any trade.",
+          period: m.period,
+          historical_permits: m.signals,
+          permits_per_week: m.perWeek,
+          new_license_within_a_year: pct(m.rate),
+          comparable_addresses_rate: pct(m.matchedRate),
+          lift_vs_comparable: `${m.lift.toFixed(1)}x (${liftLabel(m.lift)})`,
+          addresses_with_other_recent_permit_rate: pct(m.busyRate),
+          lift_vs_those: `${m.liftVsBusy.toFixed(1)}x (${liftLabel(m.liftVsBusy)})`,
+          median_days_permit_to_license: m.medianDays,
+          middle_half_days: days(m.daysP25, m.daysP75),
+          by_address_class: m.byClass.map((c) => ({
+            class: c.class,
+            permits: c.signals,
+            new_license_within_a_year: pct(c.rate),
+            comparable_rate: pct(c.matchedRate),
+            lift: `${c.lift.toFixed(1)}x (${liftLabel(c.lift)})`,
+          })),
+          who_arrives_share: m.byGroup.map((g) => ({ business_type: g.group, share: pct(g.share, 0) })),
+          current_spaces_total: newBusiness.spacesTotal,
+          spaces: newBusiness.spaces.slice(0, limit).map((s) => ({
+            address: s.address,
+            neighborhood: s.communityArea ? names.get(s.communityArea) : null,
+            address_class: s.class,
+            permit_date: s.permitDate,
+            days_since_permit: s.ageDays,
+            permit_cost_usd: s.reportedCost,
+            work: s.workDescription,
+            contractors: s.contractors.map((c) => `${c.name} (${c.role})`),
+            historical_new_license_rate_within_a_year: pct(s.historicalRate),
+            also_closed_restaurant: s.alsoClosedRestaurant,
+            owner_type: s.owner.company ? "company" : "individual",
+            permit_record: s.sourceUrl,
+          })),
+          csv: "/export/new-business",
+          page: "/commercial",
+        };
+      }
+      if (str(input.list) === "open_trades") {
+        const m = openTrades.model;
+        const labels = new Map(m.byTrade.map((t) => [t.trade, t.label]));
+        return {
+          what: "Trades that follow a $1M+ new-construction or renovation permit within 540 days, and whether the follow-on contractor was already on the big permit. A targeting list for sellers in the open trades, not a chance of work for any trade.",
+          period: m.period,
+          historical_big_permits: m.bigPermits,
+          big_permits_per_week_all_address_types: m.perWeek,
+          any_of_sign_elevator_electrical_follow_on: pct(m.followOnRate, 0),
+          lift_vs_addresses_with_100k_to_1m_permit: `${m.liftVsBusy.toFixed(1)}x (${liftLabel(m.liftVsBusy)})`,
+          median_days_to_first_follow_on: m.medianDays,
+          middle_half_days: days(m.daysP25, m.daysP75),
+          by_trade: m.byTrade.map((t) => ({
+            trade: t.label,
+            big_permits_followed_by_it: pct(t.followOnRate, 0),
+            big_permits_with_a_new_contractor: pct(t.newContractorRate, 0),
+            follow_on_permits_to_a_new_contractor: t.newShare === null ? null : pct(t.newShare, 0),
+            median_days: t.medianDays,
+            middle_half_days: days(t.daysP25, t.daysP75),
+            lift_vs_busy_addresses: t.liftVsBusy === null ? null : `${t.liftVsBusy.toFixed(1)}x (${liftLabel(t.liftVsBusy)})`,
+            mostly_locked_in: t.mostlyLockedIn,
+            cohort_permits: t.signals,
+          })),
+          recent_big_permits_total: openTrades.recentTotal,
+          recent_big_permits: openTrades.recent.slice(0, limit).map((b) => ({
+            address: b.address,
+            neighborhood: b.communityArea ? names.get(b.communityArea) : null,
+            address_class: b.class,
+            permit_type: b.permitType,
+            permit_date: b.permitDate,
+            days_since_permit: b.ageDays,
+            cost_usd: b.reportedCost,
+            work: b.description,
+            contractors_on_permit: b.contractors.map((c) => `${c.name} (${c.role})`),
+            trades_already_appeared: b.appeared.map((t) => labels.get(t) ?? t),
+            permit_record: b.sourceUrl,
+          })),
+          page: "/commercial",
+        };
+      }
+      return { error: "list must be 'new_business' or 'open_trades'" };
     }
     case "outreach_status":
       return outreachStatus(ctx, leadOutreachSummary(ctx));

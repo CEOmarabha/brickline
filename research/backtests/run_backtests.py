@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import math
+import statistics
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -22,6 +23,7 @@ import duckdb
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from engine.score.food import closure_views, round_floats  # noqa: E402
+from engine.score.licenses import new_business, summarize_cells  # noqa: E402
 from engine.score.signals import (  # noqa: E402
     INVESTOR_RE,
     MAJOR,
@@ -677,6 +679,77 @@ def bt_closed_restaurant(con) -> dict:
 
 
 # --------------------------------------------------------------------------------------------------
+# BT9: build-out permit at an unlicensed space (signal-lab H33) -> a new business license at the address
+# --------------------------------------------------------------------------------------------------
+BT9_START, BT9_END = "2016-01-01", "2025-11-13"  # the lab's period on the 2026-11-13 warehouse
+BT9_SPLIT_YEAR = 2020
+
+
+def _bt9_period(m: dict, year_from: int | None = None, year_to: int | None = None) -> dict:
+    out = summarize_cells(m["cells"], year_from, year_to)
+    days = [
+        d
+        for y, d in m["signal_days"]
+        if d is not None and (year_from is None or y >= year_from) and (year_to is None or y <= year_to)
+    ]
+    out["converted"] = len(days)
+    out["median_days"] = statistics.median(days) if days else None
+    return out
+
+
+def bt_new_business(con) -> dict:
+    m = new_business(con, start=BT9_START, end=BT9_END)
+    years_seen = sorted({y for y, _ in m["signal_days"]})
+    by_year = []
+    for row in m["by_year"]:
+        days = [d for y, d in m["signal_days"] if y == row["year"] and d is not None]
+        by_year.append(
+            {
+                "year": row["year"],
+                "signals": row["signals"],
+                "converted": len(days),
+                "median_days": statistics.median(days) if days else None,
+                "rate": row["new_license_rate"],
+                "control_rate": row["control_rate"],
+                "lift": row["lift"],
+            }
+        )
+    out = {
+        "period": f"{BT9_START} to {BT9_END}",
+        "split": f"{years_seen[0]}-{BT9_SPLIT_YEAR} vs {BT9_SPLIT_YEAR + 1}-{years_seen[-1]}",
+        "headline": {
+            k: m[k]
+            for k in (
+                "signals",
+                "conversion",
+                "baseline",
+                "lift",
+                "busy_control_rate",
+                "lift_vs_busy_control",
+                "own_earlier_window",
+                "median_days",
+                "days_p25",
+                "days_p75",
+                "within_90_days_share",
+                "within_180_days_share",
+                "converted_after_30_days",
+                "rate_if_license_31_plus_days_later",
+                "signals_per_week",
+            )
+        },
+        "by_year": by_year,
+        "by_class": m["by_class"],
+        "by_cost": m["by_cost"],
+        "by_group": m["by_group"],
+        "stability": {
+            "early": _bt9_period(m, year_to=BT9_SPLIT_YEAR),
+            "late": _bt9_period(m, year_from=BT9_SPLIT_YEAR + 1),
+        },
+    }
+    return round_floats(out)
+
+
+# --------------------------------------------------------------------------------------------------
 # BT0: market sizing for owner-facing trades (who would buy marketing / leads)
 # --------------------------------------------------------------------------------------------------
 def bt_market(con) -> dict:
@@ -977,6 +1050,95 @@ def render(r: dict) -> str:
             f"| {label} | {early['signals']:,} / {late['signals']:,} | {rate_cell(early)} | {rate_cell(late)} |"
         )
 
+    t9 = r["new_business"]
+    h9 = t9["headline"]
+    a("\n## BT9 - Build-out permit at an unlicensed space -> new business (signal-lab H33)\n")
+    a(
+        "Signal: a renovation/alteration, interior build-out or new-construction permit at a street address whose "
+        "parcel class is commercial/industrial (5xx), mixed-use (212) or multifamily 7+ (3xx) with no premises-based "
+        "business license in force on the permit date (license terms and cancellations as known on that date); "
+        "first such permit at the address in 365 days. Outcome: the first license of a new account at that address "
+        "(application type ISSUE) within 365 days after the permit. Matched control: same-class address-quarters "
+        "(quarterly as-of dates) with no license in force and no renovation permit within a year either side, "
+        "standardized to the signals' class x year mix. Busy control: the same but with some other (non-build-out) "
+        f"permit in the prior 90 days. Signals {t9['period']}, so every window is complete; the period end is the "
+        "lab's (newest license record minus 365 days on the 2026-11-13 warehouse), fixed here so the numbers do not "
+        "move. Same definitions as signal-lab H33 (all headline numbers reproduce its output on the same warehouse). "
+        "Method notes: class comes from the latest Cook County sale or the residential file, so addresses with no sale "
+        "since 2010 are not in the universe; matching is by street address without unit, so a permit for one tenant "
+        "counts for the whole building and another tenant's license counts as the outcome; premises licenses only "
+        "(peddlers, special events, home-based and add-ons dropped) and history starts 2014, so conversion is a floor. "
+        "The control needs no renovation permit nearby, so the matched lift partly measures 'an active space': against "
+        "addresses with some other recent permit the lift is much smaller (busy-control rows). The multifamily rows "
+        "are mostly residential build-outs where a business license is unlikely. Which kind of business arrives is an "
+        "outcome, not something the permit predicts.\n"
+    )
+    a("| Measure | Value |")
+    a("| --- | --- |")
+    a(f"| Permits (signals) | {h9['signals']:,} |")
+    a(f"| New business license within 365 days | {pct(h9['conversion'])} |")
+    a(f"| Matched control (no license, no build-out permit nearby) | {pct(h9['baseline'])} |")
+    a(f"| Lift vs matched control | {h9['lift']:.2f}x |")
+    a(f"| Busy control (other permit in prior 90 days) | {pct(h9['busy_control_rate'])} |")
+    a(f"| Lift vs busy control | {h9['lift_vs_busy_control']:.2f}x |")
+    a(f"| Same address, earlier 365-day window | {pct(h9['own_earlier_window'])} |")
+    a(
+        f"| Days from permit to license: median (middle half) | {h9['median_days']:.0f} "
+        f"({h9['days_p25']:.0f}-{h9['days_p75']:.0f}) |"
+    )
+    a(
+        f"| Licenses within 90 / 180 days of the permit (of those that come) | {pct(h9['within_90_days_share'])} / {pct(h9['within_180_days_share'])} |"
+    )
+    a(f"| Share of licenses more than 30 days after the permit | {pct(h9['converted_after_30_days'])} |")
+    a(
+        f"| Conversion counting only licenses 31+ days after the permit | {pct(h9['rate_if_license_31_plus_days_later'])} |"
+    )
+    a(f"| Permits per week (last 52 weeks to the newest license record) | {h9['signals_per_week']:.1f} |")
+    a("\nBy class of the address:\n")
+    a("| Class | Permits | New license within 365 days | Matched control | Lift |")
+    a("| --- | --- | --- | --- | --- |")
+    for x in t9["by_class"]:
+        a(
+            f"| {x['class']} | {x['signals']:,} | {pct(x['new_license_rate'])} | {pct(x['control_rate'])} | "
+            f"{x['lift']:.1f}x |"
+        )
+    a("\nBy reported cost of the permit:\n")
+    a("| Permit cost | Permits | New license | Matched control | Lift | Busy control | Lift vs busy |")
+    a("| --- | --- | --- | --- | --- | --- | --- |")
+    for x in t9["by_cost"]:
+        a(
+            f"| {x['permit_cost']} | {x['signals']:,} | {pct(x['new_license_rate'])} | {pct(x['control_rate'])} | "
+            f"{x['lift']:.1f}x | {pct(x['busy_control_rate'])} | {x['lift_vs_busy']:.1f}x |"
+        )
+    a("\nBy year of the permit (control standardized to that year's class mix):\n")
+    a("| Year | Permits | New license | Matched control | Lift | Median days to license |")
+    a("| --- | --- | --- | --- | --- | --- |")
+    for x in t9["by_year"]:
+        med = f"{x['median_days']:.0f}" if x["median_days"] is not None else "—"
+        a(
+            f"| {x['year']} | {x['signals']:,} | {pct(x['rate'])} | {pct(x['control_rate'])} | "
+            f"{x['lift']:.1f}x | {med} |"
+        )
+    a("\nType of the first new licensee (share of conversions, by license group):\n")
+    a("| License group | New licenses | Share | Median days | Middle half (days) |")
+    a("| --- | --- | --- | --- | --- |")
+    for x in t9["by_group"]:
+        a(
+            f"| {x['license_group']} | {x['new_licenses']:,} | {pct(x['share_of_conversions'])} | "
+            f"{x['median_days']:.0f} | {x['p25_days']:.0f}-{x['p75_days']:.0f} |"
+        )
+    a(f"\nOut-of-time stability ({t9['split']}, signal years): conversion vs matched control (lift).\n")
+    a(
+        "| Period | Permits | New license | Matched control | Lift | Busy control | Lift vs busy | Median days |"
+    )
+    a("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    for label, x in (("Early", t9["stability"]["early"]), ("Late", t9["stability"]["late"])):
+        med = f"{x['median_days']:.0f}" if x["median_days"] is not None else "—"
+        a(
+            f"| {label} | {x['signals']:,} | {pct(x['rate'])} | {pct(x['control_rate'])} | {x['lift']:.2f}x | "
+            f"{pct(x['busy_control_rate'])} | {x['lift_vs_busy']:.2f}x | {med} |"
+        )
+
     a(
         "\n## BT0 — Market size: contractors active in owner-facing trades (last 12 months, non-major permits)\n"
     )
@@ -1009,6 +1171,7 @@ def main() -> int:
         ("composite", bt_composite),
         ("sr311", bt_311),
         ("closed_restaurant", bt_closed_restaurant),
+        ("new_business", bt_new_business),
         ("market", bt_market),
     ]
     full = len(sys.argv) <= 1

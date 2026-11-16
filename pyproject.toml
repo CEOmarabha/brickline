@@ -22,6 +22,7 @@ select = ["E", "F", "W", "I", "B", "UP"]
 "research/**" = ["E501"]
 "engine/leads/*.py" = ["E501"]
 "engine/score/food.py" = ["E501"]
+"engine/score/licenses.py" = ["E501"]
 "engine/enrich/*.py" = ["E501"]
 "engine/collect/overture.py" = ["E501"]
 

@@ -14,11 +14,12 @@ import json
 import os
 import re
 import sys
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
 
+from engine.score import licenses
 from engine.score.food import (
     CLOSED,
     NAME_KEY,
@@ -1154,9 +1155,267 @@ def closed_restaurant_leads(con, today: date, model: dict) -> list[dict]:
                     "name": title(r["dba"]),
                     "licenseNo": r["license_no"] if r["license_no"] else None,
                 },
+                "_addressKey": r["k"],
             }
         )
     return leads
+
+
+# ----------------------------------------------------------------------------------------------------------
+# Commercial pilot material: new business coming (H33) and trades still open after a big permit (H29)
+# ----------------------------------------------------------------------------------------------------------
+NB_LEAD_DAYS = 180
+NB_ROWS = 400
+BIG_RECENT_DAYS = 365
+BIG_ROWS = 300
+MOSTLY_LOCKED_BELOW = (
+    0.6  # a trade is 'mostly locked in' when under this share of its follow-on permits go to a new contractor
+)
+NON_CONTRACTOR_ROLES = {"owner", "owner_gc", "architect", "engineer", "expediter", "other"}
+ROLE_LABELS = {
+    "gc": "General contractor",
+    "electrical": "Electrical",
+    "plumbing": "Plumbing",
+    "hvac": "HVAC",
+    "masonry": "Masonry",
+    "sign": "Signs",
+    "elevator": "Elevator",
+    "wrecking": "Demolition",
+}
+
+
+def trim_text(s: str | None, limit: int = 160) -> str:
+    s = re.sub(r"\s+", " ", (s or "").strip())
+    if len(s) <= limit:
+        return s
+    return s[:limit].rsplit(" ", 1)[0].rstrip(",;:- ") + "…"
+
+
+def permit_parties_by(con, sql: str, keys: list[str]) -> dict[str, dict]:
+    """Contractors (the lab's `ctr` rule) and the applicant named on permits. `sql` selects key, role, role_raw,
+    name_raw, name_key, slot for the keys passed as the single list parameter."""
+    out: dict[str, dict] = {k: {"contractors": {}, "applicant": None} for k in keys}
+    cur = con.execute(sql, [keys])
+    rows = sorted(cur.fetchall(), key=lambda r: (r[0], r[5] or 0, r[4] or "", r[3] or ""))
+    for key, role, role_raw, name_raw, name_key, _slot in rows:
+        entry = out[key]
+        if not name_key:
+            continue
+        raw = role_raw or ""
+        if (role is not None and role not in NON_CONTRACTOR_ROLES) or "CONTRACTOR" in raw:
+            entry["contractors"].setdefault(
+                name_key,
+                {"name": title(name_raw), "role": ROLE_LABELS.get(role or "", title(raw) or "Contractor")},
+            )
+        elif role == "other" and "APPLICANT" in raw and entry["applicant"] is None:
+            entry["applicant"] = title(name_raw)
+    for entry in out.values():
+        found = sorted(
+            entry["contractors"].items(), key=lambda kv: (kv[1]["role"] != "General contractor", kv[0])
+        )
+        entry["contractors"] = [v for _, v in found][:4]
+    return out
+
+
+def permit_places(con, pids: list[str]) -> dict[str, dict]:
+    """Per permit id: permit type and text, plus the address, owner of record and community area, with the same
+    fallbacks the leads use (point in polygon, address, parcel, ZIP)."""
+    cur = con.execute(
+        f"""
+        SELECT pm.id AS pid, pm.permit_type, pm.description, pm.address_key AS k,
+          par.address, par.owner_name, par.owner_mailing, par.units,
+          coalesce({COMPANY_SQL.format(col="par.owner_name")}, false) AS company,
+          coalesce(ca.community_area, aa.community_area, pa.community_area, za.community_area) AS community_area
+        FROM p pm
+        LEFT JOIN addr_parcel ap ON ap.address_key = pm.address_key
+        LEFT JOIN parcels par ON par.pin10 = ap.pin10
+        LEFT JOIN ca_geom ca ON pm.lat IS NOT NULL AND ST_Contains(ca.geom, ST_Point(pm.lon, pm.lat))
+        LEFT JOIN addr_area aa ON aa.address_key = pm.address_key
+        LEFT JOIN pin_area pa ON pa.pin10 = ap.pin10
+        LEFT JOIN zip_area za ON za.zip = par.zip
+        WHERE pm.id IN (SELECT unnest(?::VARCHAR[]))
+        QUALIFY row_number() OVER (
+          PARTITION BY pm.id ORDER BY ca.community_area NULLS LAST, par.pin10, par.owner_name, par.address) = 1
+        """,
+        [pids],
+    )
+    cols = [d[0] for d in cur.description]
+    return {r["pid"]: r for r in (dict(zip(cols, row, strict=True)) for row in cur.fetchall())}
+
+
+def new_business_model(con) -> dict:
+    """H33 (engine/score/licenses.py): build-out permit at an unlicensed commercial, mixed-use or 7+ unit address ->
+    a new business license there within 365 days. The period ends 365 days before the newest license record so
+    every window is complete, so it moves forward as data arrives."""
+    newest = one(con, "SELECT max(issue_date) AS d FROM biz_license_history")["d"]
+    end = newest - timedelta(days=365)
+    m = licenses.new_business(con, end=end.isoformat())
+    m["period"] = years([{"d": m["first_signal"]}, {"d": m["last_signal"]}])
+    return m
+
+
+def new_business_summary(m: dict) -> dict:
+    return {
+        "period": m["period"],
+        "signals": m["signals"],
+        "rate": round(m["conversion"], 4),
+        "matchedRate": round(m["baseline"], 4),
+        "lift": round(m["lift"], 4),
+        "busyRate": round(m["busy_control_rate"], 4),
+        "liftVsBusy": round(m["lift_vs_busy_control"], 4),
+        "medianDays": round(m["median_days"], 1),
+        "daysP25": round(m["days_p25"], 1),
+        "daysP75": round(m["days_p75"], 1),
+        "perWeek": round(m["signals_per_week"], 2),
+        "byClass": [
+            {
+                "class": r["class"],
+                "signals": r["signals"],
+                "rate": round(r["new_license_rate"], 4),
+                "matchedRate": round(r["control_rate"], 4),
+                "lift": round(r["lift"], 4),
+            }
+            for r in m["by_class"]
+        ],
+        "byGroup": [
+            {"group": r["license_group"], "share": round(r["share_of_conversions"], 4)} for r in m["by_group"]
+        ],
+    }
+
+
+def new_business_spaces(con, today: date, model: dict, closed_keys: set[str]) -> tuple[list[dict], int]:
+    """Build-out permits issued in the last 180 days (as of the newest permit) at addresses with no business license
+    in force on the permit date (the H33 signal) and none issued since. Newest first, capped at NB_ROWS."""
+    licenses.build_out_current(con, asof=today, days=NB_LEAD_DAYS)
+    base = q(con, "SELECT k, d, bucket, cost, pid FROM lc_cur ORDER BY d DESC, pid")
+    total = len(base)
+    base = base[:NB_ROWS]
+    pids = [r["pid"] for r in base]
+    places = permit_places(con, pids)
+    parties = permit_parties_by(
+        con,
+        "SELECT permit_id, role, role_raw, name_raw, name_key, slot FROM permit_parties "
+        "WHERE permit_id IN (SELECT unnest(?::VARCHAR[]))",
+        pids,
+    )
+    class_rate = {c["class"]: c["new_license_rate"] for c in model["by_class"]}
+    spaces = []
+    for r in base:
+        pl = places[r["pid"]]
+        age = (today - r["d"]).days
+        crate = class_rate[r["bucket"]]
+        company = bool(pl["company"])
+        spaces.append(
+            {
+                "id": f"nb-{r['pid']}",
+                "address": title(pl["address"] or r["k"]),
+                "communityArea": pl["community_area"],
+                "class": r["bucket"],
+                "permitDate": iso(r["d"]),
+                "ageDays": age,
+                "reportedCost": r["cost"] or None,
+                "workDescription": trim_text(pl["description"]),
+                "contractors": parties[r["pid"]]["contractors"],
+                "applicant": parties[r["pid"]]["applicant"],
+                "owner": {
+                    "name": title(pl["owner_name"]),
+                    "company": company,
+                    "mailing": title(pl["owner_mailing"]),
+                },
+                "alsoClosedRestaurant": r["k"] in closed_keys,
+                "classRate": round(crate, 4),
+                "historicalRate": round(remaining_probability(crate, model["delays"], age), 4),
+                "sourceUrl": f"https://data.cityofchicago.org/resource/ydr8-5enu.json?id={r['pid']}",
+            }
+        )
+    return spaces, total
+
+
+def open_trades_model(con) -> dict:
+    """H29 (engine/score/licenses.py): $1M+ permit -> follow-on permits by trade within 540 days and who gets them.
+    The period ends 540 days before the newest permit so every window is complete."""
+    m = licenses.open_trades(con)
+    first = one(
+        con,
+        f"SELECT min(d) AS d FROM lc_sig WHERE d <= DATE '{m['period_end']}' AND bucket IN ({licenses.BUCKET_LIST_29})",
+    )["d"]
+    m["period"] = years([{"d": first}, {"d": m["period_end"]}])
+    return m
+
+
+def open_trades_summary(m: dict) -> dict:
+    def r4(x):
+        return None if x is None else round(x, 4)
+
+    rows = [
+        {
+            "trade": t["trade"],
+            "label": licenses.TRADE_LABELS[t["trade"]],
+            "signals": t["signals"],
+            "followOnRate": r4(t["followon_rate"]),
+            "newContractorRate": r4(t["new_contractor_rate"]),
+            "newShare": r4(t["new_share"]),
+            "lockedShare": r4(t["locked_share"]),
+            "unnamedShare": r4(t["unnamed_share"]),
+            "liftVsBusy": r4(t["lift_vs_busy"]),
+            "medianDays": None if t["median_days"] is None else round(t["median_days"], 1),
+            "daysP25": None if t["p25_days"] is None else round(t["p25_days"], 1),
+            "daysP75": None if t["p75_days"] is None else round(t["p75_days"], 1),
+            "mostlyLockedIn": t["new_share"] is None or t["new_share"] < MOSTLY_LOCKED_BELOW,
+        }
+        for t in m["by_trade"]
+    ]
+    rows.sort(key=lambda t: (-(t["newContractorRate"] or 0), t["trade"]))
+    return {
+        "period": m["period"],
+        "bigPermits": m["signals"],
+        "perWeek": round(m["signals_per_week"], 2),
+        "perWeekClassKnown": round(m["signals_per_week_class_known"], 2),
+        "medianDays": round(m["median_days"], 1),
+        "daysP25": round(m["days_p25"], 1),
+        "daysP75": round(m["days_p75"], 1),
+        "headlineTrades": list(licenses.HEADLINE_TRADES),
+        "followOnRate": round(m["conversion"], 4),
+        "liftVsBusy": round(m["lift_vs_busy"], 4),
+        "byTrade": rows,
+    }
+
+
+def open_trades_recent(con, today: date) -> tuple[list[dict], int]:
+    """$1M+ new-construction or renovation permits in the last 365 days, newest first (capped at BIG_ROWS), with the
+    follow-on trades that have already appeared at the address since."""
+    base = licenses.recent_big_permits(con, asof=today.isoformat(), days=BIG_RECENT_DAYS)
+    total = len(base)
+    base = base[:BIG_ROWS]
+    places = permit_places(con, [r["pid"] for r in base])
+    parties = permit_parties_by(
+        con,
+        "SELECT m.sk, pp.role, pp.role_raw, pp.name_raw, pp.name_key, pp.slot FROM lc_maj_all m "
+        "JOIN permit_parties pp ON pp.permit_id = m.id WHERE m.sk IN (SELECT unnest(?::VARCHAR[]))",
+        [r["sk"] for r in base],
+    )
+    out = []
+    for r in base:
+        pl = places[r["pid"]]
+        out.append(
+            {
+                "id": f"bp-{r['pid']}",
+                "address": title(pl["address"] or r["k"]),
+                "communityArea": pl["community_area"],
+                "class": r["bucket"],
+                "permitType": "New construction"
+                if pl["permit_type"] == "PERMIT - NEW CONSTRUCTION"
+                else "Renovation/alteration",
+                "permitDate": iso(r["d"]),
+                "ageDays": (today - r["d"]).days,
+                "reportedCost": r["cost"],
+                "description": trim_text(pl["description"]),
+                "contractors": parties[r["sk"]]["contractors"],
+                "appeared": r["appeared"],
+                "sourceUrl": f"https://data.cityofchicago.org/resource/ydr8-5enu.json?id={r['pid']}",
+            }
+        )
+    return out, total
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -1500,6 +1759,12 @@ def build(out: Path) -> dict:
     print("closed restaurant leads ...", flush=True)
     rmodel = closed_restaurant_model(con)
     cr_leads = closed_restaurant_leads(con, dates["foodInspections"], rmodel)
+    closed_keys = {lead.pop("_addressKey") for lead in cr_leads}
+    print("new business spaces (H33) and open trades (H29) ...", flush=True)
+    nbmodel = new_business_model(con)
+    nb_spaces, nb_total = new_business_spaces(con, today, nbmodel, closed_keys)
+    otmodel = open_trades_model(con)
+    ot_recent, ot_total = open_trades_recent(con, today)
     print("roofing blocks ...", flush=True)
     blocks = roofing_blocks(con, today)
     print("pre-application projects ...", flush=True)
@@ -1629,7 +1894,20 @@ def build(out: Path) -> dict:
         "competitors": competitors(con, today, won),
         "areas": areas(con, today, dates["sales"]),
         "blocks": blocks,
-        "commercial": {"preApplication": pre, "gcTargets": gc_targets(con, today)},
+        "commercial": {
+            "preApplication": pre,
+            "gcTargets": gc_targets(con, today),
+            "newBusiness": {
+                "model": new_business_summary(nbmodel),
+                "spacesTotal": nb_total,
+                "spaces": nb_spaces,
+            },
+            "openTrades": {
+                "model": open_trades_summary(otmodel),
+                "recentTotal": ot_total,
+                "recent": ot_recent,
+            },
+        },
     }
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
@@ -1640,7 +1918,11 @@ def build(out: Path) -> dict:
         f"{len(s_leads)} investor leads, {len(c_leads)} complaint leads, {len(pr_leads)} porch request leads, "
         f"{len(vb_leads)} vacant leads, {len(cr_leads)} closed restaurant leads, "
         f"{len(blocks['roofing'])} roofing blocks, "
-        f"{len(pre['projects'])} pre-application projects"
+        f"{len(pre['projects'])} pre-application projects, "
+        f"{len(nb_spaces)} of {nb_total} new-business spaces ({nbmodel['signals']:,} historical signals, "
+        f"{nbmodel['conversion'] * 100:.1f}% new license in a year, {nbmodel['lift']:.1f}x), "
+        f"{len(ot_recent)} of {ot_total} recent $1M+ permits ({otmodel['signals']:,} historical, "
+        f"{otmodel['conversion'] * 100:.1f}% sign/elevator/electrical follow-on)"
     )
     return snapshot
 
