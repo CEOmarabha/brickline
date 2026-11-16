@@ -101,3 +101,9 @@
 - **Status:** Accepted 2026-11-15.
 - **Decision:** Wherever the app or snapshot calls a lift weak, useful or strong, the word is computed from the lift with the lab's cut-offs (below 1.25× no real signal, below 1.8× weak, below 3× useful, otherwise strong). Copy never hardcodes a strength word that the data could contradict later.
 
+### D-019 — Case-study claims are hypotheses; models add features only on out-of-time gain
+- **Status:** Accepted 2026-11-16.
+- **Decision:** The five AI lead-discovery demos (Georgia CON, Seattle permits, Texas TCEQ, new-business filings, Orlando roofs) are treated as hypotheses and tested on Chicago analogs. Ship H33 and H29 as pilot lists; reject the commercial reroof model (H30) and the new-business survival tag (H31). Scoring stays historical-rate based; extra features or ML only when an out-of-time ablation shows gain, and learning-to-rank only after real sales outcomes exist.
+- **Evidence:** `docs/15-intelligence-engine.md`, `13-signal-lab.md` round 4, BT9, `research/findings/source-verification-2026-11-16.md`.
+- **Reverse if:** Pilot outcomes show the historical proxies rank leads worse than a learned model.
+
