@@ -7,21 +7,26 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | # | Hypothesis | Verdict | Lift | Conversion | Baseline | Signals/week | Who it's for |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | H08 | 311 porch inspection request → porch permit | **Strong** | 11.44× | 13.7% | 1.2% | 7.10 | Porch builders |
+| H33 | Build-out permit at a space with no licensee → a new business registers there within 365 days | **Strong** | 10.25× | 15.2% | 1.5% | 17.70 | Sellers to brand-new businesses: signage, POS/payments, insurance, cleaning, security, furniture, telecom, accountants, and the brokers and GCs that serve them |
 | H26 | Restaurant 'Out of Business' → new food license or renovation permit at the address within 365 days | **Strong** | 10.24× | 32.3% | 3.2% | 13.10 | Restaurant build-out contractors, equipment dealers, brokers, signage |
 | H17 | Complaint chain: 311 complaint → porch/masonry citation → permit (when to mail) | **Strong** | 6.26× | 12.3% | 2.0% | 47.80 | Porch builders, masons and tuckpointers |
 | H07 | 311 building complaint → city citation (earlier lead) | **Strong** | 5.85× | 31.6% | 5.4% | 255.40 | Porch, masonry, roofing, general repair contractors |
-| H13 | Which buildings need masonry work: walls × age | **Useful** | 2.86× | 1.4% | 0.5% | — | Masons, tuckpointers |
+| H30 | Commercial and multifamily reroof cycle model (as-of quarters 2016-2023, time-split validation) | **Strong** | 4.59× | 3.6% | 0.8% | 76.90 | Commercial roofers, roof-coating and sheet-metal contractors, roof inspection and consulting firms |
+| H29 | Which trades are still open after a $1M+ commercial/multifamily permit (signs, elevator, electrical, ...) | **Strong** | 3.06× | 62.1% | 20.3% | 8.70 | Sign shops, elevator service, electricians and other trade subcontractors; suppliers selling to them |
+| H13 | Which buildings need masonry work: walls × age | **Useful** | 2.85× | 1.4% | 0.5% | — | Masons, tuckpointers |
 | H09 | Vacant-building complaint → property sells | **Useful** | 2.49× | 19.4% | 7.8% | 20.50 | Investors' contractors, rehab GCs, property managers (and investors themselves) |
 | H01 | Neighbors went solar → you go solar | **Useful** | 2.41× | 1.0% | 0.4% | 33.40 | Solar installers |
-| H12 | Which houses re-roof: age × roof material | **Useful** | 2.37× | 2.2% | 0.9% | — | Roofers, solar installers |
+| H12 | Which houses re-roof: age × roof material | **Useful** | 2.37× | 2.1% | 0.9% | — | Roofers, solar installers |
+| H14 | Which homes pull HVAC permits: A/C × heat type | **Useful** | 2.17× | 0.3% | 0.1% | — | HVAC contractors |
 | H10 | Complaint about unpermitted work → permit gets pulled | **Useful** | 2.17× | 18.9% | 8.7% | 70.60 | Expediters, architects, GCs who legalize work |
 | H03 | Neighbors re-roofed → you re-roof | **Useful** | 2.16× | 0.7% | 0.3% | — | Roofers |
-| H14 | Which homes pull HVAC permits: A/C × heat type | **Useful** | 2.16× | 0.3% | 0.1% | — | HVAC contractors |
 | H23 | Restaurant pest violation → another pest violation within 180 days (recurring pest-control need) | **Weak** | 1.50× | 12.6% | 8.4% | 44.80 | Pest-control companies |
-| H15 | Assessor condition rating → renovation permits | **Weak** | 1.40× | 0.6% | 0.4% | — | General contractors, rehab crews |
+| H15 | Assessor condition rating → renovation permits | **Weak** | 1.48× | 0.6% | 0.4% | — | General contractors, rehab crews |
+| H32 | Storefront turnover (new licensee after the previous one lapsed) → build-out permit at the address | **Weak** | 1.38× | 3.3% | 2.4% | 10.70 | Build-out contractors, signage, equipment and fixtures suppliers, brokers, cleaning and security vendors |
 | H20 | 311 rodent complaint → building/pest violation (pest-control demand proxy) | **Weak** | 1.31× | 1.9% | 1.5% | 545.50 | Pest control, sanitation and property-management services |
 | H21 | New food license with no recent build-out permit (as-is takeover) → permits after opening | **Descriptive** | —× | 12.1% | 51.7% | 14.40 | Signage, cleaning, security, small-trade contractors serving new restaurants |
 | H22 | Seasonality: when permits are pulled and how fast citations turn into permits, by month | **Descriptive** | —× | — | — | — | Porch, masonry and roofing contractors (mailing calendar) |
+| H31 | New business license + build-out permit before it → business still operating 18-30 months later | **No signal** | 1.21× | 70.7% | 58.6% | 10.90 | B2B sellers to new businesses (insurance, payments/POS, signage, cleaning, security, accounting) who want to know which registrations are real and lasting |
 | H02 | New roof → solar within 2 years | **No signal** | 1.18× | 1.0% | 0.8% | 90.20 | Solar installers (and roofers partnering with them) |
 | H16 | Poor energy score → mechanical/electrical upgrades | **No signal** | 1.08× | 17.7% | 16.4% | — | Commercial HVAC, electrical, lighting retrofit, energy services |
 | H27 | Home-improvement mortgage loans per tract (HMDA, year Y) → residential permits per parcel (year Y+1) | **No signal** | 1.05× | 3.8% | 3.6% | — | All residential trades (neighborhood demand index for mail targeting) |
@@ -53,6 +58,52 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | 2023 | 418 | 14.6% |
 | 2024 | 429 | 14.9% |
 | 2025 | 329 | 10.3% |
+
+## H33 — Build-out permit at a space with no licensee → a new business registers there within 365 days
+
+- **Signal:** Renovation/alteration, interior build-out or new-construction permit at an address of class commercial/industrial (5xx), mixed-use (212) or multifamily 7+ (3xx) with no business license in force at that date (one per address per 365 days)
+- **Target:** A new account's first (ISSUE) premises license at the address within 365 days after the permit; control = same-class address-quarters with no licensee in force and no renovation permit within a year either side, matched on class and year
+- **Data:** Permits (renovation, build-out text, new construction), Chicago business licenses 2014+, parcel classes from sales
+- **Verdict:** Strong
+- **Notes:** Reasoning: H32 shows build-outs mostly precede the new license, and the permit is public the day it is issued while the license only appears when issued, so the permit is the earlier, observable signal for anyone selling to a new business. Class comes from the latest sale or residential file, so addresses with no sale since 2010 are not in the universe. 'In force' uses license terms and cancellations known on the permit date. The license group of the first new licensee is a result, not something the permit tells you in advance. Premises-based licenses only (same filter as H31); unlicensed businesses, professional offices without a license and licenses under 2014 history are invisible, so conversion is a floor. Addresses are by street address without unit, so a permit for one tenant counts for the whole building. Signals stop 365 days before the newest license record.
+- Signals tested: 9,011; conversion 15.2% vs baseline 1.5%; median 157.0 days to target
+
+| year | signals | new_license_rate | control_rate | lift |
+| --- | --- | --- | --- | --- |
+| 2016 | 1033 | 17.7% | 1.6% | 11.31 |
+| 2017 | 1046 | 16.5% | 1.6% | 10.60 |
+| 2018 | 1041 | 16.4% | 1.5% | 11.30 |
+| 2019 | 941 | 13.8% | 1.4% | 9.82 |
+| 2020 | 890 | 10.7% | 1.2% | 9.00 |
+| 2021 | 820 | 14.6% | 1.5% | 9.99 |
+| 2022 | 927 | 13.6% | 1.5% | 9.31 |
+| 2023 | 834 | 13.9% | 1.5% | 9.03 |
+| 2024 | 805 | 16.9% | 1.5% | 11.04 |
+| 2025 | 674 | 17.4% | 1.7% | 10.49 |
+
+| class | signals | new_license_rate | control_rate | lift |
+| --- | --- | --- | --- | --- |
+| commercial/industrial (5xx) | 4028 | 21.3% | 1.2% | 17.28 |
+| mixed-use up to 6 units (212) | 2047 | 16.2% | 3.2% | 5.10 |
+| multifamily 7+ (3xx) | 2936 | 6.0% | 0.6% | 9.55 |
+
+| permit_cost | signals | new_license_rate | control_rate | lift | busy_control_rate | lift_vs_busy |
+| --- | --- | --- | --- | --- | --- | --- |
+| no cost reported | 13 | 15.4% | 1.2% | 12.57 | 5.6% | 2.74 |
+| under $25k | 2300 | 11.1% | 1.6% | 6.73 | 6.2% | 1.79 |
+| $25k-$100k | 2740 | 15.3% | 1.5% | 10.43 | 5.8% | 2.61 |
+| $100k+ | 3958 | 17.5% | 1.4% | 12.54 | 6.2% | 2.80 |
+
+| license_group | new_licenses | median_days | p25_days | p75_days | share_of_conversions |
+| --- | --- | --- | --- | --- | --- |
+| food & drink | 760 | 165.00 | 105.75 | 240.00 | 55.6% |
+| retail | 214 | 120.00 | 72.00 | 207.00 | 15.7% |
+| other | 159 | 153.00 | 85.00 | 255.50 | 11.6% |
+| health/fitness/childcare | 136 | 165.50 | 90.75 | 255.50 | 9.9% |
+| personal services/beauty | 75 | 127.00 | 72.00 | 211.00 | 5.5% |
+| auto | 23 | 163.00 | 80.00 | 339.00 | 1.7% |
+
+- Key numbers (rates are fractions): signals = 9011; conversion = 0.15; baseline = 0.01; lift = 10.25; signals_per_week = 17.67; control_events = 1294317; control_raw_rate = 0.01; busy_control_events = 12012; busy_control_rate = 0.06; lift_vs_busy_control = 2.48; own_earlier_window = 0.00; lift_vs_own_earlier = 39.06; median_days = 157.00; days_p25 = 92.50; days_p75 = 238.50; within_90_days_share = 0.24; within_180_days_share = 0.59; converted_after_30_days = 0.94; rate_if_license_31_plus_days_later = 0.14
 
 ## H26 — Restaurant 'Out of Business' → new food license or renovation permit at the address within 365 days
 
@@ -146,6 +197,140 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | 2024 | 13725 | 28.6% |
 | 2025 | 11588 | 36.4% |
 
+## H30 — Commercial and multifamily reroof cycle model (as-of quarters 2016-2023, time-split validation)
+
+- **Signal:** Parcel-quarter features known at the as-of date: years since the last roof permit, class code, building age, roofing violation in the prior 2 years, hail detection within ~1 km in the prior 3 years
+- **Target:** A roof permit issued at the parcel in the 365 days after the as-of date. Train: as-of dates 2016-2019; test: 2021-2023 (precision among the top 100 / 1,000 parcels per quarter, pooled over 12 quarters)
+- **Data:** Permits (roofing flag), violations (roofing), Cook County sales (class), residential characteristics and energy benchmarking (year built), NEXRAD hail detections, geocoded addresses
+- **Verdict:** Strong
+- **Notes:** Universe at each as-of date: parcels whose class (latest sale on or before the date) is 5xx commercial or 3xx multifamily 7+ ('main', parcels with no sale since 2010 are absent), and, separately, every 2-6 unit flat or mixed-use parcel of class 211/212 in the Assessor residential file ('flats'). A sale entering the universe is a known-at-date fact but sales are also a renovation trigger, so main-segment rates include newly sold buildings. Rates come from back-off cell tables (full cell, then dropping hail, violation, age, class in that order) with a minimum cell size chosen on a time-split validation (fit on as-of dates through 2017-01-01, validate 2018-01-01 to 2019-10-01) and shrunk toward the base rate with 100 pseudo-observations. Ties in predicted rate are broken by a hash of parcel and date, so the top lists are deterministic. 'none on record' for the last roof permit is left-censored: permits start in 2006, so it means no roof permit in the last 10 years at the 2016 as-of dates and 17 years at the 2023 ones. Building age comes from the residential file or energy benchmarking (buildings of 50k+ sq ft) and is 'unknown' for most commercial parcels, so it carries little signal there; the 2025-2026 assessor snapshot describes today's building, and buildings built after the as-of year are treated as unknown. Hail detections start in March 2016, so the 3-year lookback is short for the 2016-2018 training dates. Parcel coordinates come from geocoded permits, violations, 311 requests and business licenses at the parcel's address, so parcels with no such record have 'no location'. The target is a permit, not a roof: commercial reroofs are often unpermitted or filed with other work, so every rate is a floor; roofing violation and roof-permit history only attach to a parcel through PIN or address.
+
+| seg | rows | parcels | train_rate | test_rate | test_rows | age_known_share | hail_located_share | roof_on_record_test_share | roof_violation_share |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| flats | 4119200 | 128725 | 0.4% | 0.4% | 1544700 | 99.4% | 43.0% | 5.4% | 0.7% |
+| main | 774848 | 31787 | 1.1% | 0.8% | 347238 | 3.8% | 44.4% | 10.3% | 0.5% |
+
+| seg | roof_bucket | train_rows | train_rate | test_rows | test_rate |
+| --- | --- | --- | --- | --- | --- |
+| flats | 12y+ | 2022 | 1.5% | 18410 | 0.6% |
+| flats | 3-7y | 26583 | 0.5% | 21558 | 0.5% |
+| flats | 7-12y | 26764 | 0.7% | 24390 | 0.4% |
+| flats | <3y | 21336 | 1.2% | 19299 | 1.2% |
+| flats | none on record | 1982895 | 0.4% | 1461043 | 0.4% |
+| main | 12y+ | 454 | 4.0% | 4807 | 1.9% |
+| main | 3-7y | 9866 | 2.8% | 11891 | 1.9% |
+| main | 7-12y | 5952 | 3.7% | 10404 | 1.7% |
+| main | <3y | 10458 | 5.3% | 8591 | 4.5% |
+| main | none on record | 296494 | 0.8% | 311545 | 0.6% |
+
+| model | rows | base_rate | p_at_100_rate | hits_at_100 | lift_at_100 | p_at_100_low_rate | p_at_100_high_rate | p_at_1000_rate | hits_at_1000 | lift_at_1000 | p_at_1000_low_rate | p_at_1000_high_rate | top10_capture_share | log_loss_skill_share |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full model | 347238 | 0.8% | 7.4% | 89 | 9.57 | 6.1% | 9.0% | 3.6% | 427 | 4.59 | 3.2% | 3.9% | 30.5% | 5.3% |
+| years since last roof permit only | 347238 | 0.8% | 4.7% | 56 | 6.02 | 3.6% | 6.0% | 3.8% | 452 | 4.86 | 3.4% | 4.1% | 32.2% | 2.3% |
+| building age only | 347238 | 0.8% | 6.2% | 75 | 8.06 | 5.0% | 7.8% | 3.2% | 382 | 4.11 | 2.9% | 3.5% | 20.7% | 0.9% |
+| class code only | 347238 | 0.8% | 2.7% | 32 | 3.44 | 1.9% | 3.7% | 2.2% | 260 | 2.79 | 1.9% | 2.4% | 20.7% | 1.8% |
+| random (expected) | 347238 | 0.8% | 0.8% | — | 1.00 | — | — | 0.8% | — | 1.00 | — | — | 10.0% | 0.0% |
+
+| variant | p_at_100_rate | p_at_1000_rate | lift_at_1000 | top10_capture_share | log_loss_skill_share | lift_change_vs_full | skill_change_share |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| drop roof (years since last roof permit) | 5.5% | 2.8% | 3.57 | 28.8% | 4.6% | -1.02 | -0.7% |
+| drop cls (class code) | 7.7% | 3.3% | 4.21 | 33.0% | 5.4% | -0.38 | 0.1% |
+| drop age (building age) | 7.0% | 3.5% | 4.55 | 30.5% | 5.1% | -0.04 | -0.3% |
+| drop viol (roofing violation in prior 2 years) | 7.4% | 3.5% | 4.48 | 29.9% | 5.3% | -0.11 | -0.1% |
+| drop hail (hail detection within ~1 km in prior 3 years) | 7.4% | 3.8% | 4.87 | 30.8% | 4.4% | 0.28 | -0.9% |
+| hail kept but without its 'no location' flag (merged into 0) | 8.5% | 3.4% | 4.44 | 30.8% | 4.7% | -0.15 | -0.7% |
+
+| decile | rows | predicted_rate | observed_rate | hits |
+| --- | --- | --- | --- | --- |
+| 1 | 34724 | 0.1% | 0.1% | 49 |
+| 2 | 34724 | 0.2% | 0.1% | 52 |
+| 3 | 34724 | 0.3% | 0.4% | 152 |
+| 4 | 34724 | 0.4% | 0.4% | 122 |
+| 5 | 34724 | 0.4% | 0.4% | 131 |
+| 6 | 34724 | 0.6% | 0.4% | 145 |
+| 7 | 34724 | 0.9% | 0.7% | 250 |
+| 8 | 34724 | 1.3% | 1.3% | 442 |
+| 9 | 34723 | 1.9% | 1.5% | 520 |
+| 10 | 34723 | 3.9% | 2.4% | 829 |
+
+| model | rows | base_rate | p_at_100_rate | hits_at_100 | lift_at_100 | p_at_100_low_rate | p_at_100_high_rate | p_at_1000_rate | hits_at_1000 | lift_at_1000 | p_at_1000_low_rate | p_at_1000_high_rate | top10_capture_share | log_loss_skill_share |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full model | 1544700 | 0.4% | 1.6% | 19 | 3.58 | 1.0% | 2.5% | 1.5% | 175 | 3.30 | 1.3% | 1.7% | 16.9% | -0.0% |
+| years since last roof permit only | 1544700 | 0.4% | 1.5% | 18 | 3.39 | 1.0% | 2.4% | 1.2% | 150 | 2.83 | 1.1% | 1.5% | 12.8% | -0.0% |
+| building age only | 1544700 | 0.4% | 2.0% | 24 | 4.52 | 1.3% | 3.0% | 1.3% | 157 | 2.96 | 1.1% | 1.5% | 11.3% | -0.0% |
+| class code only | 1544700 | 0.4% | 0.8% | 10 | 1.88 | 0.5% | 1.5% | 0.6% | 74 | 1.39 | 0.5% | 0.8% | 13.2% | -0.1% |
+| random (expected) | 1544700 | 0.4% | 0.4% | — | 1.00 | — | — | 0.4% | — | 1.00 | — | — | 10.0% | 0.0% |
+
+| variant | p_at_100_rate | p_at_1000_rate | lift_at_1000 | top10_capture_share | log_loss_skill_share | lift_change_vs_full | skill_change_share |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| drop roof (years since last roof permit) | 1.1% | 1.0% | 2.32 | 15.4% | -0.1% | -0.98 | -0.1% |
+| drop cls (class code) | 1.2% | 1.4% | 3.22 | 14.9% | 0.0% | -0.08 | 0.0% |
+| drop age (building age) | 1.6% | 1.5% | 3.28 | 15.8% | -0.1% | -0.02 | -0.1% |
+| drop viol (roofing violation in prior 2 years) | 1.6% | 1.3% | 3.03 | 16.3% | -0.0% | -0.26 | -0.0% |
+| drop hail (hail detection within ~1 km in prior 3 years) | 1.6% | 1.2% | 2.64 | 16.3% | 0.2% | -0.66 | 0.2% |
+| hail kept but without its 'no location' flag (merged into 0) | 1.6% | 1.1% | 2.39 | 16.7% | 0.0% | -0.90 | 0.0% |
+
+| decile | rows | predicted_rate | observed_rate | hits |
+| --- | --- | --- | --- | --- |
+| 1 | 154470 | 0.2% | 0.3% | 499 |
+| 2 | 154470 | 0.3% | 0.4% | 585 |
+| 3 | 154470 | 0.3% | 0.4% | 563 |
+| 4 | 154470 | 0.3% | 0.4% | 625 |
+| 5 | 154470 | 0.3% | 0.4% | 612 |
+| 6 | 154470 | 0.3% | 0.4% | 686 |
+| 7 | 154470 | 0.4% | 0.5% | 720 |
+| 8 | 154470 | 0.4% | 0.4% | 651 |
+| 9 | 154470 | 0.5% | 0.5% | 722 |
+| 10 | 154470 | 0.8% | 0.8% | 1166 |
+
+- Key numbers (rates are fractions): signals = 347238; conversion = 0.04; baseline = 0.01; lift = 4.59; signals_per_week = 76.92; p_at_100_rate = 0.07; lift_at_100 = 9.57; hits_at_1000 = 427; best_baseline_lift_at_1000 = 4.86; lift_vs_best_baseline = 0.94; flats_p_at_1000_rate = 0.01; flats_base_rate = 0.00; flats_lift_at_1000 = 3.30
+- Tuning (time-split validation): {"flats": {"min_cell_size": 3000, "validation_log_loss_skill": {"1000": 0.00491, "300": 0.00492, "3000": 0.00571}}, "main": {"min_cell_size": 300, "validation_log_loss_skill": {"1000": 0.07214, "300": 0.07726, "3000": 0.0376}}}
+
+## H29 — Which trades are still open after a $1M+ commercial/multifamily permit (signs, elevator, electrical, ...)
+
+- **Signal:** New-construction or renovation/alteration permit with reported cost of at least $1,000,000 at an address whose parcel class is commercial/industrial, 7+ unit multifamily, mixed-use, 2-6 flats or exempt (first one at the address in 540 days)
+- **Target:** A follow-on permit at the same address within 540 days for a sign, an elevator or electrical work (headline; other trades in the table), and whether its contractor was already named on the big permit
+- **Data:** Permits (types: NEW CONSTRUCTION, RENOVATION/ALTERATION, SIGNS, ELEVATOR EQUIPMENT, SCAFFOLDING, WRECKING/DEMOLITION, EXPRESS PERMIT PROGRAM, EASY PERMIT PROCESS), permit parties, parcel classes from sales
+- **Verdict:** Strong
+- **Notes:** Class comes from the latest Cook County sale or the residential characteristics file, so addresses with no sale since 2010 have no class (reported separately, no matched control). 'matched_control_rate' = same-window rate at addresses of the same class bucket with no major permit within +-540 days, standardized to the signals' class mix; 'busy_control_rate' = same for addresses with a $100k-$1M renovation/new-construction permit in the prior 90 days and no major permit; 'own_earlier_rate' = the same address in the window 540-1,080 days before. The feed has no 'electric wiring' permit type: electrical, plumbing, HVAC, fire-alarm and roofing follow-ons are permits (express/easy/renovation) whose text names that work. 'locked in' = a contractor on the follow-on permit has the same normalized name as a contractor on any big permit at that address that day (names are cut at 30 characters, so variants count as new); 'unnamed' = no contractor on the follow-on permit; shares are per permit, rates are per signal. Follow-ons issued the same day as the big permit are excluded. The scaffolding permit type disappears from the feed after 2023-11-17, so its cohort ends 540 days before that. Permits capture permitted work only.
+- Signals tested: 2,330; conversion 62.1% vs baseline 20.3%; median 139.0 days to target
+
+| year | n | conversion |
+| --- | --- | --- |
+| 2016 | 271 | 63.8% |
+| 2017 | 255 | 65.5% |
+| 2018 | 289 | 72.0% |
+| 2019 | 223 | 70.4% |
+| 2020 | 224 | 58.0% |
+| 2021 | 202 | 62.4% |
+| 2022 | 250 | 60.0% |
+| 2023 | 272 | 58.5% |
+| 2024 | 247 | 50.6% |
+| 2025 | 97 | 53.6% |
+
+| trade | permit_types | signals | followon_rate | own_earlier_rate | lift_vs_own | matched_control_rate | lift_vs_matched | busy_control_rate | lift_vs_busy | median_days | p25_days | p75_days | new_contractor_rate | locked_in_rate | permits | new_share | locked_share | unnamed_share |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| signs | PERMIT - SIGNS | 2330 | 21.4% | 4.5% | 4.79 | 1.3% | 15.97 | 17.7% | 1.21 | 246.50 | 135.25 | 385.75 | 19.0% | 3.0% | 1763 | 86.8% | 11.7% | 1.5% |
+| elevator | PERMIT - ELEVATOR EQUIPMENT | 2330 | 36.1% | 8.5% | 4.25 | 0.6% | 59.87 | 8.2% | 4.38 | 226.00 | 132.00 | 328.00 | 36.1% | 0.0% | 1288 | 100.0% | 0.0% | 0.0% |
+| electrical | EXPRESS/EASY/RENOVATION text mentions electrical wiring | 2330 | 41.5% | 17.0% | 2.45 | 2.8% | 14.78 | 28.8% | 1.44 | 126.00 | 51.75 | 258.00 | 35.5% | 11.9% | 2933 | 84.1% | 15.9% | 0.0% |
+| scaffolding | PERMIT - SCAFFOLDING (feed ends 2023-11-17) | 1550 | 7.2% | 5.3% | 1.37 | 0.2% | 34.32 | 3.7% | 1.97 | 190.50 | 97.75 | 324.50 | 4.1% | 0.1% | 147 | 55.1% | 0.7% | 44.2% |
+| plumbing | text mentions plumbing | 2330 | 31.7% | 10.5% | 3.01 | 1.3% | 24.73 | 19.9% | 1.59 | 130.50 | 57.00 | 249.75 | 14.8% | 21.6% | 1544 | 49.2% | 50.3% | 0.5% |
+| hvac | text mentions mechanical/HVAC | 2330 | 19.5% | 7.3% | 2.69 | 0.7% | 26.46 | 12.3% | 1.59 | 158.00 | 73.00 | 277.00 | 9.8% | 12.1% | 812 | 50.4% | 49.4% | 0.2% |
+| fire_alarm | text mentions fire alarm/sprinkler | 2330 | 33.7% | 9.3% | 3.62 | 0.4% | 82.68 | 13.3% | 2.53 | 152.00 | 73.00 | 296.00 | 25.1% | 13.9% | 2025 | 76.3% | 23.6% | 0.0% |
+| roofing | text mentions roofing | 2330 | 10.3% | 4.7% | 2.20 | 0.9% | 11.87 | 5.1% | 2.02 | 235.50 | 123.75 | 349.25 | 4.6% | 6.0% | 296 | 40.9% | 54.1% | 5.1% |
+| demolition | PERMIT - WRECKING/DEMOLITION | 2330 | 3.1% | 1.4% | 2.18 | 0.3% | 10.87 | 0.5% | 6.14 | 59.00 | 31.00 | 171.75 | 2.7% | 0.3% | 75 | 88.0% | 12.0% | 0.0% |
+| renovation | PERMIT - RENOVATION/ALTERATION or interior build-out text | 2330 | 42.4% | 18.0% | 2.36 | 3.1% | 13.70 | 28.2% | 1.50 | 145.50 | 61.75 | 293.25 | 20.5% | 33.9% | 3425 | 50.2% | 49.8% | 0.0% |
+
+| class | signals | followon_rate | matched_control_rate | lift_vs_matched |
+| --- | --- | --- | --- | --- |
+| 2-6 unit flats (211) | 226 | 19.0% | 1.8% | 10.75 |
+| commercial/industrial (5xx) | 1204 | 77.4% | 5.5% | 14.00 |
+| exempt/other | 407 | 53.8% | 2.1% | 25.55 |
+| mixed-use up to 6 units (212) | 100 | 62.0% | 4.3% | 14.44 |
+| multifamily 7+ (3xx) | 393 | 48.6% | 4.2% | 11.53 |
+
+- Key numbers (rates are fractions): signals = 2330; conversion = 0.62; baseline = 0.20; lift = 3.06; matched_control_rate = 0.04; lift_vs_matched_control = 14.47; busy_control_rate = 0.41; lift_vs_busy = 1.53; signals_per_week_class_known = 4.71; median_days = 139.00; days_p25 = 62.00; days_p75 = 260.00; signals_per_week = 8.67; unknown_class_signals = 2425; unknown_class_followon_rate = 0.53
+
 ## H13 — Which buildings need masonry work: walls × age
 
 - **Signal:** Property group: Masonry / pre-1910
@@ -155,20 +340,20 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 | grp | parcels | annual_rate | lift |
 | --- | --- | --- | --- |
-| Masonry / pre-1910 | 38758 | 1.4% | 2.86 |
-| Masonry / 1910-39 | 71029 | 0.8% | 1.60 |
-| Frame + Masonry / pre-1910 | 5222 | 0.7% | 1.50 |
-| Frame + Masonry / 1910-39 | 9527 | 0.6% | 1.23 |
-| Masonry / 1970+ | 20253 | 0.6% | 1.14 |
-| Frame + Masonry / 1970+ | 4424 | 0.4% | 0.86 |
-| Frame / 1970+ | 9227 | 0.4% | 0.85 |
+| Masonry / pre-1910 | 38409 | 1.4% | 2.85 |
+| Masonry / 1910-39 | 70950 | 0.8% | 1.60 |
+| Frame + Masonry / pre-1910 | 5258 | 0.8% | 1.54 |
+| Frame + Masonry / 1910-39 | 9542 | 0.6% | 1.25 |
+| Masonry / 1970+ | 20252 | 0.6% | 1.14 |
+| Frame + Masonry / 1970+ | 4423 | 0.4% | 0.86 |
+| Frame / 1970+ | 9230 | 0.4% | 0.85 |
 | Frame + Masonry / 1940-69 | 11656 | 0.3% | 0.68 |
-| Stucco / pre-1910 | 1116 | 0.3% | 0.55 |
-| Frame / pre-1910 | 45813 | 0.2% | 0.38 |
-| Frame / 1910-39 | 32002 | 0.2% | 0.33 |
+| Stucco / pre-1910 | 1095 | 0.2% | 0.43 |
+| Frame / pre-1910 | 46149 | 0.2% | 0.40 |
+| Frame / 1910-39 | 32071 | 0.2% | 0.33 |
 | Masonry / 1940-69 | 72659 | 0.1% | 0.26 |
-| Stucco / 1910-39 | 2200 | 0.1% | 0.22 |
-| Frame / 1940-69 | 12922 | 0.1% | 0.18 |
+| Stucco / 1910-39 | 2195 | 0.1% | 0.22 |
+| Frame / 1940-69 | 12923 | 0.1% | 0.18 |
 
 ## H09 — Vacant-building complaint → property sells
 
@@ -200,8 +385,8 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 | grp | parcels | rate |
 | --- | --- | --- |
-| 0 | 1778115 | 0.4% |
-| 1 | 190637 | 0.6% |
+| 0 | 1778124 | 0.4% |
+| 1 | 190640 | 0.6% |
 | 2+ | 25279 | 1.0% |
 
 ## H12 — Which houses re-roof: age × roof material
@@ -213,19 +398,36 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 | grp | parcels | annual_rate | lift |
 | --- | --- | --- | --- |
-| 2000+ / Other | 1189 | 2.2% | 2.37 |
-| 2000+ / Tar + Gravel | 4908 | 1.5% | 1.61 |
-| 2000+ / Shingle + Asphalt | 12117 | 1.4% | 1.53 |
-| pre-1910 / Other | 1769 | 1.1% | 1.16 |
-| 1940-69 / Shingle + Asphalt | 92299 | 1.0% | 1.15 |
-| 1910-39 / Shingle + Asphalt | 88236 | 1.0% | 1.07 |
-| 1970-99 / Shingle + Asphalt | 12545 | 0.8% | 0.92 |
-| 1910-39 / Tile | 1258 | 0.8% | 0.84 |
-| pre-1910 / Tar + Gravel | 24426 | 0.7% | 0.80 |
-| 1940-69 / Tar + Gravel | 4046 | 0.7% | 0.80 |
-| pre-1910 / Shingle + Asphalt | 64032 | 0.7% | 0.74 |
-| 1910-39 / Tar + Gravel | 23995 | 0.6% | 0.70 |
-| 1970-99 / Tar + Gravel | 3047 | 0.6% | 0.62 |
+| 2000+ / Other | 1192 | 2.2% | 2.37 |
+| 2000+ / Tar + Gravel | 4901 | 1.5% | 1.60 |
+| 2000+ / Shingle + Asphalt | 12121 | 1.4% | 1.53 |
+| 1940-69 / Shingle + Asphalt | 92301 | 1.0% | 1.15 |
+| pre-1910 / Other | 1813 | 1.0% | 1.13 |
+| 1910-39 / Shingle + Asphalt | 88293 | 1.0% | 1.07 |
+| 1970-99 / Shingle + Asphalt | 12549 | 0.8% | 0.92 |
+| 1910-39 / Tile | 1256 | 0.8% | 0.85 |
+| pre-1910 / Tar + Gravel | 24072 | 0.7% | 0.80 |
+| 1940-69 / Tar + Gravel | 4044 | 0.7% | 0.79 |
+| pre-1910 / Shingle + Asphalt | 64345 | 0.7% | 0.74 |
+| 1910-39 / Tar + Gravel | 23938 | 0.6% | 0.69 |
+| 1970-99 / Tar + Gravel | 3044 | 0.6% | 0.63 |
+
+## H14 — Which homes pull HVAC permits: A/C × heat type
+
+- **Signal:** Property group: Central A/C / Hot Water Steam
+- **Target:** hvac permit per year
+- **Data:** Cook County Assessor residential characteristics, permits
+- **Verdict:** Useful
+- **Notes:** The original idea (no central A/C → new A/C installs) is refuted: homes without central A/C are below average. Homes that already have it pull more permits, i.e. replacements. Most residential HVAC swaps aren't permitted, so rates are low.
+
+| grp | parcels | annual_rate | lift |
+| --- | --- | --- | --- |
+| Central A/C / Hot Water Steam | 8532 | 0.3% | 2.17 |
+| Central A/C / Warm Air Furnace | 97369 | 0.2% | 1.58 |
+| No Central A/C / Electric Heater | 1347 | 0.2% | 1.30 |
+| No Central A/C / None | 1683 | 0.1% | 0.91 |
+| No Central A/C / Hot Water Steam | 70727 | 0.1% | 0.82 |
+| No Central A/C / Warm Air Furnace | 156667 | 0.1% | 0.65 |
 
 ## H10 — Complaint about unpermitted work → permit gets pulled
 
@@ -256,26 +458,9 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 | grp | parcels | rate |
 | --- | --- | --- |
-| 0 | 11893431 | 0.3% |
-| 1 | 531807 | 0.5% |
+| 0 | 11893502 | 0.3% |
+| 1 | 531810 | 0.5% |
 | 2+ | 25930 | 0.7% |
-
-## H14 — Which homes pull HVAC permits: A/C × heat type
-
-- **Signal:** Property group: Central A/C / Hot Water Steam
-- **Target:** hvac permit per year
-- **Data:** Cook County Assessor residential characteristics, permits
-- **Verdict:** Useful
-- **Notes:** The original idea (no central A/C → new A/C installs) is refuted: homes without central A/C are below average. Homes that already have it pull more permits, i.e. replacements. Most residential HVAC swaps aren't permitted, so rates are low.
-
-| grp | parcels | annual_rate | lift |
-| --- | --- | --- | --- |
-| Central A/C / Hot Water Steam | 8285 | 0.3% | 2.16 |
-| Central A/C / Warm Air Furnace | 97213 | 0.2% | 1.58 |
-| No Central A/C / Electric Heater | 1330 | 0.2% | 1.31 |
-| No Central A/C / None | 1708 | 0.1% | 0.89 |
-| No Central A/C / Hot Water Steam | 70368 | 0.1% | 0.83 |
-| No Central A/C / Warm Air Furnace | 157453 | 0.1% | 0.65 |
 
 ## H23 — Restaurant pest violation → another pest violation within 180 days (recurring pest-control need)
 
@@ -326,9 +511,55 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 | grp | parcels | annual_rate | lift |
 | --- | --- | --- | --- |
-| Above Average | 2287 | 0.6% | 1.40 |
-| Below Average | 2528 | 0.5% | 1.24 |
-| Average | 332200 | 0.4% | 1.00 |
+| Above Average | 2327 | 0.6% | 1.48 |
+| Below Average | 2427 | 0.5% | 1.13 |
+| Average | 332266 | 0.4% | 1.00 |
+
+## H32 — Storefront turnover (new licensee after the previous one lapsed) → build-out permit at the address
+
+- **Signal:** First license (ISSUE) of an account at an address whose previous licensee's last license (expiration or cancellation known on that date) ended within the prior 365 days, with no other licensee in force (one per address per 365 days)
+- **Target:** Renovation/build-out/new-construction permit at the address within 365 days after the license; control = same-account renewals at addresses with no other licensee in force and no new account in the prior 365 days, matched on license group and year; also the signed timing of the permit around the license and application dates
+- **Data:** Chicago business licenses 2014+ (biz_license_history), permits (same renovation predicate as H26/food.py)
+- **Verdict:** Weak
+- **Notes:** Premises-based licenses only (same filter as H31). Addresses are street addresses without unit, so a permit for another tenant or the landlord counts for both groups; requiring no other licensee in force keeps the test to storefront-like addresses but cannot see unlicensed tenants. A turnover cannot be told from an owner who re-registers under a new account number, and a previous licensee that never renewed may simply have closed years earlier (hence the 365-day lapse limit). Cancellations use the status date only once it has happened. The feed lists a license only when it is issued (no row has an empty issue date), so 'application created' is a back-dated field known only after issue: the application date gives the median extra days shown under timing, but it is not observable before the license. 'median_days' is days from license issue to the first permit among turnovers that converted; 'permit_before' counts a permit in the 365 days up to the license date (the build-out that precedes opening). The renewal control has fewer build-outs by construction (an operating tenant), so lift also partly measures 'new tenant vs continuing tenant'; compare the before and after rows.
+- Signals tested: 6,016; conversion 3.3% vs baseline 2.4%; median 135.0 days to target
+
+| definition | events | turnover_rate | control_rate | lift |
+| --- | --- | --- | --- | --- |
+| Renovation/build-out/new-construction permit within 365 days AFTER the new license (headline) | 6016 | 3.3% | 2.4% | 1.38 |
+| Same permit within 365 days BEFORE the new license | 6016 | 7.3% | 2.5% | 2.88 |
+| Application-date view: permit within 365 days after the application was created | 6003 | 5.0% | — | — |
+| Same events measured from the license issue date (comparison for the row above) | 6003 | 3.3% | — | — |
+
+| year | turnover_events | permit_after_rate | control_rate | lift |
+| --- | --- | --- | --- | --- |
+| 2016 | 595 | 2.9% | 2.6% | 1.09 |
+| 2017 | 817 | 2.9% | 2.8% | 1.05 |
+| 2018 | 763 | 4.5% | 2.4% | 1.83 |
+| 2019 | 659 | 2.4% | 2.5% | 0.95 |
+| 2020 | 344 | 2.6% | 2.4% | 1.10 |
+| 2021 | 476 | 3.8% | 2.1% | 1.76 |
+| 2022 | 656 | 3.0% | 2.1% | 1.43 |
+| 2023 | 588 | 3.7% | 2.2% | 1.67 |
+| 2024 | 614 | 3.3% | 2.2% | 1.46 |
+| 2025 | 504 | 3.6% | 2.1% | 1.66 |
+
+| group | turnover_events | permit_after_rate | control_events | control_rate | lift | permit_before_rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| food & drink | 2249 | 3.0% | 36365 | 3.3% | 0.90 | 11.1% |
+| personal services/beauty | 923 | 3.6% | 8620 | 1.1% | 3.11 | 3.1% |
+| health/fitness/childcare | 297 | 4.7% | 5283 | 2.5% | 1.91 | 10.8% |
+| retail | 1429 | 3.0% | 14027 | 2.0% | 1.49 | 5.0% |
+| auto | 296 | 2.4% | 9144 | 2.5% | 0.94 | 2.0% |
+| other | 822 | 4.1% | 44885 | 1.8% | 2.26 | 6.1% |
+
+| reference_date | events | with_permit_within_365_either_way | permit_before_share | permit_on_or_after_share | median_signed_days | p25_signed_days | p75_signed_days |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| license issue date (turnover events) | 6016 | 587 | 70.4% | 29.6% | -77.00 | -160.50 | 31.50 |
+| renewal issue date (control events) | 118324 | 4930 | 50.1% | 49.9% | -1.00 | -165.00 | 157.00 |
+| application created date (turnover events with an application date) | 6003 | 600 | 56.2% | 43.8% | -16.50 | -108.25 | 83.00 |
+
+- Key numbers (rates are fractions): signals = 6016; conversion = 0.03; baseline = 0.02; lift = 1.38; signals_per_week = 10.65; control_events = 118324; control_raw_rate = 0.02; own_earlier_window = 0.03; permit_before_rate = 0.07; permit_before_control_rate = 0.03; permit_before_lift = 2.88; median_days = 135.00; days_p25 = 59.25; days_p75 = 244.75; converted_after_30_days = 0.87; gap_days_median = 82.50; gap_days_p25 = 16.75; gap_days_p75 = 196.00; application_to_license_days_median = 14.00; application_to_license_days_p90 = 128.00
 
 ## H20 — 311 rodent complaint → building/pest violation (pest-control demand proxy)
 
@@ -389,6 +620,47 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | 11 | 8.3% | 7.1% | 8.4% | 2577 | 14.9% | 189.50 |
 | 12 | 6.4% | 5.4% | 7.0% | 2288 | 13.7% | 187.00 |
 
+## H31 — New business license + build-out permit before it → business still operating 18-30 months later
+
+- **Signal:** First license issued (application type ISSUE) to an account at a site, for a premises-based license, with a renovation/build-out/new-construction permit at the address in the prior 365 days (vs the same without a permit, and vs a re-let space)
+- **Target:** Same account and site still licensed 18-30 months later: a RENEW record issued in that window, or a license term in force on the day 24 months after the first license that was not cancelled or revoked before then
+- **Data:** Chicago business licenses 2014+ (biz_license_history), permits
+- **Verdict:** No signal
+- **Notes:** Premises-based licenses only (peddlers, special events, pop-ups, valet, mobile food, home-based businesses, add-on permits such as outdoor patio and late hour are excluded). A site is an account number plus site number whose first record in the data is an ISSUE; sites that began before 2014 only show renewals, so signals start in 2016. Groups come from the license description and business activity text with this precedence: auto, food & drink, personal services/beauty, health/fitness/childcare, retail, other. 'conversion' = survival of the build-out group; 'baseline' = survival of the alone group standardized to the build-out group's license group by year mix. A tenant that is renamed or changes account number counts as closed, and a license cancelled after renewal still counts as renewed, so survival is a proxy for 'operating', not a measurement. The 'earlier licensee' test is by street address without unit, so large multi-tenant buildings look re-let; the multi-tenant rows show the effect. Signals stop 30 months before the newest license record. Do not add current Overture presence as a feature: it describes the business after the outcome (survivor bias).
+
+| year | new_licenses | alive_rate | build_out_signals | build_out_alive_rate | no_build_out_alive_rate | build_out_lift |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2016 | 4310 | 58.7% | 955 | 71.9% | 55.0% | 1.30 |
+| 2017 | 4853 | 57.6% | 1041 | 67.8% | 54.9% | 1.24 |
+| 2018 | 2795 | 72.2% | 637 | 80.5% | 69.8% | 1.15 |
+| 2019 | 2731 | 62.8% | 649 | 69.5% | 60.8% | 1.13 |
+| 2020 | 3378 | 61.3% | 606 | 64.7% | 60.5% | 1.07 |
+| 2021 | 3657 | 57.1% | 593 | 68.0% | 55.0% | 1.21 |
+| 2022 | 3687 | 59.0% | 626 | 70.4% | 56.6% | 1.21 |
+| 2023 | 3659 | 59.5% | 610 | 72.3% | 56.9% | 1.26 |
+| 2024 | 1365 | 59.3% | 230 | 73.0% | 56.6% | 1.29 |
+
+| group | new_licenses | no_build_out_alive_rate | build_out_signals | build_out_alive_rate | build_out_lift | relet_signals | relet_alive_rate | relet_lift |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| food & drink | 8054 | 62.0% | 2195 | 79.9% | 1.27 | 4894 | 61.4% | 0.92 |
+| personal services/beauty | 2604 | 63.7% | 298 | 69.1% | 1.08 | 1841 | 62.8% | 0.94 |
+| health/fitness/childcare | 1831 | 59.3% | 410 | 70.5% | 1.21 | 875 | 59.1% | 0.99 |
+| retail | 7350 | 51.6% | 899 | 66.3% | 1.31 | 4988 | 51.9% | 1.03 |
+| auto | 1255 | 74.6% | 137 | 87.6% | 1.18 | 790 | 74.6% | 0.99 |
+| other | 9341 | 55.5% | 2008 | 61.7% | 1.11 | 3937 | 55.3% | 0.99 |
+
+| cell | signals | alive_rate | renewed_in_window_rate | renewed_term_covering_24m_rate |
+| --- | --- | --- | --- | --- |
+| all new licenses | 30435 | 60.4% | 51.4% | 18.6% |
+| A: new license alone (no build-out permit, no earlier licensee at the address) | 7163 | 57.9% | 48.2% | 20.8% |
+| B: build-out permit in prior 365 days, no earlier licensee | 1287 | 78.2% | 64.6% | 30.2% |
+| C: re-let (earlier licensee of another account), no build-out permit | 17325 | 57.9% | 50.9% | 14.4% |
+| D: re-let with build-out permit | 4660 | 68.6% | 54.9% | 27.3% |
+| any build-out permit (B + D) | 5947 | 70.7% | 57.0% | 27.9% |
+| any re-let (C + D) | 21985 | 60.2% | 51.7% | 17.1% |
+
+- Key numbers (rates are fractions): signals = 5947; conversion = 0.71; baseline = 0.59; lift = 1.21; signals_per_week = 10.88; new_licenses_per_week = 66.37; all_signals = 30435; excluded_not_yet_due = 3548; all_alive_rate = 0.60; no_build_out_raw_rate = 0.58; alone_raw_rate = 0.58; build_out_vs_alone_lift = 1.17; b_vs_a_lift = 1.25; d_vs_c_lift = 1.19; relet_vs_alone_lift = 0.97; single_tenant_build_out_signals = 2748; single_tenant_build_out_rate = 0.77; single_tenant_baseline = 0.62; single_tenant_lift = 1.25
+
 ## H02 — New roof → solar within 2 years
 
 - **Signal:** Reroof permit in the past 12 months
@@ -398,7 +670,7 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 | reroofed | parcels | rate |
 | --- | --- | --- |
-| False | 1995708 | 0.8% |
+| False | 1995720 | 0.8% |
 | True | 6476 | 1.0% |
 
 ## H16 — Poor energy score → mechanical/electrical upgrades
@@ -425,11 +697,11 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 | loan_quintile | tract_years | parcels | loans | permitted_parcels_next_year | permit_rate_next_year | permit_rate_same_year |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 1263 | 431277 | 0 | 15682 | 3.6% | 3.7% |
+| 1 | 1263 | 431281 | 0 | 15682 | 3.6% | 3.7% |
 | 2 | 647 | 440473 | 896 | 13955 | 3.2% | 3.3% |
-| 3 | 953 | 550937 | 2130 | 17632 | 3.2% | 3.3% |
-| 4 | 954 | 527055 | 3508 | 17356 | 3.3% | 3.4% |
-| 5 | 956 | 377374 | 4938 | 14453 | 3.8% | 4.0% |
+| 3 | 953 | 550938 | 2130 | 17632 | 3.2% | 3.3% |
+| 4 | 954 | 527059 | 3508 | 17356 | 3.3% | 3.4% |
+| 5 | 956 | 377379 | 4938 | 14453 | 3.8% | 4.0% |
 
 | loan_year | tracts | loans | rho_loans_next | rho_now_next | rho_loans_now | partial_rho |
 | --- | --- | --- | --- | --- | --- | --- |
