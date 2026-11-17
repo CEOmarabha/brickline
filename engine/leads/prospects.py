@@ -20,12 +20,11 @@ import sys
 from datetime import date
 from pathlib import Path
 
-import duckdb
-
-from engine.leads.snapshot import TRADES, title
+from engine import db
+from engine.leads.snapshot import TRADES
 from engine.score.signals import prepare_base, q
+from engine.text import title
 
-DB = Path("data/warehouse.duckdb")
 JSON_OUT = Path("web/data/prospects.json")
 PROSPECT_TRADES = ("porch", "masonry", "roofing", "plumbing", "electrical")
 MIN_JOBS, MAX_JOBS = 3, 60
@@ -82,13 +81,14 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=None, help="CSV path (default data/prospects-<date>.csv)")
     ap.add_argument("--json", type=Path, default=JSON_OUT, help=f"JSON path for the app (default {JSON_OUT})")
     args = ap.parse_args()
-    con = duckdb.connect(str(DB), read_only=True)
+    con = db.connect()
     prepare_base(con)
     today = con.execute("SELECT max(issue_date) FROM permits").fetchone()[0]
     area_names = {
         r["community_area"]: r["name"] for r in q(con, "SELECT community_area, name FROM community_areas")
     }
     out = args.out or Path(f"data/prospects-{today}.csv")
+    out.parent.mkdir(parents=True, exist_ok=True)
     fields = [
         "trade",
         "company",

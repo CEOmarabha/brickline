@@ -401,7 +401,15 @@ def crawl_sites(
 
     def work(url: str) -> None:
         nonlocal done
-        rec = crawl(url, today)
+        try:
+            rec = crawl(url, today)
+        except Exception as exc:  # one odd site must not abort the batch; it is cached as an error for 3 days
+            host = host_of(url)
+            log(f"    {host}: {type(exc).__name__}: {exc}")
+            rec = {
+                "host": host, "origin": url, "fetchedAt": today.isoformat(), "status": "error",
+                "error": type(exc).__name__, "pages": [], "emails": [], "phones": [],
+            }  # fmt: skip
         path = _cache_path(cache_dir, rec["host"])
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(rec, indent=1, sort_keys=True) + "\n")

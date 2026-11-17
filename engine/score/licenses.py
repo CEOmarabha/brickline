@@ -1,9 +1,8 @@
-"""Business-license and big-permit signals (signal lab H33 and H29), shared by the snapshot and the backtests.
+"""Business-license and big-permit signals (signal lab H29-H33), shared by the lab, the snapshot and the backtests.
 
-Definitions are copied from research/signal_lab/lab.py (`h33_buildout_permit_to_new_license`,
-`h29_trades_after_big_permit` and the license-site helpers they use), parameterized by period, so the formula that
-was validated historically is exactly the formula that scores the live lists. The equivalence with the lab is checked
-by calling both on the same warehouse (see the handoff).
+The lab's H29 and H33 call `open_trades` and `new_business` here, and its H31 and H32 read the `lc_*` tables built
+here, so the formula that was validated historically is exactly the formula that scores the live lists (the lab's
+findings file is byte-identical whichever side computes it).
 
 Requires the warehouse tables `permits`, `permit_parties`, `sales`, `res_chars`, `biz_license_history` and the base
 temp tables `p` and `addr_pin` from `engine.score.signals.prepare_base`. Every temp table made here is prefixed
@@ -51,7 +50,7 @@ def ensure_classes(con) -> None:
     con.execute("""
         CREATE OR REPLACE TEMP TABLE lc_pin_class AS
         SELECT pin10, coalesce(rc.class, s.cls) AS cls FROM (
-          SELECT pin10, first(class ORDER BY sale_date DESC, pin) AS cls FROM sales
+          SELECT pin10, first(class ORDER BY sale_date DESC, pin, class) AS cls FROM sales
           WHERE class IS NOT NULL GROUP BY pin10
         ) s FULL JOIN (SELECT pin10, class FROM res_chars) rc USING (pin10)
     """)
@@ -89,6 +88,14 @@ GROUP_PRIORITY = {
     "retail": 5,
     "other": 6,
 }
+LICENSE_GROUPS = (
+    "food & drink",
+    "personal services/beauty",
+    "health/fitness/childcare",
+    "retail",
+    "auto",
+    "other",
+)
 
 
 def license_group_sql(desc: str, act: str) -> str:

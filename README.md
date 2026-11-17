@@ -9,7 +9,7 @@ This repo contains the plan, the evidence behind it, and the first pieces of the
 0. `docs/HANDOFF.md` — how everything fits together, conventions, current state, next tasks (start here if you are continuing the work).
 1. `docs/00-strategic-assessment.md` — the summary and the latest decisions.
 2. `docs/11-lead-generation-strategy.md` — which lead signals actually work (backtested), the formulas, the homeowner-trade decision, and the revised first 90 days.
-3. `research/findings/backtests-2026-11-15.md` and `research/findings/chicago-signal-probe-2026-11-14.md` — the measurements.
+3. `research/findings/backtests-2026-11-16.md`, `research/findings/signal-lab-2026-11-16.md` and `research/findings/chicago-signal-probe-2026-11-14.md` — the measurements (each run writes a new dated file; use the newest).
 
 ## Documents
 
@@ -30,6 +30,7 @@ This repo contains the plan, the evidence behind it, and the first pieces of the
 | `docs/12-build-order-and-budget.md` | Client vs admin versions, our own prospecting, first-six-months budget |
 | `docs/13-signal-lab.md` | Creative lead ideas tested against history: results, failures, next ideas |
 | `docs/14-sales-playbook.md` | How to sell Brickline by cold outreach: ideal first customers, pilot offer, email and phone scripts, compliance, 30-day plan (pairs with the app's `/prospects` pages) |
+| `docs/15-intelligence-engine.md` | Engine assessment, case studies, the 24-equation strategy matrix, source verification and roadmap |
 | `docs/data-source-registry.md` | Data sources with coverage, cadence, access, verification status |
 | `docs/feature-roadmap.md` | Features by status and justifying metric |
 | `docs/decision-log.md` | Decisions, alternatives, evidence |
@@ -46,7 +47,7 @@ npm install
 npm run dev          # http://localhost:4317
 ```
 
-The app reads `web/data/snapshot.json`, produced by the engine. Lead statuses, notes and settings are stored in Postgres when `DATABASE_URL` is set, otherwise in an in-memory database that resets on restart. Each signed-in user can run several workspaces (one per client they manage).
+The app reads `web/data/snapshot.json`, `prospects.json`, `contacts.json` and `pest.json`, produced by the engine. Lead statuses, notes and settings are stored in Postgres when `DATABASE_URL` is set, otherwise in an in-memory database that resets on restart. Each signed-in user can run several workspaces (one per client they manage).
 
 The **Assistant** answers questions about leads, neighborhoods, competitors and results by calling read-only tools over the same data (Claude via `ANTHROPIC_API_KEY`, model overridable with `ASSISTANT_MODEL`); without a key, its quick questions still answer directly from the data.
 
@@ -54,30 +55,43 @@ Sales kit: **Prospects** (`/prospects`) lists the contractors to pitch (from `we
 
 Weekly operations: **Leads** exports a mail-merge CSV; **Weekly report** prints a client summary and one-letter-per-page mailings; **Results** turns won/lost leads into measured close rates that replace the default assumptions after 10 decided leads.
 
-To refresh the data (about 5 minutes, mostly downloads):
+To refresh the data (several minutes, mostly downloads; the contact step adds about 2 minutes when the website cache is cold):
 
 ```bash
-scripts/refresh-data.sh          # add --backtest to re-run the backtests
+scripts/refresh-data.sh          # add --backtest to also re-run the signal lab, the backtests and the zoning parse check
 ```
 
-Then commit `web/data/snapshot.json`, `web/data/prospects.json` and `web/data/contacts.json` and republish.
+It prints `git status` for the tracked outputs: commit `web/data/*.json` (snapshot, pest, prospects, contacts), `research/findings/` and `research/archive/manifest.json`, then republish.
 
 ## Building the warehouse and running backtests
 
-Requires Python 3.11+, [uv](https://docs.astral.sh/uv/) and internet access. The first sync downloads ~850 MB of public CSVs into `data/` (git-ignored) and takes a few minutes; it resumes if interrupted.
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/) and internet access. The first sync downloads about 2 GB of public CSVs and Parquet into `data/raw/` (git-ignored) and takes several minutes; it resumes if interrupted.
 
 ```bash
 uv sync
-uv run python -m engine.warehouse sync     # permits, violations, sales, licenses, 311, benchmarking, assessor characteristics, NOAA storms
-uv run python -m engine.warehouse build    # normalized tables in data/warehouse.duckdb (~15 s)
-uv run python research/backtests/run_backtests.py   # writes research/findings/backtests-<date>.md/.json
+uv run python -m engine.warehouse sync     # City and County datasets (Socrata), NOAA storms and radar hail, HMDA, Overture places, City Clerk zoning ordinances
+uv run python -m engine.warehouse build    # normalized tables in data/warehouse.duckdb (about 30 s)
+uv run python research/backtests/run_backtests.py   # writes research/findings/backtests-<date>.md/.json (~10 s)
 ```
 
-Signal lab (test new lead ideas, ~4 s): `uv run python research/signal_lab/lab.py` writes `research/findings/signal-lab-<date>.md`.
+Signal lab (test new lead ideas, about 40 s for all 37): `uv run python research/signal_lab/lab.py` writes `research/findings/signal-lab-<date>.md/.json`; name hypotheses (`lab.py H29 H33`) to run a few and write only `*.partial.*` files. Dates are UTC today; `SIGNAL_LAB_DATE` and `BACKTEST_DATE` override them.
 
-Our own prospect list (contractors to pitch): `uv run python -m engine.leads.prospects --trades porch masonry roofing` writes `data/prospects-<date>.csv`.
+Our own prospect list (contractors to pitch): `uv run python -m engine.leads.prospects --trades porch masonry roofing` writes `data/prospects-<date>.csv` and `web/data/prospects.json`.
 
-Code layout: `engine/collect` (Socrata bulk export), `engine/classify` (rules-based trade tagging), `engine/warehouse.py` (tables and join keys), `research/backtests` (signal tests), `research/probes` (quick live-data checks).
+Code layout:
+
+| Path | Contents |
+| --- | --- |
+| `engine/collect/` | Source collectors: `socrata.py` (bulk CSV export), `noaa.py`, `swdi.py`, `hmda.py`, `overture.py`, `clerk.py` (City Clerk zoning ordinances), `hfsrb.py` (certificate-of-need projects), `archive.py` (weekly snapshots of current-state-only sources), `http.py` (shared GET with retries) |
+| `engine/classify/` | Rules-based trade tagging (regex flags for permits and violations) |
+| `engine/warehouse.py`, `engine/db.py` | `sync` and `build` for `data/warehouse.duckdb` (tables and join keys); where the warehouse lives and how code opens it |
+| `engine/score/` | Shared definitions: `signals.py` (parcel features, combination model), `food.py` (restaurant-inspection signals, H23-H26), `licenses.py` (business-license and big-permit signals, H29-H33) |
+| `engine/leads/` | `snapshot.py` (app data), `pest.py` (pest-control pilot list), `prospects.py` (contractors to pitch) |
+| `engine/enrich/` | Free contact enrichment: `contacts.py`, `names.py`, `web.py` |
+| `research/backtests/`, `research/signal_lab/` | Historical validation (`run_backtests.py`) and creative hypothesis tests (`lab.py`, H01-H37) |
+| `research/probes/` | Live-data probes: `chicago_signal_probe.py`, `source_check.py` (51 candidate sources), `clerk_parse_check.py` |
+| `research/findings/`, `research/archive/` | Dated outputs of the above; the weekly source archive manifest |
+| `scripts/refresh-data.sh` | The weekly refresh |
 
 ## Re-running the data probe
 

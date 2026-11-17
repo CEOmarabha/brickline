@@ -46,10 +46,6 @@ def normalize(name: str | None) -> str:
     return " ".join(t for t in s.split() if t not in LEGAL_WORDS)
 
 
-def tokens(key: str) -> list[str]:
-    return key.split()
-
-
 def distinctive(key: str) -> list[str]:
     """Tokens that help identify the company (generic industry words removed)."""
     return [t for t in key.split() if t not in GENERIC_WORDS]

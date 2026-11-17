@@ -11,12 +11,14 @@ The sampling does not depend on DuckDB row order, so the file is byte-stable for
 from __future__ import annotations
 
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-import duckdb
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-DB = Path("data/warehouse.duckdb")
+from engine import db  # noqa: E402
+
 OUT = Path("research/findings")
 SAMPLE = 20
 
@@ -26,7 +28,7 @@ def fmt_pct(x: float) -> str:
 
 
 def main() -> int:
-    con = duckdb.connect(str(DB), read_only=True)
+    con = db.connect()
     one = lambda sql: con.execute(sql).fetchone()  # noqa: E731
     rows, matters, parsed_matters, addr_rows = one(
         """SELECT count(*), count(DISTINCT matter_id), count(DISTINCT matter_id) FILTER (WHERE address_key IS NOT NULL),

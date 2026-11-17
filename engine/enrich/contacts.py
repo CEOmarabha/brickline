@@ -25,17 +25,16 @@ from datetime import date, datetime
 from difflib import SequenceMatcher
 from pathlib import Path
 
-import duckdb
-
+from engine import db
+from engine.db import RAW
 from engine.enrich import web
 from engine.enrich.names import distinctive, normalize, token_set_ratio
-from engine.leads.snapshot import title
+from engine.text import title
 
-DB = Path("data/warehouse.duckdb")
 PROSPECTS = Path("web/data/prospects.json")
 SNAPSHOT = Path("web/data/snapshot.json")
 JSON_OUT = Path("web/data/contacts.json")
-WEB_CACHE = Path("data/raw/web_contacts")
+WEB_CACHE = RAW / "web_contacts"
 FINDINGS = Path("research/findings")
 
 OVERTURE = "overture"
@@ -130,7 +129,10 @@ def zip_of(text: str | None) -> str | None:
     return m.group(1) if m else None
 
 
-def retrieved(path: Path) -> str:
+def retrieved(path: Path, fallback: str) -> str:
+    """Date a raw file was downloaded; `fallback` when the raw pages are not on this machine."""
+    if not path.exists():
+        return fallback
     return datetime.fromtimestamp(path.stat().st_mtime).date().isoformat()
 
 
@@ -660,14 +662,19 @@ def main() -> int:
     ap.add_argument("--no-report", action="store_true", help="do not write the findings markdown")
     args = ap.parse_args()
     started = time.monotonic()
+    for path in (PROSPECTS, SNAPSHOT):
+        if not path.exists():
+            raise SystemExit(
+                f"{path} missing: run `engine.leads.snapshot` and `engine.leads.prospects` first"
+            )
 
     prospects, owners, day = load_entities(PROSPECTS, SNAPSHOT)
-    con = duckdb.connect(str(DB), read_only=True)
+    con = db.connect()
     rows = load_places(con)
     release = rows[0]["release"] if rows else "unknown"
     stamps = {
         OVERTURE: re.match(r"\d{4}-\d{2}-\d{2}", release).group(0) if re.match(r"\d{4}-", release) else day,
-        LICENSES: retrieved(Path("data/raw/biz_licenses/page-0000.csv")),
+        LICENSES: retrieved(RAW / "biz_licenses" / "page-0000.csv", day),
     }
     print(f"{len(prospects)} prospects, {len(owners)} company owners/buyers, {len(rows):,} open places")
     idx = PlaceIndex(rows)

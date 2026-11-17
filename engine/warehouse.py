@@ -14,17 +14,15 @@ import argparse
 import shutil
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 
 import duckdb
 
 from engine.classify.trades import PERMIT_TRADES, VIOLATION_TRADES, sql_flags
 from engine.collect import clerk, hmda, noaa, overture, swdi
 from engine.collect.socrata import export_csv
+from engine.db import DATA, RAW, WAREHOUSE
 
-DATA = Path("data")
-RAW = DATA / "raw"
-DB_PATH = DATA / "warehouse.duckdb"
+DB_PATH = WAREHOUSE
 
 CHICAGO = "data.cityofchicago.org"
 COOK = "datacatalog.cookcountyil.gov"
@@ -220,7 +218,14 @@ def address_key_sql(expr: str) -> str:
     )
 
 
+NON_SOCRATA_SOURCES = ("clerk", "noaa", "hmda", "swdi", "overture")
+SOURCE_NAMES = (*(ds.name for ds in DATASETS), *NON_SOCRATA_SOURCES)
+
+
 def sync(names: list[str] | None = None) -> None:
+    unknown = sorted(set(names or []) - set(SOURCE_NAMES))
+    if unknown:
+        raise SystemExit(f"unknown source(s) {', '.join(unknown)}; choose from: {', '.join(SOURCE_NAMES)}")
     for ds in DATASETS:
         if names and ds.name not in names:
             continue
@@ -247,7 +252,24 @@ def _csv(name: str) -> str:
     return f"read_csv('{RAW / name}/page-*.csv', header=true, all_varchar=true, union_by_name=true)"
 
 
+def missing_raw() -> list[str]:
+    """Raw inputs `build` reads that `sync` has not downloaded yet."""
+    wanted = {ds.name: "page-*.csv" for ds in DATASETS}
+    wanted |= {
+        "noaa": "storms-*.csv",
+        "hmda": "hmda-*.csv",
+        "swdi": "nx3hail-*.csv",
+        "overture": "places-*.parquet",
+    }
+    return sorted(name for name, pattern in wanted.items() if not list((RAW / name).glob(pattern)))
+
+
 def build() -> None:
+    missing = missing_raw()
+    if missing:
+        raise SystemExit(
+            f"raw data missing for: {', '.join(missing)}; run `uv run python -m engine.warehouse sync` first"
+        )
     DATA.mkdir(exist_ok=True)
     tmp = DB_PATH.with_suffix(".building")
     if tmp.exists():
@@ -420,7 +442,8 @@ def build() -> None:
             {sql_flags(food_text_sql("violations"), FOOD_VIOLATION_FLAGS, prefix="f_")}
         FROM src
         WHERE inspection_date IS NOT NULL
-        QUALIFY row_number() OVER (PARTITION BY inspection_id ORDER BY inspection_date) = 1
+        QUALIFY row_number() OVER (
+            PARTITION BY inspection_id ORDER BY inspection_date, results, dba, violations) = 1
     """)
 
     print("build parcels")
@@ -670,7 +693,7 @@ def build() -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["sync", "build"])
-    ap.add_argument("--only", nargs="*", help="dataset names for sync")
+    ap.add_argument("--only", nargs="*", help="sources to sync (default: all)")
     args = ap.parse_args()
     if args.command == "sync":
         sync(args.only)

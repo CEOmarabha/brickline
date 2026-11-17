@@ -18,14 +18,9 @@ target-version = "py311"
 select = ["E", "F", "W", "I", "B", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-# Report renderers and SQL templates read better unwrapped.
-"research/**" = ["E501"]
-"engine/leads/*.py" = ["E501"]
-"engine/score/food.py" = ["E501"]
-"engine/score/licenses.py" = ["E501"]
-"engine/enrich/*.py" = ["E501"]
-"engine/collect/overture.py" = ["E501"]
-"engine/collect/clerk.py" = ["E501"]
+# SQL templates, regex tables and report renderers read better unwrapped: research code plus the SQL-heavy engine
+# modules (snapshot/pest/prospects, contact enrichment, the shared signal SQL, and the clerk/overture collectors).
+"{research/**,engine/{leads,enrich}/*.py,engine/score/{food,licenses}.py,engine/collect/{clerk,overture}.py}" = ["E501"]
 
 [build-system]
 requires = ["hatchling"]

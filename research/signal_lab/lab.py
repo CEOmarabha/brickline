@@ -3,8 +3,10 @@
     uv run python research/signal_lab/lab.py              # all hypotheses
     uv run python research/signal_lab/lab.py H01 H06      # selected ones (writes *.partial.md/.json only)
 
-Writes research/findings/signal-lab-<date>.md and .json. To add an idea, write one function that returns
-`result(...)` using the helpers below and register it in HYPOTHESES.
+Writes research/findings/signal-lab-<date>.md and .json (date = UTC today, or SIGNAL_LAB_DATE). To add an idea,
+write one function that returns `result(...)` using the helpers below and register it in HYPOTHESES. H29 and H33
+are computed by engine.score.licenses (the same code that scores the live lists); H23-H28 share their
+definitions with engine.score.food.
 
 Test types:
   * same_property: signal at a property -> target event at the same property within N days, against the
@@ -24,16 +26,43 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import duckdb
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from engine.score.food import RENO_PREDICATE  # noqa: E402
-from engine.score.signals import INVESTOR_RE, NON_OPERATOR_RE, one, prepare_base, q  # noqa: E402
+from engine import db  # noqa: E402
+from engine.score import licenses  # noqa: E402
+from engine.score.food import (  # noqa: E402
+    INSPECTION_STRATA,
+    NAME_KEY,
+    RENO_PREDICATE,
+    SAME_NAME,
+    VALID_RESULT,
+    round_floats,
+)
+from engine.score.licenses import (  # noqa: E402
+    BIG_COST,
+    BUCKET_UNKNOWN,
+    GROUP_PRIORITY,
+    LICENSE_GROUPS,
+    R4_START,
+    ensure_classes,
+    ensure_licenses,
+    row_end,
+)
+from engine.score.signals import (  # noqa: E402
+    CELL_LAT,
+    CELL_LON,
+    INVESTOR_RE,
+    LIFT_STRONG,
+    LIFT_USEFUL,
+    LIFT_WEAK,
+    NON_OPERATOR_RE,
+    RESI_CLASSES,
+    one,
+    prepare_base,
+    q,
+)
 
-DB = Path("data/warehouse.duckdb")
 OUT = Path("research/findings")
-CELL_LAT, CELL_LON = 0.0015, 0.002  # ~167 m x ~165 m in Chicago
 MIN_GROUP = 1000  # minimum properties for a cohort group to be reported
 
 
@@ -45,11 +74,11 @@ def result(
     conv = metrics.get("conversion")
     if lift is None:
         verdict = "Descriptive"
-    elif lift >= 3 and (vol or 0) >= 5:
+    elif lift >= LIFT_STRONG and (vol or 0) >= 5:
         verdict = "Strong"
-    elif lift >= 1.8:
+    elif lift >= LIFT_USEFUL:
         verdict = "Useful"
-    elif lift >= 1.25:
+    elif lift >= LIFT_WEAK:
         verdict = "Weak"
     else:
         verdict = "No signal"
@@ -91,10 +120,10 @@ def prepare(con) -> None:
         ) x JOIN addr_pt a USING (address_key)
         GROUP BY 1
     """)
-    con.execute("""
+    con.execute(f"""
         CREATE OR REPLACE TEMP TABLE resi AS
         SELECT r.*, pt.cy, pt.cx FROM res_chars r JOIN pin_pt pt USING (pin10)
-        WHERE r.class IN ('202','203','204','205','206','207','208','209','210','234','278','295','211','212')
+        WHERE r.class IN {RESI_CLASSES}
     """)
 
 
@@ -142,15 +171,9 @@ def same_property(con, signal_sql: str, target_sql: str, window: int, start: str
     return _round(r)
 
 
-def _round_deep(x, digits: int = 5):
-    """Round every float in nested results so the JSON file is byte-stable across runs."""
-    if isinstance(x, float):
-        return round(x, digits)
-    if isinstance(x, dict):
-        return {k: _round_deep(v, digits) for k, v in x.items()}
-    if isinstance(x, list):
-        return [_round_deep(v, digits) for v in x]
-    return x
+def _round_deep(x):
+    """Round every float in nested results to 5 places so the JSON file is byte-stable across runs."""
+    return round_floats(x, 5)
 
 
 def _round(d: dict) -> dict:
@@ -304,7 +327,7 @@ def h03_reroof_neighbors(con) -> dict:
     )
 
 
-def h04_storms(con, event_type: str, min_mag: float, hid: str, title: str) -> dict:
+def storm_study(con, event_type: str, min_mag: float, hid: str, title: str) -> dict:
     """Area before/after with control: permits in cells near a storm report vs the same window a year earlier,
     compared with all other cells over the same windows (difference in ratios)."""
     rows = q(
@@ -376,12 +399,12 @@ def h04_storms(con, event_type: str, min_mag: float, hid: str, title: str) -> di
     )
 
 
-def h05_hail(con) -> dict:
-    return h04_storms(con, "Hail", 1.0, "H04", "Hail ≥ 1 inch → reroof wave")
+def h04_hail(con) -> dict:
+    return storm_study(con, "Hail", 1.0, "H04", "Hail ≥ 1 inch → reroof wave")
 
 
-def h05b_wind(con) -> dict:
-    return h04_storms(con, "Thunderstorm Wind", 60, "H05", "Damaging wind (60+ kt) → reroof wave")
+def h05_wind(con) -> dict:
+    return storm_study(con, "Thunderstorm Wind", 60, "H05", "Damaging wind (60+ kt) → reroof wave")
 
 
 def sr_signal(sr_type: str) -> str:
@@ -530,7 +553,7 @@ def cohort(con, hid: str, title: str, who: str, group_sql: str, flag: str, notes
         g AS (SELECT pin10, {group_sql} AS grp FROM resi)
         SELECT grp, count(*) AS parcels,
           (SELECT count(*) FROM t JOIN g g2 USING (pin10) WHERE g2.grp = g.grp) / (3.0 * count(*)) AS annual_rate
-        FROM g WHERE grp IS NOT NULL GROUP BY grp ORDER BY annual_rate DESC
+        FROM g WHERE grp IS NOT NULL GROUP BY grp ORDER BY annual_rate DESC, grp
     """,
     )
     total = sum(r["parcels"] for r in rows)
@@ -628,7 +651,7 @@ def h16_energy(con) -> dict:
                     AND year(p.issue_date) BETWEEN b.data_year + 1 AND b.data_year + 2) AS y
           FROM b
         )
-        SELECT grp, count(*) AS building_years, avg(y::INT) AS rate FROM o GROUP BY 1 ORDER BY rate DESC
+        SELECT grp, count(*) AS building_years, avg(y::INT) AS rate FROM o GROUP BY 1 ORDER BY rate DESC, grp
     """,
     )
     low = next(r for r in rows if r["grp"].startswith("ENERGY STAR ≤"))
@@ -1100,15 +1123,6 @@ def h22_seasonality(con) -> dict:
 # ----------------------------------------------------------------------------------------------------------
 # Round 3: restaurant inspections as signals, matched against ordinary inspections
 # ----------------------------------------------------------------------------------------------------------
-VALID_RESULT = "results IN ('Pass', 'Pass w/ Conditions', 'Fail')"
-INSPECTION_STRATA = """CASE
-  WHEN inspection_type = 'License' THEN 'License (pre-opening)'
-  WHEN lower(inspection_type) LIKE '%re-inspection%' THEN 'Re-inspection'
-  WHEN inspection_type LIKE '%Complaint%' THEN 'Complaint'
-  WHEN inspection_type = 'Canvass' THEN 'Canvass (routine)'
-  ELSE 'Other' END"""
-NAME_KEY = "regexp_replace(upper(coalesce({x}, '')), '[^A-Z0-9]', '', 'g')"
-SAME_NAME = "(e.nm = t.nm OR (length(e.nm) >= 6 AND length(t.nm) >= 6 AND (contains(e.nm, t.nm) OR contains(t.nm, e.nm))))"
 
 
 def inspection_vs_control(
@@ -1785,337 +1799,11 @@ def h28_radar_hail(con) -> dict:
 # ----------------------------------------------------------------------------------------------------------
 # Round 4: trades after a big permit, commercial reroof cycle model, business-license signals
 # ----------------------------------------------------------------------------------------------------------
-R4_START = "2016-01-01"
-BUCKET_RESIDENTIAL = "single-family/other residential (2xx)"
-BUCKET_UNKNOWN = "unknown class"
-
-
-def class_bucket_sql(cls: str) -> str:
-    return f"""CASE
-      WHEN {cls} IS NULL THEN '{BUCKET_UNKNOWN}'
-      WHEN left({cls}, 1) = '5' THEN 'commercial/industrial (5xx)'
-      WHEN left({cls}, 1) = '3' THEN 'multifamily 7+ (3xx)'
-      WHEN {cls} = '211' THEN '2-6 unit flats (211)'
-      WHEN {cls} = '212' THEN 'mixed-use up to 6 units (212)'
-      WHEN left({cls}, 1) = '2' THEN '{BUCKET_RESIDENTIAL}'
-      WHEN left({cls}, 1) = '1' THEN 'vacant land (1xx)'
-      ELSE 'exempt/other' END"""
-
-
-def ensure_r4(con) -> None:
-    """Temp tables shared by the round 4 hypotheses (idempotent): addr_map, pin_class, addr_cls, ctr."""
-    if con.execute("SELECT count(*) FROM duckdb_tables() WHERE table_name = 'r4_ready'").fetchone()[0]:
-        return
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE addr_map AS
-        SELECT address_key, first(pin10 ORDER BY pri, pin10) AS pin10 FROM (
-          SELECT address_key, pin10, 0 AS pri FROM addr_pin
-          UNION ALL SELECT address_key, pin10, 1 FROM parcels WHERE address_key IS NOT NULL AND pin10 IS NOT NULL
-        ) GROUP BY address_key
-    """)
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE pin_class AS
-        SELECT pin10, coalesce(rc.class, s.cls) AS cls FROM (
-          SELECT pin10, first(class ORDER BY sale_date DESC, pin) AS cls FROM sales
-          WHERE class IS NOT NULL GROUP BY pin10
-        ) s FULL JOIN (SELECT pin10, class FROM res_chars) rc USING (pin10)
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE addr_cls AS
-        SELECT m.address_key, m.pin10, c.cls, {class_bucket_sql("c.cls")} AS bucket
-        FROM addr_map m LEFT JOIN pin_class c USING (pin10)
-    """)
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE ctr AS
-        SELECT DISTINCT permit_id, name_key FROM permit_parties
-        WHERE name_key <> '' AND ((role NOT IN ('owner', 'owner_gc', 'architect', 'engineer', 'expediter', 'other'))
-              OR role_raw LIKE '%CONTRACTOR%')
-    """)
-    con.execute("CREATE OR REPLACE TEMP TABLE r4_ready AS SELECT 1 AS x")
-
-
 # --- H29 --------------------------------------------------------------------------------------------------
-BIG_COST = 1_000_000
-FOLLOW_WINDOW = 540
-SCAFFOLD_LAST = "2023-11-17"  # the scaffolding permit type stops appearing in the feed after this date
-OTHER_TYPES = "permit_type NOT IN ('PERMIT - SIGNS', 'PERMIT - ELEVATOR EQUIPMENT', 'PERMIT - SCAFFOLDING')"
-FOLLOW_TRADES: dict[str, tuple[str, str]] = {
-    "signs": ("permit_type = 'PERMIT - SIGNS'", "PERMIT - SIGNS"),
-    "elevator": ("permit_type = 'PERMIT - ELEVATOR EQUIPMENT'", "PERMIT - ELEVATOR EQUIPMENT"),
-    "electrical": (
-        f"{OTHER_TYPES} AND t_electrical",
-        "EXPRESS/EASY/RENOVATION text mentions electrical wiring",
-    ),
-    "scaffolding": ("permit_type = 'PERMIT - SCAFFOLDING'", "PERMIT - SCAFFOLDING (feed ends 2023-11-17)"),
-    "plumbing": (f"{OTHER_TYPES} AND t_plumbing", "text mentions plumbing"),
-    "hvac": (f"{OTHER_TYPES} AND t_hvac", "text mentions mechanical/HVAC"),
-    "fire_alarm": (f"{OTHER_TYPES} AND t_fire_alarm", "text mentions fire alarm/sprinkler"),
-    "roofing": (f"{OTHER_TYPES} AND t_roofing", "text mentions roofing"),
-    "demolition": ("permit_type = 'PERMIT - WRECKING/DEMOLITION'", "PERMIT - WRECKING/DEMOLITION"),
-    "renovation": (
-        "permit_type = 'PERMIT - RENOVATION/ALTERATION' OR t_interior_buildout",
-        "PERMIT - RENOVATION/ALTERATION or interior build-out text",
-    ),
-}
-HEADLINE_TRADES = ("signs", "elevator", "electrical")
-H29_BUCKETS = (
-    "commercial/industrial (5xx)",
-    "multifamily 7+ (3xx)",
-    "mixed-use up to 6 units (212)",
-    "2-6 unit flats (211)",
-    "exempt/other",
-)
-
-
-def _quartiles(vals_sql_col: str) -> str:
-    return (
-        f"median({vals_sql_col}) AS med, quantile_cont({vals_sql_col}, 0.25) AS p25, "
-        f"quantile_cont({vals_sql_col}, 0.75) AS p75"
-    )
-
-
 def h29_trades_after_big_permit(con) -> dict:
     """Major commercial/multifamily permit at an address -> which follow-on permits come, and are the people
-    on them already named on the big permit."""
-    ensure_r4(con)
-    max_issue = one(con, "SELECT max(issue_date) AS d FROM permits")["d"]
-    end = f"DATE '{max_issue}' - INTERVAL {FOLLOW_WINDOW} DAY"
-    flag_cols = ", ".join(f"({pred}) AS f_{name}" for name, (pred, _) in FOLLOW_TRADES.items())
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE fo AS
-        SELECT id, address_key AS k, issue_date AS d, {flag_cols} FROM p WHERE address_key IS NOT NULL
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE maj_all AS
-        SELECT id, address_key AS k, issue_date AS d, address_key || '@' || issue_date::VARCHAR AS sk,
-          reported_cost AS cost, pin10 FROM p
-        WHERE permit_type IN ('PERMIT - NEW CONSTRUCTION', 'PERMIT - RENOVATION/ALTERATION')
-          AND reported_cost >= {BIG_COST} AND address_key IS NOT NULL
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE sig AS
-        SELECT sk, k, d, cost, bucket FROM (
-          SELECT sk, k, d, cost, {class_bucket_sql("pc.cls")} AS bucket,
-            lag(d) OVER (PARTITION BY k ORDER BY d) AS prev
-          FROM (SELECT sk, k, d, max(cost) AS cost, first(pin10 ORDER BY cost DESC, id) AS pin10
-                FROM maj_all GROUP BY sk, k, d) m
-          LEFT JOIN pin_class pc USING (pin10)
-        ) WHERE (prev IS NULL OR d - prev > {FOLLOW_WINDOW}) AND d >= DATE '{R4_START}'
-    """)
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE mpp AS
-        SELECT DISTINCT m.sk, c.name_key FROM maj_all m JOIN ctr c ON c.permit_id = m.id
-    """)
-    flags = ", ".join(f"t.f_{n}" for n in FOLLOW_TRADES)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE pr AS
-        SELECT s.sk, s.d AS sd, s.bucket, t.id AS tid, t.d - s.d AS days, {flags},
-          EXISTS (SELECT 1 FROM ctr c WHERE c.permit_id = t.id) AS named
-        FROM sig s JOIN fo t ON t.k = s.k AND t.d > s.d AND t.d <= s.d + INTERVAL {FOLLOW_WINDOW} DAY
-    """)
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE lk AS
-        SELECT DISTINCT pr.sk, pr.tid FROM pr JOIN ctr c ON c.permit_id = pr.tid
-        JOIN mpp m ON m.name_key = c.name_key AND m.sk = pr.sk
-    """)
-    con.execute("""
-        CREATE OR REPLACE TEMP TABLE pr2 AS
-        SELECT pr.*, (lk.tid IS NOT NULL) AS locked FROM pr LEFT JOIN lk USING (sk, tid)
-    """)
-    # control pools: quarterly address-quarters without a major permit within +-540 days
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE qd AS
-        SELECT unnest(generate_series(DATE '{R4_START}', {end}, INTERVAL 3 MONTH))::DATE AS q
-    """)
-    bucket_list = ", ".join(f"'{b}'" for b in H29_BUCKETS)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE pool_a AS
-        SELECT a.address_key AS k, qd.q, a.bucket FROM (SELECT DISTINCT address_key, bucket FROM addr_cls
-          WHERE bucket IN ({bucket_list})) a CROSS JOIN qd
-        WHERE NOT EXISTS (SELECT 1 FROM maj_all m WHERE m.k = a.address_key
-          AND m.d > qd.q - INTERVAL {FOLLOW_WINDOW} DAY AND m.d <= qd.q + INTERVAL {FOLLOW_WINDOW} DAY)
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE pool_b AS
-        SELECT DISTINCT a.k, a.q, a.bucket FROM (
-          SELECT p2.address_key AS k, qd.q, ac.bucket FROM p p2 CROSS JOIN qd
-          JOIN (SELECT DISTINCT address_key, bucket FROM addr_cls WHERE bucket IN ({bucket_list})) ac
-            ON ac.address_key = p2.address_key
-          WHERE p2.permit_type IN ('PERMIT - NEW CONSTRUCTION', 'PERMIT - RENOVATION/ALTERATION')
-            AND p2.reported_cost >= 100000 AND p2.reported_cost < {BIG_COST}
-            AND p2.issue_date > qd.q - INTERVAL 90 DAY AND p2.issue_date <= qd.q
-        ) a
-        WHERE NOT EXISTS (SELECT 1 FROM maj_all m WHERE m.k = a.k
-          AND m.d > a.q - INTERVAL {FOLLOW_WINDOW} DAY AND m.d <= a.q + INTERVAL {FOLLOW_WINDOW} DAY)
-    """)
-    for pool in ("a", "b"):
-        con.execute(f"""
-            CREATE OR REPLACE TEMP TABLE hit_{pool} AS
-            SELECT c.k, c.q, {", ".join(f"bool_or(t.f_{n}) AS f_{n}" for n in FOLLOW_TRADES)}
-            FROM pool_{pool} c JOIN fo t ON t.k = c.k AND t.d > c.q AND t.d <= c.q + INTERVAL {FOLLOW_WINDOW} DAY
-            GROUP BY c.k, c.q
-        """)
-
-    def cohort_end(trade: str | None) -> str:
-        if trade == "scaffolding":
-            return f"least({end}, DATE '{SCAFFOLD_LAST}' - INTERVAL {FOLLOW_WINDOW} DAY)"
-        return end
-
-    def std_rate(pool: str, flag_expr: str, weights: dict[str, float], e: str) -> float:
-        rows = q(
-            con,
-            f"""
-            SELECT c.bucket, count(*) AS n, count(*) FILTER (WHERE {flag_expr}) AS hits
-            FROM pool_{pool} c LEFT JOIN hit_{pool} h ON h.k = c.k AND h.q = c.q
-            WHERE c.q <= {e} GROUP BY 1
-        """,
-        )
-        by = {r["bucket"]: r for r in rows}
-        tot = sum(w for b, w in weights.items() if b in by and by[b]["n"])
-        return sum(w / tot * by[b]["hits"] / by[b]["n"] for b, w in weights.items() if b in by and by[b]["n"])
-
-    def trade_stats(name: str, any_of: tuple[str, ...]) -> dict:
-        e = cohort_end(name if name == "scaffolding" else None)
-        sflag = " OR ".join(f"r.f_{n}" for n in any_of)
-        hflag = " OR ".join(f"h.f_{n}" for n in any_of)
-        sig_rows = q(
-            con,
-            f"""
-            WITH s AS (SELECT * FROM sig WHERE d <= {e} AND bucket IN ({bucket_list})),
-            per AS (
-              SELECT s.sk, s.bucket, min(r.days) FILTER (WHERE {sflag}) AS first_days,
-                bool_or(({sflag}) AND r.named AND NOT r.locked) AS has_new,
-                bool_or(({sflag}) AND r.named AND r.locked) AS has_locked,
-                bool_or(({sflag}) AND NOT r.named) AS has_unnamed,
-                EXISTS (SELECT 1 FROM fo x WHERE x.k = s.k AND ({" OR ".join(f"x.f_{n}" for n in any_of)})
-                  AND x.d > s.d - INTERVAL {2 * FOLLOW_WINDOW} DAY AND x.d <= s.d - INTERVAL {FOLLOW_WINDOW} DAY)
-                  AS before
-              FROM s LEFT JOIN pr2 r ON r.sk = s.sk GROUP BY s.sk, s.k, s.d, s.bucket
-            )
-            SELECT bucket, count(*) AS n, count(first_days) AS hits, sum(coalesce(has_new, false)::INT) AS new_hits,
-              sum(coalesce(has_locked, false)::INT) AS locked_hits, sum(coalesce(has_unnamed, false)::INT) AS unnamed_hits,
-              sum(before::INT) AS before_hits
-            FROM per GROUP BY bucket ORDER BY bucket
-        """,
-        )
-        n = sum(r["n"] for r in sig_rows)
-        hits = sum(r["hits"] for r in sig_rows)
-        weights = {r["bucket"]: r["n"] / n for r in sig_rows}
-        base_a = std_rate("a", hflag, weights, e)
-        base_b = std_rate("b", hflag, weights, e)
-        t = one(
-            con,
-            f"""
-            SELECT count(*) AS n, count(*) FILTER (WHERE named) AS named_n,
-              count(*) FILTER (WHERE named AND locked) AS locked_n,
-              count(*) FILTER (WHERE named AND NOT locked) AS new_n
-            FROM pr2 r WHERE r.sd <= {e} AND r.bucket IN ({bucket_list}) AND ({sflag})
-        """,
-        )
-        tm = one(
-            con,
-            f"""
-            WITH s AS (SELECT * FROM sig WHERE d <= {e} AND bucket IN ({bucket_list})),
-            per AS (SELECT s.sk, min(r.days) AS first_days FROM s JOIN pr2 r ON r.sk = s.sk AND ({sflag}) GROUP BY s.sk)
-            SELECT {_quartiles("first_days")} FROM per
-        """,
-        )
-        return {
-            "signals": n,
-            "followon_rate": hits / n,
-            "own_earlier_rate": sum(r["before_hits"] for r in sig_rows) / n,
-            "lift_vs_own": hits / n / (sum(r["before_hits"] for r in sig_rows) / n)
-            if sum(r["before_hits"] for r in sig_rows)
-            else None,
-            "matched_control_rate": base_a,
-            "lift_vs_matched": hits / n / base_a if base_a else None,
-            "busy_control_rate": base_b,
-            "lift_vs_busy": hits / n / base_b if base_b else None,
-            "median_days": tm["med"],
-            "p25_days": tm["p25"],
-            "p75_days": tm["p75"],
-            "new_contractor_rate": sum(r["new_hits"] for r in sig_rows) / n,
-            "locked_in_rate": sum(r["locked_hits"] for r in sig_rows) / n,
-            "permits": t["n"],
-            "new_share": t["new_n"] / t["n"] if t["n"] else None,
-            "locked_share": t["locked_n"] / t["n"] if t["n"] else None,
-            "unnamed_share": (t["n"] - t["named_n"]) / t["n"] if t["n"] else None,
-            "_by_bucket": sig_rows,
-            "_weights": weights,
-        }
-
-    by_trade = []
-    stats: dict[str, dict] = {}
-    for name in FOLLOW_TRADES:
-        st = trade_stats(name, (name,))
-        stats[name] = st
-        by_trade.append(
-            {"trade": name, "permit_types": FOLLOW_TRADES[name][1]}
-            | {k: v for k, v in st.items() if not k.startswith("_")}
-        )
-    head = trade_stats("headline", HEADLINE_TRADES)
-    by_class = []
-    for r in head["_by_bucket"]:
-        e = end
-        w = {r["bucket"]: 1.0}
-        base_a = std_rate("a", " OR ".join(f"h.f_{n}" for n in HEADLINE_TRADES), w, e)
-        by_class.append(
-            {
-                "class": r["bucket"],
-                "signals": r["n"],
-                "followon_rate": r["hits"] / r["n"],
-                "matched_control_rate": base_a,
-                "lift_vs_matched": r["hits"] / r["n"] / base_a if base_a else None,
-            }
-        )
-    unknown = one(
-        con,
-        f"""
-        SELECT count(*) AS n, avg((EXISTS (SELECT 1 FROM pr2 r WHERE r.sk = s.sk
-          AND (r.f_signs OR r.f_elevator OR r.f_electrical)))::INT) AS rate
-        FROM sig s WHERE s.d <= {end} AND s.bucket NOT IN ({bucket_list})
-    """,
-    )
-    by_year = q(
-        con,
-        f"""
-        SELECT year(s.d) AS year, count(*) AS n,
-          avg((EXISTS (SELECT 1 FROM pr2 r WHERE r.sk = s.sk
-            AND (r.f_signs OR r.f_elevator OR r.f_electrical)))::INT) AS conversion
-        FROM sig s WHERE s.d <= {end} AND s.bucket IN ({bucket_list}) GROUP BY 1 ORDER BY 1
-    """,
-    )
-    vol = one(
-        con,
-        f"""
-        SELECT count(*) FILTER (WHERE bucket NOT IN ('{BUCKET_RESIDENTIAL}', 'vacant land (1xx)')) / 52.0 AS v,
-          count(*) FILTER (WHERE bucket IN ({bucket_list})) / 52.0 AS v_known
-        FROM sig WHERE d > DATE '{max_issue}' - INTERVAL 365 DAY
-    """,
-    )
-    own = head["own_earlier_rate"]
-    metrics = _round_deep(
-        {
-            "signals": head["signals"],
-            "conversion": head["followon_rate"],
-            "baseline": own,
-            "lift": head["lift_vs_own"],
-            "matched_control_rate": head["matched_control_rate"],
-            "lift_vs_matched_control": head["lift_vs_matched"],
-            "busy_control_rate": head["busy_control_rate"],
-            "lift_vs_busy": head["lift_vs_busy"],
-            "signals_per_week_class_known": vol["v_known"],
-            "median_days": head["median_days"],
-            "days_p25": head["p25_days"],
-            "days_p75": head["p75_days"],
-            "signals_per_week": vol["v"],
-            "unknown_class_signals": unknown["n"],
-            "unknown_class_followon_rate": unknown["rate"],
-            "by_trade": by_trade,
-            "by_class": by_class,
-            "by_year": by_year,
-        }
-    )
+    on them already named on the big permit (computed by engine.score.licenses.open_trades)."""
+    metrics = _round_deep({k: v for k, v in licenses.open_trades(con).items() if k != "period_end"})
     return result(
         "H29",
         "Which trades are still open after a $1M+ commercial/multifamily permit (signs, elevator, electrical, ...)",
@@ -2162,7 +1850,7 @@ HAIL_LAT, HAIL_LON = 0.009, 0.0121  # ~1 km
 
 def _build_h30_matrix(con) -> None:
     """Temp table m30: one row per (segment, as-of date, parcel) with bucketed features and the target y."""
-    ensure_r4(con)
+    ensure_classes(con)
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE asof30 AS
         SELECT unnest(generate_series(DATE '{ASOF_START}', DATE '{ASOF_END}', INTERVAL 3 MONTH))::DATE AS d
@@ -2173,12 +1861,12 @@ def _build_h30_matrix(con) -> None:
     """)
     con.execute("""
         CREATE OR REPLACE TEMP TABLE vroof30 AS
-        SELECT DISTINCT m.pin10, v.violation_date FROM violations v JOIN addr_map m USING (address_key)
+        SELECT DISTINCT m.pin10, v.violation_date FROM violations v JOIN lc_addr_map m USING (address_key)
         WHERE v.t_roofing AND v.violation_date IS NOT NULL
     """)
     con.execute("""
         CREATE OR REPLACE TEMP TABLE sale_cls AS
-        SELECT pin10, sale_date, first(class ORDER BY pin) AS cls FROM sales
+        SELECT pin10, sale_date, first(class ORDER BY pin, class) AS cls FROM sales
         WHERE sale_date IS NOT NULL AND class IS NOT NULL
           AND pin10 IN (SELECT pin10 FROM sales WHERE left(class, 1) IN ('3', '5'))
         GROUP BY pin10, sale_date
@@ -2196,12 +1884,12 @@ def _build_h30_matrix(con) -> None:
         CREATE OR REPLACE TEMP TABLE yb30 AS
         SELECT pin10, min(yb) AS yb FROM (
           SELECT pin10, year_built AS yb FROM res_chars
-          UNION ALL SELECT m.pin10, b.year_built FROM benchmarking b JOIN addr_map m USING (address_key)
+          UNION ALL SELECT m.pin10, b.year_built FROM benchmarking b JOIN lc_addr_map m USING (address_key)
         ) WHERE yb BETWEEN 1800 AND 2026 GROUP BY pin10
     """)
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE pt30 AS
-        SELECT m.pin10, median(b.lat) AS lat, median(b.lon) AS lon FROM addr_map m JOIN (
+        SELECT m.pin10, median(b.lat) AS lat, median(b.lon) AS lon FROM lc_addr_map m JOIN (
           SELECT address_key, lat, lon FROM (
             SELECT address_key, lat, lon, issue_date AS dt FROM permits
             UNION ALL SELECT address_key, lat, lon, violation_date FROM violations
@@ -2504,86 +2192,30 @@ def h30_reroof_cycle_model(con) -> dict:
 
 
 # --- H31 / H32 / H33: business licenses --------------------------------------------------------------------
-NON_PREMISES_DESC = (
-    "Peddler|Special Event|Pharmaceutical|Pop-Up|Raffles|Valet|Mobile Food|Shared Kitchen User|Shared Housing|"
-    "Affiliation|License Manager|Booting|Towing|Taxicab|Transportation Network|Scooter|Bicycle Messenger|"
-    "Short Term Residential|Explosives|Navy Pier|Wrigley|Indoor Special|Outdoor Patio|Late Hour|Music and Dance|"
-    "Sports License|Video Gaming|Weapons|Tobacco Sampler|Tobacco Dealer|Heliports|Emerging Business|"
-    "Commercial Passenger|Seasonal Lakefront|Caterer|License Broker|Not-For-Profit Club|\\(PAV\\)"
-)
-NON_PREMISES_ACTIVITY = (
-    "HOME BASED|MOVING ALONG THE PUBLIC WAY|STREET PERFORMER|PEDDLER|MOBILE FOOD|FOOD TRUCK|EXPEDITER|"
-    "SPECIAL EVENT|POP UP"
-)
-LICENSE_GROUPS = (
-    "food & drink",
-    "personal services/beauty",
-    "health/fitness/childcare",
-    "retail",
-    "auto",
-    "other",
-)
-GROUP_PRIORITY = {
-    "auto": 1,
-    "food & drink": 2,
-    "personal services/beauty": 3,
-    "health/fitness/childcare": 4,
-    "retail": 5,
-    "other": 6,
-}
-LIC_HORIZON = "DATE '2026-12-31'"
-
-
-def license_group_sql(desc: str, act: str) -> str:
-    u = f"upper({desc} || ' | ' || coalesce({act}, ''))"
-    return f"""CASE
-      WHEN regexp_matches({u}, 'MOTOR VEHICLE|FILLING STATION|FUEL|GARAGE|CAR WASH|\\bTIRE|AUTO REPAIR|AUTOMOTIVE') THEN 'auto'
-      WHEN {desc} IN ('Retail Food Establishment', 'Tavern', 'Wholesale Food Establishment',
-                      'Consumption on Premises - Incidental Activity')
-           OR regexp_matches({u}, 'DINING|PREPARATION AND SALE|LIQUOR ON PREMISES|CONSUMPTION OF LIQUOR|COFFEE|CATERING|BAKERY|RESTAURANT') THEN 'food & drink'
-      WHEN regexp_matches({u}, '\\bHAIR\\b|\\bNAIL|SKIN CARE|MASSAGE|BARBER|TATTOO|SALON|COSMETOLOG|BEAUTY|ESTHETIC|BODY') THEN 'personal services/beauty'
-      WHEN {desc} = 'Children''s Services Facility License'
-           OR regexp_matches({u}, 'FITNESS|CHILD|DAY CARE|DAYCARE|HEALTH|MEDICAL|CLINIC|DENTAL|YOGA|GYM|WELLNESS|THERAP|PHARMACY') THEN 'health/fitness/childcare'
-      WHEN {desc} IN ('Package Goods', 'Tobacco', 'Pawnbroker') OR {desc} LIKE 'Secondhand Dealer%'
-           OR regexp_matches({u}, 'RETAIL SALES|SALE OF FURNITURE|SALE OF GENERAL MERCHANDISE|JEWEL|CELL PHONE|PAYMENT CENTER') THEN 'retail'
-      ELSE 'other' END"""
-
-
 def ensure_lic(con) -> None:
-    """Temp tables: licp (premises licenses with group), nsite (one row per new business site), addr_acct."""
-    ensure_r4(con)
+    """Temp tables lc_licp (premises licenses with group) and lc_nad (engine.score.licenses), plus nsite (one row per
+    new business site) and addr_acct (accounts per address)."""
+    ensure_licenses(con)
     if con.execute("SELECT count(*) FROM duckdb_tables() WHERE table_name = 'lic_ready'").fetchone()[0]:
         return
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE licp AS
-        SELECT row_id, license_id, account_number AS acct, site_number AS site, address_key, application_type AS app,
-          issue_date, start_date, expiration_date, license_status AS status, status_change_date, application_date AS app_date,
-          least(greatest(coalesce(expiration_date, issue_date + INTERVAL 1 YEAR), issue_date), issue_date + INTERVAL 5 YEAR)::DATE AS exp_eff,
-          license_description AS descr, business_activity AS activity,
-          {license_group_sql("license_description", "business_activity")} AS grp
-        FROM biz_license_history
-        WHERE address_key IS NOT NULL AND issue_date IS NOT NULL AND application_type IN ('ISSUE', 'RENEW', 'C_LOC', 'C_CAPA', 'C_EXPA', 'C_SBA')
-          AND NOT regexp_matches(license_description, '{NON_PREMISES_DESC}')
-          AND NOT regexp_matches(upper(coalesce(business_activity, '')), '{NON_PREMISES_ACTIVITY}')
-    """)
     prio = " ".join(f"WHEN '{g}' THEN {n}" for g, n in GROUP_PRIORITY.items())
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE nsite AS
         WITH first_rec AS (
-          SELECT acct, site, min(issue_date) AS first_any FROM licp GROUP BY acct, site
+          SELECT acct, site, min(issue_date) AS first_any FROM lc_licp GROUP BY acct, site
         ),
         iss AS (
           SELECT l.acct, l.site, f.first_any AS d, first(l.address_key ORDER BY l.row_id, l.license_id) AS address_key,
             first(l.grp ORDER BY CASE l.grp {prio} END, l.row_id, l.license_id) AS grp,
             min(l.app_date) AS app_date, min(l.expiration_date) AS min_exp, count(*) AS n_rows
-          FROM licp l JOIN first_rec f ON f.acct = l.acct AND f.site = l.site AND l.issue_date = f.first_any
+          FROM lc_licp l JOIN first_rec f ON f.acct = l.acct AND f.site = l.site AND l.issue_date = f.first_any
           WHERE l.app = 'ISSUE' GROUP BY l.acct, l.site, f.first_any
         )
         SELECT * FROM iss
     """)
     con.execute("""
         CREATE OR REPLACE TEMP TABLE addr_acct AS
-        SELECT address_key, count(DISTINCT acct) AS n_acct FROM licp GROUP BY address_key
+        SELECT address_key, count(DISTINCT acct) AS n_acct FROM lc_licp GROUP BY address_key
     """)
     con.execute("CREATE OR REPLACE TEMP TABLE lic_ready AS SELECT 1 AS x")
 
@@ -2634,11 +2266,11 @@ def h31_new_business_legitimacy(con) -> dict:
         SELECT n.acct, n.site, n.d, n.address_key, n.grp, year(n.d) AS yr,
           EXISTS (SELECT 1 FROM p WHERE p.address_key = n.address_key AND {RENO_PREDICATE}
                   AND p.issue_date > n.d - INTERVAL 365 DAY AND p.issue_date <= n.d) AS reno,
-          EXISTS (SELECT 1 FROM licp x WHERE x.address_key = n.address_key AND x.acct <> n.acct
+          EXISTS (SELECT 1 FROM lc_licp x WHERE x.address_key = n.address_key AND x.acct <> n.acct
                   AND x.issue_date < n.d) AS relet,
-          EXISTS (SELECT 1 FROM licp x WHERE x.acct = n.acct AND x.site = n.site AND x.app = 'RENEW'
+          EXISTS (SELECT 1 FROM lc_licp x WHERE x.acct = n.acct AND x.site = n.site AND x.app = 'RENEW'
                   AND x.issue_date > n.d + INTERVAL 18 MONTH AND x.issue_date <= n.d + INTERVAL 30 MONTH) AS renew_win,
-          EXISTS (SELECT 1 FROM licp x WHERE x.acct = n.acct AND x.site = n.site AND x.app = 'RENEW'
+          EXISTS (SELECT 1 FROM lc_licp x WHERE x.acct = n.acct AND x.site = n.site AND x.app = 'RENEW'
                   AND x.issue_date <= n.d + INTERVAL 30 MONTH AND x.start_date <= n.d + INTERVAL 24 MONTH
                   AND x.expiration_date >= n.d + INTERVAL 24 MONTH + INTERVAL 30 DAY) AS in_force,
           (n.min_exp IS NOT NULL AND n.min_exp <= n.d + INTERVAL 25 MONTH) AS due,
@@ -2792,30 +2424,14 @@ def h31_new_business_legitimacy(con) -> dict:
 
 
 # --- H32 --------------------------------------------------------------------------------------------------
-def _row_end(alias: str, d: str) -> str:
-    """End date of a license row as known on date d: cancellations count only once they have happened."""
-    return (
-        f"CASE WHEN {alias}.status IN ('AAC', 'REV') AND {alias}.status_change_date <= {d} "
-        f"THEN least({alias}.status_change_date, {alias}.exp_eff) ELSE {alias}.exp_eff END"
-    )
-
-
 def _build_turnover_events(con, last_event: str) -> None:
     """Temp tables tev (storefront turnover events) and cev (same-account renewals at a sole-licensee address)."""
     ensure_lic(con)
     prio = " ".join(f"WHEN '{g}' THEN {n}" for g, n in GROUP_PRIORITY.items())
     con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE nad AS
-        WITH first_rec AS (SELECT acct, address_key, min(issue_date) AS first_any FROM licp GROUP BY acct, address_key)
-        SELECT l.acct, l.address_key AS k, f.first_any AS d, first(l.grp ORDER BY CASE l.grp {prio} END, l.row_id, l.license_id) AS grp,
-          min(l.app_date) AS app_date
-        FROM licp l JOIN first_rec f ON f.acct = l.acct AND f.address_key = l.address_key AND l.issue_date = f.first_any
-        WHERE l.app = 'ISSUE' GROUP BY l.acct, l.address_key, f.first_any
-    """)
-    con.execute(f"""
         CREATE OR REPLACE TEMP TABLE prior_end AS
-        SELECT n.acct, n.k, n.d, x.acct AS a_acct, max({_row_end("x", "n.d")}) AS a_end
-        FROM nad n JOIN licp x ON x.address_key = n.k AND x.acct <> n.acct AND x.issue_date < n.d
+        SELECT n.acct, n.k, n.d, x.acct AS a_acct, max({row_end("x", "n.d")}) AS a_end
+        FROM lc_nad n JOIN lc_licp x ON x.address_key = n.k AND x.acct <> n.acct AND x.issue_date < n.d
         GROUP BY n.acct, n.k, n.d, x.acct
     """)
     con.execute(f"""
@@ -2823,7 +2439,7 @@ def _build_turnover_events(con, last_event: str) -> None:
         SELECT acct, k, d, grp, app_date, d - m_end AS gap_days FROM (
           SELECT n.acct, n.k, n.d, n.grp, n.app_date, pe.m_end,
             lag(n.d) OVER (PARTITION BY n.k ORDER BY n.d, n.acct) AS prev
-          FROM nad n JOIN (SELECT acct, k, d, max(a_end) AS m_end, bool_or(a_end > d) AS in_force
+          FROM lc_nad n JOIN (SELECT acct, k, d, max(a_end) AS m_end, bool_or(a_end > d) AS in_force
                            FROM prior_end GROUP BY acct, k, d) pe USING (acct, k, d)
           WHERE NOT pe.in_force AND pe.m_end > n.d - INTERVAL 365 DAY AND pe.m_end <= n.d
             AND n.d >= DATE '{R4_START}'
@@ -2835,17 +2451,13 @@ def _build_turnover_events(con, last_event: str) -> None:
           SELECT r.*, lag(r.d) OVER (PARTITION BY r.k ORDER BY r.d, r.acct) AS prev FROM (
             SELECT l.acct, l.address_key AS k, l.issue_date AS d,
               first(l.grp ORDER BY CASE l.grp {prio} END, l.row_id, l.license_id) AS grp
-            FROM licp l WHERE l.app = 'RENEW' AND l.issue_date >= DATE '{R4_START}' AND l.issue_date <= {last_event}
+            FROM lc_licp l WHERE l.app = 'RENEW' AND l.issue_date >= DATE '{R4_START}' AND l.issue_date <= {last_event}
             GROUP BY l.acct, l.address_key, l.issue_date
           ) r
           WHERE NOT EXISTS (
-            SELECT 1 FROM licp x WHERE x.address_key = r.k AND x.acct <> r.acct AND x.issue_date <= r.d
-              AND (x.issue_date > r.d - INTERVAL 365 DAY OR {_row_end("x", "r.d")} > r.d))
+            SELECT 1 FROM lc_licp x WHERE x.address_key = r.k AND x.acct <> r.acct AND x.issue_date <= r.d
+              AND (x.issue_date > r.d - INTERVAL 365 DAY OR {row_end("x", "r.d")} > r.d))
         ) WHERE prev IS NULL OR d - prev > 365
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE reno32 AS
-        SELECT DISTINCT address_key AS k, issue_date AS d FROM p WHERE address_key IS NOT NULL AND {RENO_PREDICATE}
     """)
 
 
@@ -2859,7 +2471,7 @@ def _event_outcomes(con, ev_sql: str, name: str) -> None:
           coalesce(bool_or(t.d > e.d - INTERVAL 730 DAY AND t.d <= e.d - INTERVAL 365 DAY), false) AS own_earlier,
           first(t.d - e.d ORDER BY abs(t.d - e.d), t.d - e.d DESC)
             FILTER (WHERE t.d > e.d - INTERVAL 365 DAY AND t.d <= e.d + INTERVAL 365 DAY) AS nearest_signed
-        FROM ({ev_sql}) e LEFT JOIN reno32 t ON t.k = e.k AND t.d > e.d - INTERVAL 730 DAY AND t.d <= e.d + INTERVAL 365 DAY
+        FROM ({ev_sql}) e LEFT JOIN lc_reno t ON t.k = e.k AND t.d > e.d - INTERVAL 730 DAY AND t.d <= e.d + INTERVAL 365 DAY
         GROUP BY e.k, e.d, e.grp
     """)
 
@@ -2992,7 +2604,7 @@ def h32_storefront_turnover(con) -> dict:
         con,
         f"""
         SELECT count(*) / 52.0 AS v FROM (
-          SELECT n.d FROM nad n JOIN (SELECT acct, k, d, max(a_end) AS m_end, bool_or(a_end > d) AS in_force FROM prior_end GROUP BY acct, k, d) pe
+          SELECT n.d FROM lc_nad n JOIN (SELECT acct, k, d, max(a_end) AS m_end, bool_or(a_end > d) AS in_force FROM prior_end GROUP BY acct, k, d) pe
             USING (acct, k, d)
           WHERE NOT pe.in_force AND pe.m_end > n.d - INTERVAL 365 DAY AND pe.m_end <= n.d
             AND n.d > DATE '{max_issue}' - INTERVAL 365 DAY)
@@ -3083,7 +2695,31 @@ def h32_storefront_turnover(con) -> dict:
 
 
 # --- H33 --------------------------------------------------------------------------------------------------
-H33_BUCKETS = ("commercial/industrial (5xx)", "mixed-use up to 6 units (212)", "multifamily 7+ (3xx)")
+H33_METRIC_KEYS = (
+    "signals",
+    "conversion",
+    "baseline",
+    "lift",
+    "signals_per_week",
+    "control_events",
+    "control_raw_rate",
+    "busy_control_events",
+    "busy_control_rate",
+    "lift_vs_busy_control",
+    "own_earlier_window",
+    "lift_vs_own_earlier",
+    "median_days",
+    "days_p25",
+    "days_p75",
+    "within_90_days_share",
+    "within_180_days_share",
+    "converted_after_30_days",
+    "rate_if_license_31_plus_days_later",
+    "by_group",
+    "by_class",
+    "by_cost",
+    "by_year",
+)
 
 
 def h33_buildout_permit_to_new_license(con) -> dict:
@@ -3095,190 +2731,9 @@ def h33_buildout_permit_to_new_license(con) -> dict:
     H21/H26 showed this for restaurants; this tests it for every premises-based license group.
     """
     max_issue = one(con, "SELECT max(issue_date) AS d FROM biz_license_history")["d"]
-    last_event = f"DATE '{max_issue}' - INTERVAL 365 DAY"
-    _build_turnover_events(con, last_event)
-    bucket_list = ", ".join(f"'{b}'" for b in H33_BUCKETS)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE s33 AS
-        SELECT k, d, bucket, CASE WHEN cost >= 100000 THEN '$100k+' WHEN cost >= 25000 THEN '$25k-$100k'
-                                  WHEN cost > 0 THEN 'under $25k' ELSE 'no cost reported' END AS cost_band FROM (
-          SELECT r.k, r.d, r.cost, ac.bucket, lag(r.d) OVER (PARTITION BY r.k ORDER BY r.d) AS prev
-          FROM (SELECT address_key AS k, issue_date AS d, max(coalesce(reported_cost, 0)) AS cost FROM p
-                WHERE address_key IS NOT NULL AND {RENO_PREDICATE} GROUP BY 1, 2) r
-          JOIN (SELECT DISTINCT address_key, bucket FROM addr_cls WHERE bucket IN ({bucket_list})) ac
-            ON ac.address_key = r.k
-          WHERE NOT EXISTS (SELECT 1 FROM licp x WHERE x.address_key = r.k AND x.issue_date <= r.d
-                            AND {_row_end("x", "r.d")} > r.d)
-        ) WHERE (prev IS NULL OR d - prev > 365) AND d >= DATE '{R4_START}' AND d <= {last_event}
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE qd33 AS
-        SELECT unnest(generate_series(DATE '{R4_START}', {last_event}, INTERVAL 3 MONTH))::DATE AS q
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE pool33 AS
-        SELECT a.address_key AS k, qd33.q AS d, a.bucket FROM
-          (SELECT DISTINCT address_key, bucket FROM addr_cls WHERE bucket IN ({bucket_list})) a CROSS JOIN qd33
-        WHERE NOT EXISTS (SELECT 1 FROM reno32 t WHERE t.k = a.address_key
-                          AND t.d > qd33.q - INTERVAL 365 DAY AND t.d <= qd33.q + INTERVAL 365 DAY)
-          AND NOT EXISTS (SELECT 1 FROM licp x WHERE x.address_key = a.address_key AND x.issue_date <= qd33.q
-                          AND {_row_end("x", "qd33.q")} > qd33.q)
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE pool33b AS
-        SELECT DISTINCT a.address_key AS k, qd33.q AS d, a.bucket FROM
-          (SELECT DISTINCT address_key, bucket FROM addr_cls WHERE bucket IN ({bucket_list})) a CROSS JOIN qd33
-        WHERE EXISTS (SELECT 1 FROM p x WHERE x.address_key = a.address_key AND NOT {RENO_PREDICATE}
-                      AND x.issue_date > qd33.q - INTERVAL 90 DAY AND x.issue_date <= qd33.q)
-          AND NOT EXISTS (SELECT 1 FROM reno32 t WHERE t.k = a.address_key
-                          AND t.d > qd33.q - INTERVAL 365 DAY AND t.d <= qd33.q + INTERVAL 365 DAY)
-          AND NOT EXISTS (SELECT 1 FROM licp x WHERE x.address_key = a.address_key AND x.issue_date <= qd33.q
-                          AND {_row_end("x", "qd33.q")} > qd33.q)
-    """)
-    for name in ("s33", "pool33", "pool33b"):
-        con.execute(f"""
-            CREATE OR REPLACE TEMP TABLE {name}_x AS
-            SELECT e.k, e.d, e.bucket, year(e.d) AS yr,
-              min(n.d - e.d) FILTER (WHERE n.d > e.d AND n.d <= e.d + INTERVAL 365 DAY) AS days_after,
-              first(n.grp ORDER BY n.d, n.acct) FILTER (WHERE n.d > e.d AND n.d <= e.d + INTERVAL 365 DAY) AS first_grp,
-              coalesce(bool_or(n.d > e.d - INTERVAL 730 DAY AND n.d <= e.d - INTERVAL 365 DAY), false) AS own_earlier
-              {", e.cost_band" if name == "s33" else ""}
-            FROM {name} e LEFT JOIN nad n ON n.k = e.k AND n.d > e.d - INTERVAL 730 DAY AND n.d <= e.d + INTERVAL 365 DAY
-            GROUP BY e.k, e.d, e.bucket{", e.cost_band" if name == "s33" else ""}
-        """)
-    rows = []
-    for name, src in (("s33_x", "sig"), ("pool33_x", "ctl"), ("pool33b_x", "busy")):
-        cost = "cost_band" if name == "s33_x" else "'-'"
-        rows += [
-            {
-                "grp": r["bucket"],
-                "yr": r["yr"],
-                "cell": src,
-                "n": r["n"],
-                "hits": r["hits"],
-                "own": r["own"],
-                "cost": r["cost"],
-            }
-            for r in q(
-                con,
-                f"""
-            SELECT bucket, yr, {cost} AS cost, count(*) AS n, count(days_after) AS hits,
-              count(*) FILTER (WHERE own_earlier) AS own
-            FROM {name} GROUP BY ALL ORDER BY ALL
-        """,
-            )
-        ]
-    head = _std_rate(rows, lambda r: r["cell"] == "sig", lambda r: r["cell"] == "ctl")
-    busy = _std_rate(rows, lambda r: r["cell"] == "sig", lambda r: r["cell"] == "busy")
-    by_cost = []
-    for band in ("no cost reported", "under $25k", "$25k-$100k", "$100k+"):
-        h = _std_rate(
-            rows, lambda r, band=band: r["cell"] == "sig" and r["cost"] == band, lambda r: r["cell"] == "ctl"
-        )
-        hb = _std_rate(
-            rows, lambda r, band=band: r["cell"] == "sig" and r["cost"] == band, lambda r: r["cell"] == "busy"
-        )
-        by_cost.append(
-            {
-                "permit_cost": band,
-                "signals": h["signals"],
-                "new_license_rate": h["rate"],
-                "control_rate": h["control_std_rate"],
-                "lift": h["lift"],
-                "busy_control_rate": hb["control_std_rate"],
-                "lift_vs_busy": hb["lift"],
-            }
-        )
-    own = sum(r["own"] for r in rows if r["cell"] == "sig") / sum(r["n"] for r in rows if r["cell"] == "sig")
-    tm = one(
-        con,
-        """
-        SELECT median(days_after) AS med, quantile_cont(days_after, 0.25) AS p25, quantile_cont(days_after, 0.75) AS p75,
-          avg((days_after <= 90)::INT) FILTER (WHERE days_after IS NOT NULL) AS within_90,
-          avg((days_after <= 180)::INT) FILTER (WHERE days_after IS NOT NULL) AS within_180,
-          avg((days_after > 30)::INT) FILTER (WHERE days_after IS NOT NULL) AS after_30
-        FROM s33_x
-    """,
-    )
-    late = one(
-        con,
-        "SELECT count(*) AS n, count(*) FILTER (WHERE days_after > 30) AS hits FROM s33_x",
-    )
-    by_group = q(
-        con,
-        """
-        SELECT first_grp AS license_group, count(*) AS new_licenses, median(days_after) AS median_days,
-          quantile_cont(days_after, 0.25) AS p25_days, quantile_cont(days_after, 0.75) AS p75_days
-        FROM s33_x WHERE days_after IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC, 1
-    """,
-    )
-    tot = sum(r["new_licenses"] for r in by_group)
-    for r in by_group:
-        r["share_of_conversions"] = r["new_licenses"] / tot
-    by_bucket = []
-    for b in H33_BUCKETS:
-        sub = [r for r in rows if r["grp"] == b]
-        h = _std_rate(sub, lambda r: r["cell"] == "sig", lambda r: r["cell"] == "ctl")
-        if h["signals"]:
-            by_bucket.append(
-                {
-                    "class": b,
-                    "signals": h["signals"],
-                    "new_license_rate": h["rate"],
-                    "control_rate": h["control_std_rate"],
-                    "lift": h["lift"],
-                }
-            )
-    by_year = []
-    for y in sorted({r["yr"] for r in rows if r["cell"] == "sig"}):
-        sub = [r for r in rows if r["yr"] == y]
-        h = _std_rate(sub, lambda r: r["cell"] == "sig", lambda r: r["cell"] == "ctl")
-        by_year.append(
-            {
-                "year": y,
-                "signals": h["signals"],
-                "new_license_rate": h["rate"],
-                "control_rate": h["control_std_rate"],
-                "lift": h["lift"],
-            }
-        )
-    vol = one(
-        con,
-        f"""
-        SELECT count(*) / 52.0 AS v FROM (
-          SELECT DISTINCT r.k, r.d FROM (SELECT DISTINCT address_key AS k, issue_date AS d FROM p
-                WHERE address_key IS NOT NULL AND {RENO_PREDICATE}) r
-          JOIN (SELECT DISTINCT address_key FROM addr_cls WHERE bucket IN ({bucket_list})) ac ON ac.address_key = r.k
-          WHERE r.d > DATE '{max_issue}' - INTERVAL 365 DAY
-            AND NOT EXISTS (SELECT 1 FROM licp x WHERE x.address_key = r.k AND x.issue_date <= r.d
-                            AND {_row_end("x", "r.d")} > r.d))
-    """,
-    )["v"]
-    metrics = {
-        "signals": head["signals"],
-        "conversion": head["rate"],
-        "baseline": head["control_std_rate"],
-        "lift": head["lift"],
-        "signals_per_week": vol,
-        "control_events": head["control_signals"],
-        "control_raw_rate": head["control_raw_rate"],
-        "busy_control_events": busy["control_signals"],
-        "busy_control_rate": busy["control_std_rate"],
-        "lift_vs_busy_control": busy["lift"],
-        "own_earlier_window": own,
-        "lift_vs_own_earlier": head["rate"] / own if own else None,
-        "median_days": tm["med"],
-        "days_p25": tm["p25"],
-        "days_p75": tm["p75"],
-        "within_90_days_share": tm["within_90"],
-        "within_180_days_share": tm["within_180"],
-        "converted_after_30_days": tm["after_30"],
-        "rate_if_license_31_plus_days_later": late["hits"] / late["n"] if late["n"] else None,
-        "by_group": by_group,
-        "by_class": by_bucket,
-        "by_cost": by_cost,
-        "by_year": by_year,
-    }
+    end = (max_issue - timedelta(days=365)).isoformat()
+    m = licenses.new_business(con, start=R4_START, end=end)
+    metrics = _round_deep({k: m[k] for k in H33_METRIC_KEYS})
     return result(
         "H33",
         "Build-out permit at a space with no licensee → a new business registers there within 365 days",
@@ -3335,7 +2790,7 @@ def dist_type_sql(cls: str) -> str:
 def ensure_r5(con) -> None:
     """Temp tables for round 5 (idempotent): zp (one row per zoning application), zk (its addresses), zsite (the permit
     address keys inside each address range), addr_ca, ustrat/zstrat (community area x class strata)."""
-    ensure_r4(con)
+    ensure_classes(con)
     if con.execute("SELECT count(*) FROM duckdb_tables() WHERE table_name = 'r5_ready'").fetchone()[0]:
         return
     con.execute("""
@@ -3401,7 +2856,7 @@ def ensure_r5(con) -> None:
     con.execute("""
         CREATE OR REPLACE TEMP TABLE ustrat AS
         SELECT a.address_key AS k, a.bucket, coalesce(c.ca::VARCHAR, '?') || ' | ' || a.bucket AS grp
-        FROM addr_cls a LEFT JOIN addr_ca c USING (address_key)
+        FROM lc_addr_cls a LEFT JOIN addr_ca c USING (address_key)
     """)
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE zstrat AS
@@ -3956,7 +3411,7 @@ def h36_adu_preapproval(con) -> dict:
           SELECT a.address_key AS k, a.submitted_date AS d, a.status,
             coalesce(c.bucket, 'unknown class') AS bucket, coalesce(c.bucket, 'unknown class') AS grp,
             lag(a.submitted_date) OVER (PARTITION BY a.address_key ORDER BY a.submitted_date, a.adu_id) AS prev
-          FROM adu_preapprovals a LEFT JOIN addr_cls c ON c.address_key = a.address_key
+          FROM adu_preapprovals a LEFT JOIN lc_addr_cls c ON c.address_key = a.address_key
           WHERE a.address_key IS NOT NULL)
         WHERE prev IS NULL OR d - prev > 365
     """)
@@ -4142,7 +3597,7 @@ def h37_zoning_plus_sale(con) -> dict:
     _z_outcomes(con, "oa", "ea", "tz", Z_WINDOW)
     con.execute("""
         CREATE OR REPLACE TEMP TABLE zpin AS
-        SELECT DISTINCT s.k, m.pin10 FROM zsite s JOIN addr_map m ON m.address_key = s.pkey WHERE m.pin10 IS NOT NULL
+        SELECT DISTINCT s.k, m.pin10 FROM zsite s JOIN lc_addr_map m ON m.address_key = s.pkey WHERE m.pin10 IS NOT NULL
     """)
     con.execute(
         """
@@ -4235,8 +3690,8 @@ HYPOTHESES: dict[str, Callable] = {
     "H01": h01_solar_neighbors,
     "H02": h02_reroof_then_solar,
     "H03": h03_reroof_neighbors,
-    "H04": h05_hail,
-    "H05": h05b_wind,
+    "H04": h04_hail,
+    "H05": h05_wind,
     "H06": h06_basement_water,
     "H07": h07_complaint_to_violation,
     "H08": h08_porch_request,
@@ -4299,7 +3754,7 @@ def render(results: list[dict], generated: str) -> str:
     ]
     order = {"Strong": 0, "Useful": 1, "Weak": 2, "Descriptive": 3, "No signal": 4}
     ranked = sorted(
-        results, key=lambda r: (order[r["verdict"].split(" (")[0]], -(r["metrics"].get("lift") or 0))
+        results, key=lambda r: (order[r["verdict"].split(" (")[0]], -(r["metrics"].get("lift") or 0), r["id"])
     )
     for r in ranked:
         m = r["metrics"]
@@ -4405,10 +3860,15 @@ def render(results: list[dict], generated: str) -> str:
 
 
 def main() -> int:
-    wanted = sys.argv[1:] or list(HYPOTHESES)
+    wanted = [h.upper() for h in sys.argv[1:]] or list(HYPOTHESES)
+    unknown = [h for h in wanted if h not in HYPOTHESES]
+    if unknown:
+        print(
+            f"unknown hypothesis {', '.join(unknown)}; choose from {', '.join(HYPOTHESES)}", file=sys.stderr
+        )
+        return 2
     partial = set(wanted) != set(HYPOTHESES)
-    con = duckdb.connect(str(DB), read_only=True)
-    con.execute("SET memory_limit = '10GB'")
+    con = db.connect(memory_limit="10GB")
     prepare(con)
     results = []
     for hid in wanted:
@@ -4420,7 +3880,7 @@ def main() -> int:
     Path(stem + ".json").write_text(json.dumps(_round_deep(results), indent=2, default=str))
     Path(stem + ".md").write_text(render(results, generated))
     print(f"wrote {stem}.md")
-    for r in sorted(results, key=lambda r: -(r["metrics"].get("lift") or 0)):
+    for r in sorted(results, key=lambda r: (-(r["metrics"].get("lift") or 0), r["id"])):
         print(f"  {r['id']} {r['verdict']:<10} lift={fmt(r['metrics'].get('lift'))} {r['title']}")
     return 0
 

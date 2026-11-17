@@ -1,7 +1,7 @@
 """Shared signal definitions and parcel feature construction.
 
-Used by the backtests (research/backtests) and by the lead snapshot (engine/leads), so a formula that was
-validated historically is exactly the formula that scores live leads.
+Used by the backtests (research/backtests), the signal lab (research/signal_lab) and the lead snapshot
+(engine/leads), so a formula that was validated historically is exactly the formula that scores live leads.
 """
 
 from __future__ import annotations
@@ -20,6 +20,14 @@ MAJOR = (
     "(permit_type IN ('PERMIT - NEW CONSTRUCTION', 'PERMIT - RENOVATION/ALTERATION') "
     "AND reported_cost >= 100000)"
 )
+
+# ~160 m block grid (latitude and longitude steps) and the Assessor classes of houses and 2-6 flats, shared by
+# the signal lab's neighborhood tests and the snapshot's roofing blocks.
+CELL_LAT, CELL_LON = 0.0015, 0.002
+RESI_CLASSES = "('202','203','204','205','206','207','208','209','210','234','278','295','211','212')"
+
+# Lift cut-offs behind the signal lab verdicts ("Weak", "Useful", "Strong") and the snapshot's strength words.
+LIFT_WEAK, LIFT_USEFUL, LIFT_STRONG = 1.25, 1.8, 3.0
 
 PARCEL_FEATURES = {
     "sold_365": "recent sale (365d)",

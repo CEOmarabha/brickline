@@ -6,22 +6,24 @@ how soon, and how does that compare with a baseline? Results feed the lead-scori
     uv run python -m engine.warehouse sync && uv run python -m engine.warehouse build
     uv run python research/backtests/run_backtests.py
 
-Writes research/findings/backtests-<date>.md and .json.
+Writes research/findings/backtests-<date>.md and .json (date = UTC today, or BACKTEST_DATE). Naming one or more
+backtests (`run_backtests.py sr311 market`) runs only those and writes backtests-<date>.partial.json, never the
+full report.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import os
 import statistics
 import sys
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-
-import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from engine import db  # noqa: E402
 from engine.score.food import closure_views, round_floats  # noqa: E402
 from engine.score.licenses import new_business, summarize_cells  # noqa: E402
 from engine.score.signals import (  # noqa: E402
@@ -35,7 +37,6 @@ from engine.score.signals import (  # noqa: E402
     q,
 )
 
-DB = Path("data/warehouse.duckdb")
 OUT = Path("research/findings")
 
 TRADES_SHARED = ["roofing", "masonry", "porch", "windows_doors", "electrical", "plumbing", "hvac"]
@@ -129,7 +130,7 @@ def bt_demolition(con) -> dict:
         SELECT role, round(count(DISTINCT permit_id) / (SELECT count(DISTINCT id) FROM f), 3) AS share_named
         FROM permit_parties WHERE permit_id IN (SELECT id FROM f)
           AND role IN ('gc', 'electrical', 'plumbing', 'hvac', 'masonry', 'architect')
-        GROUP BY role ORDER BY share_named DESC
+        GROUP BY role ORDER BY share_named DESC, role
     """,
     )
     weekly = one(
@@ -205,7 +206,7 @@ def bt_sale(con) -> dict:
             f"""
             SELECT {seg_expr} AS segment, count(*) FILTER (WHERE win='post') AS sales, {sel}
             FROM s_win WHERE segment IN ('single-family','2-6 unit flat','apartment 7+','commercial/industrial')
-            GROUP BY 1 ORDER BY sales DESC
+            GROUP BY 1 ORDER BY sales DESC, 1
         """,
         ):
             r["cut"] = label or "segment"
@@ -279,7 +280,7 @@ def bt_violation(con) -> dict:
           avg((days_to_permit IS NOT NULL)::INT) AS permit_365d,
           avg(coalesce(pre_permit, false)::INT) AS baseline_same_address_prior_year,
           median(days_to_permit) AS median_days_to_permit
-        FROM v_out GROUP BY trade ORDER BY episodes DESC
+        FROM v_out GROUP BY trade ORDER BY episodes DESC, trade
     """,
     )
     by_category = q(
@@ -289,7 +290,7 @@ def bt_violation(con) -> dict:
                avg((days_to_permit IS NOT NULL)::INT) AS permit_365d
         FROM v_out WHERE inspection_category IN ('COMPLAINT', 'PERIODIC', 'PERMIT')
           AND trade IN ('porch', 'masonry', 'roofing', 'windows_doors')
-        GROUP BY ALL ORDER BY trade, episodes DESC
+        GROUP BY ALL ORDER BY trade, episodes DESC, inspection_category
     """,
     )
     # Market structure: who pulls the permits that follow violations (porch + masonry), last 3 years
@@ -305,8 +306,9 @@ def bt_violation(con) -> dict:
         SELECT f.trade, pp.name_key AS contractor, count(*) AS permits
         FROM f JOIN permit_parties pp ON pp.permit_id = f.id
         WHERE pp.role IN ('gc', 'masonry') AND pp.name_key <> ''
-        GROUP BY f.trade, pp.name_key QUALIFY row_number() OVER (PARTITION BY f.trade ORDER BY count(*) DESC) <= 5
-        ORDER BY f.trade, permits DESC
+        GROUP BY f.trade, pp.name_key
+        QUALIFY row_number() OVER (PARTITION BY f.trade ORDER BY count(*) DESC, pp.name_key) <= 5
+        ORDER BY f.trade, permits DESC, contractor
     """,
     )
     return {"rates": rates, "by_category": by_category, "winners": winners}
@@ -473,7 +475,7 @@ def bt_composite(con) -> dict:
             con,
             f"""
             SELECT avg(y::INT) AS precision FROM (
-              SELECT y, row_number() OVER (PARTITION BY d ORDER BY s DESC, hash(pin10)) AS rk FROM scored
+              SELECT y, row_number() OVER (PARTITION BY d ORDER BY s DESC, hash(pin10), pin10) AS rk FROM scored
             ) WHERE rk <= {k}
         """,
         )
@@ -507,7 +509,7 @@ def bt_composite(con) -> dict:
             con,
             f"""
             SELECT avg(y::INT) AS precision FROM (
-              SELECT y, row_number() OVER (PARTITION BY d ORDER BY s DESC, hash(pin10)) AS rk FROM scored_combo
+              SELECT y, row_number() OVER (PARTITION BY d ORDER BY s DESC, hash(pin10), pin10) AS rk FROM scored_combo
             ) WHERE rk <= {k}
         """,
         )
@@ -524,7 +526,7 @@ def bt_composite(con) -> dict:
         SELECT c.*, t.test_n, t.test_rate FROM combo c
         JOIN (SELECT {cols}, count(*) AS test_n, avg(y::INT) AS test_rate FROM feat WHERE {test} GROUP BY ALL) t
           USING ({cols})
-        WHERE c.n >= 300 ORDER BY c.rate DESC LIMIT 12
+        WHERE c.n >= 300 ORDER BY c.rate DESC, {cols} LIMIT 12
     """,
     )
     return {
@@ -1155,13 +1157,6 @@ def render(r: dict) -> str:
 
 
 def main() -> int:
-    if not DB.exists():
-        print("warehouse missing: run `uv run python -m engine.warehouse sync && ... build` first")
-        return 1
-    con = duckdb.connect(str(DB), read_only=True)
-    con.execute("SET memory_limit = '8GB'")
-    prepare_base(con)
-    results = {"generated_on": date.today().isoformat()}
     backtests = [
         ("demolition", bt_demolition),
         ("sale", bt_sale),
@@ -1174,6 +1169,14 @@ def main() -> int:
         ("new_business", bt_new_business),
         ("market", bt_market),
     ]
+    names = [name for name, _ in backtests]
+    unknown = [n for n in sys.argv[1:] if n not in names]
+    if unknown:
+        print(f"unknown backtest {', '.join(unknown)}; choose from {', '.join(names)}", file=sys.stderr)
+        return 2
+    con = db.connect(memory_limit="8GB")
+    prepare_base(con)
+    results = {"generated_on": os.environ.get("BACKTEST_DATE") or datetime.now(UTC).date().isoformat()}
     full = len(sys.argv) <= 1
     for name, fn in backtests:
         if not full and name not in sys.argv[1:]:

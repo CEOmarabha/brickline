@@ -1,8 +1,10 @@
 """Restaurant-inspection signals matched against ordinary inspections (signal lab H23-H26 method).
 
 Used by the lead snapshot (closed-restaurant leads) and the backtests (BT8), so the formula that was validated
-historically is exactly the formula that scores live leads. Definitions are copied from research/signal_lab/lab.py
-(`inspection_vs_control`); the equivalence is checked in the BT8 notes and the handoff.
+historically is exactly the formula that scores live leads. The signal lab imports the shared definitions below
+(VALID_RESULT, INSPECTION_STRATA, NAME_KEY, SAME_NAME, RENO_PREDICATE, round_floats); its `inspection_vs_control`
+is a generalization (any key, an observed-window variant for H23) of the address-keyed function here; on H26 the
+two give the same numbers (BT8 and the lab's H26 share the period 2016-01-01 to 2025-11-01).
 
 Requires the warehouse tables `food_inspections` and whatever the target SQL reads (`food_licenses`, `p` from
 `prepare_base`). All temp tables are prefixed `fd_` so they never collide with the snapshot's own.

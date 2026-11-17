@@ -24,13 +24,14 @@ from pathlib import Path
 
 import duckdb
 
+from engine import db
 from engine.enrich import web
 from engine.enrich.names import normalize, token_set_ratio
-from engine.leads.snapshot import title
+from engine.score.food import VALID_RESULT
 from engine.score.signals import q
-from engine.warehouse import FOOD_TEXT_NEUTRALIZE, address_key_sql
+from engine.text import title
+from engine.warehouse import address_key_sql, food_text_sql
 
-DB = Path("data/warehouse.duckdb")
 JSON_OUT = Path("web/data/pest.json")
 
 EPISODE_GAP_DAYS = (
@@ -43,7 +44,6 @@ OPERATOR_DAYS = 365
 CONTEXT_WEEKS = 52
 TOP_AREAS = 10
 NAME_MATCH_MIN = 0.88  # token-set ratio between the inspection DBA and an Overture place name, same address
-VALID_RESULT = "results IN ('Pass', 'Pass w/ Conditions', 'Fail')"
 LATER_RESULT = "results IN ('Pass', 'Pass w/ Conditions', 'Fail', 'Out of Business')"
 SOURCE = "Overture Maps"
 ATTRIBUTION = (
@@ -69,13 +69,6 @@ PEST_COMPANY_RX = r"pest|exterminat|rodent|termite|vermin"
 PEST_LICENSE_RX = r"PEST|EXTERMINAT|RODENT"
 
 SOCIAL_NOTE = "Overture places carry no social profiles in this subset; none are shown."
-
-
-def neutralized(expr: str) -> str:
-    out = expr
-    for phrase in FOOD_TEXT_NEUTRALIZE:
-        out = f"replace({out}, '{phrase}', '')"
-    return out
 
 
 def esc(pattern: str) -> str:
@@ -120,7 +113,7 @@ def build_tables(con: duckdb.DuckDBPyConnection, asof: date) -> None:
         SELECT address_key, median(lat) AS lat, median(lon) AS lon FROM food_inspections
         WHERE lat IS NOT NULL AND lon IS NOT NULL AND address_key IS NOT NULL GROUP BY 1
     """)
-    text = neutralized("violations")
+    text = food_text_sql("violations")
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE rest AS
         SELECT inspection_id, license_no, dba, address_key, inspection_date AS d, inspection_type, results, risk,
@@ -460,7 +453,7 @@ def main() -> int:
     ap.add_argument("--csv", type=Path, default=None, help="CSV path (default data/pest-<as-of>.csv)")
     args = ap.parse_args()
 
-    con = duckdb.connect(str(DB), read_only=True)
+    con = db.connect()
     asof = con.execute("SELECT max(inspection_date) FROM food_inspections").fetchone()[0]
     build_tables(con, asof)
     groups = operator_groups(con, asof)

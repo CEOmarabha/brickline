@@ -18,6 +18,7 @@ import argparse
 import json
 import statistics
 import sys
+import time
 import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
@@ -65,10 +66,11 @@ def fetch(dataset: str, **params: str) -> list[dict]:
         try:
             with urllib.request.urlopen(url, timeout=120) as resp:
                 return json.load(resp)
-        except Exception as exc:  # network hiccups on a public portal are common
+        except (OSError, ValueError) as exc:  # network hiccups on a public portal are common
             if attempt == 3:
-                raise RuntimeError(f"failed: {url}") from exc
-    return []
+                raise RuntimeError(f"failed after 4 attempts: {url}") from exc
+            time.sleep(4 * 2**attempt)
+    raise AssertionError("unreachable")
 
 
 def fetch_all(dataset: str, page: int = 50_000, **params: str) -> list[dict]:

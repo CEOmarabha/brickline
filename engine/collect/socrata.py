@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import time
-import urllib.error
+import csv
 import urllib.parse
-import urllib.request
 from pathlib import Path
+
+from engine.collect.http import get_bytes
+
+csv.field_size_limit(2**24)
 
 
 def export_csv(
@@ -32,26 +34,18 @@ def export_csv(
             if where:
                 params["$where"] = where
             url = f"https://{domain}/resource/{dataset}.csv?{urllib.parse.urlencode(params)}"
-            body = _get(url)
+            body = get_bytes(url)
             tmp = path.with_suffix(".tmp")
             tmp.write_bytes(body)
             tmp.rename(path)
             log(f"  {dataset}: page {offset // page_size} ({len(body) / 1e6:.1f} MB)")
         pages.append(path)
-        with path.open("rb") as fh:
-            rows = sum(1 for _ in fh) - 1
-        if rows < page_size:
+        if count_rows(path) < page_size:
             return pages
         offset += page_size
 
 
-def _get(url: str, attempts: int = 5) -> bytes:
-    for attempt in range(attempts):
-        try:
-            with urllib.request.urlopen(url, timeout=600) as resp:
-                return resp.read()
-        except (urllib.error.URLError, TimeoutError) as exc:
-            if attempt == attempts - 1:
-                raise RuntimeError(f"download failed after {attempts} attempts: {url}") from exc
-            time.sleep(4 * 2**attempt)
-    raise AssertionError("unreachable")
+def count_rows(path: Path) -> int:
+    """Data rows of a CSV page. Counted as records, not lines: quoted fields can hold line breaks."""
+    with path.open(newline="", encoding="utf-8", errors="replace") as fh:
+        return max(0, sum(1 for _ in csv.reader(fh)) - 1)

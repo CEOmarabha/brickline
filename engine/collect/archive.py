@@ -21,6 +21,7 @@ import argparse
 import csv
 import gzip
 import hashlib
+import http.client
 import io
 import json
 import os
@@ -67,7 +68,7 @@ class Http:
                 retryable = exc.code == 429 or exc.code >= 500
                 if not retryable or attempt == self.attempts - 1:
                     raise RuntimeError(f"HTTP {exc.code} for {url}") from exc
-            except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+            except (OSError, http.client.HTTPException) as exc:
                 if attempt == self.attempts - 1:
                     raise RuntimeError(
                         f"download failed after {self.attempts} attempts: {url} ({exc})"

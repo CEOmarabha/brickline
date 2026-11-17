@@ -17,8 +17,7 @@ import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-import duckdb
-
+from engine import db
 from engine.score import licenses
 from engine.score.food import (
     CLOSED,
@@ -28,18 +27,24 @@ from engine.score.food import (
     closure_views,
 )
 from engine.score.signals import (
+    CELL_LAT,
+    CELL_LON,
     INVESTOR_RE,
+    LIFT_STRONG,
+    LIFT_USEFUL,
+    LIFT_WEAK,
     MAJOR,
     NON_OPERATOR_RE,
     PARCEL_FEATURES,
+    RESI_CLASSES,
     build_parcel_features,
     fit_combo_rates,
     one,
     prepare_base,
     q,
 )
+from engine.text import title
 
-DB = Path("data/warehouse.duckdb")
 OUT = Path("web/data/snapshot.json")
 
 # Client trades. `violation` = violation trade flag, `permit` = permit trade flag, `role` = permit party role
@@ -70,8 +75,6 @@ TRADES = {
 OWNERS = ("individual", "company")
 COMMERCIAL_SUB_TRADES = ("electrical", "plumbing", "hvac")
 COMPLAINT_TRADES = ("porch", "masonry", "roofing", "general")
-CELL_LAT, CELL_LON = 0.0015, 0.002  # ~160 m blocks, same grid as research/signal_lab/lab.py
-RESI_CLASSES = "('202','203','204','205','206','207','208','209','210','234','278','295','211','212')"
 # A usable street address: number, optional direction, then a street name that is more than one letter.
 COMPLETE_ADDRESS = "^[0-9]+( [NSEW])? [A-Z0-9]{2,}"
 MIN_CELL = 300  # minimum historical episodes per cell before a finer split is used
@@ -108,23 +111,6 @@ def remaining_probability(p: float, points: list[float], age: float) -> float:
     f = share_by(points, age)
     denom = 1 - p * f
     return max(0.0, p * (1 - f) / denom) if denom > 0 else 0.0
-
-
-UPPER_WORDS = {"LLC", "LLP", "LP", "II", "III", "IV", "USA", "CTA", "HVAC", "JV", "PC"}
-
-
-def title(s: str | None) -> str | None:
-    """Title-case an all-caps public-record string: '2031 W 23RD ST, CHICAGO IL 60608' -> '2031 W 23rd St, Chicago IL 60608'."""
-    if not s:
-        return s
-    s = re.sub(r"\s+", " ", s.strip())
-    s = re.sub(
-        r"\b([A-Z])([A-Z']*)\b",
-        lambda m: m.group(0) if m.group(0) in UPPER_WORDS else m.group(1) + m.group(2).lower(),
-        s,
-    )
-    s = re.sub(r"(\d)(ST|ND|RD|TH)\b", lambda m: m.group(1) + m.group(2).lower(), s)
-    return re.sub(r"\b([A-Z][a-z])(\s+\d{5}(?:-\d{4})?)$", lambda m: m.group(1).upper() + m.group(2), s)
 
 
 def adjusted(age: int) -> str:
@@ -1005,12 +991,14 @@ CLOSED_LEAD_DAYS = 180
 
 
 def lift_label(lift: float | None) -> str:
-    """Plain-language strength of a lift, with the signal lab's verdict cut-offs (research/signal_lab/lab.py)."""
+    """Plain-language strength of a lift, with the signal lab's verdict cut-offs (engine/score/signals.py)."""
     if lift is None:
         return "no comparison available"
-    if lift < 1.25:
+    if lift < LIFT_WEAK:
         return "no real signal"
-    return "a weak signal" if lift < 1.8 else "a useful lift" if lift < 3 else "a strong lift"
+    return (
+        "a weak signal" if lift < LIFT_USEFUL else "a useful lift" if lift < LIFT_STRONG else "a strong lift"
+    )
 
 
 def closed_restaurant_model(con) -> dict:
@@ -1739,8 +1727,7 @@ def areas(con, today: date, today_sales: date) -> list[dict]:
 
 # ----------------------------------------------------------------------------------------------------------
 def build(out: Path) -> dict:
-    con = duckdb.connect(str(DB), read_only=True)
-    con.execute("SET memory_limit = '8GB'")
+    con = db.connect(memory_limit="8GB")
     today = prepare(con)
     dates = as_of(con)
     print("models ...", flush=True)

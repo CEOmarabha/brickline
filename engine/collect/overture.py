@@ -11,10 +11,11 @@ sources include Meta and Microsoft"; see docs/data-source-registry.md.
 from __future__ import annotations
 
 import re
-import urllib.request
 from pathlib import Path
 
 import duckdb
+
+from engine.collect.http import FetchError, get_bytes
 
 BUCKET = "overturemaps-us-west-2"
 REGION = "us-west-2"
@@ -31,20 +32,14 @@ COLUMNS = (
 )
 
 
-def latest_release(attempts: int = 3) -> str:
+def latest_release() -> str:
     """Newest release folder name (e.g. '2026-10-21.0') from the public bucket listing."""
     url = f"https://{BUCKET}.s3.amazonaws.com/?list-type=2&prefix=release/&delimiter=/"
-    last: Exception | None = None
-    for _ in range(attempts):
-        try:
-            with urllib.request.urlopen(url, timeout=60) as resp:
-                body = resp.read().decode()
-            releases = re.findall(r"<Prefix>release/(\d{4}-\d{2}-\d{2}\.\d+)/</Prefix>", body)
-            if releases:
-                return max(releases, key=lambda r: tuple(int(x) for x in re.split(r"[-.]", r)))
-        except OSError as exc:
-            last = exc
-    raise RuntimeError("could not list Overture releases") from last
+    body = get_bytes(url, timeout=60, attempts=3).decode()
+    releases = re.findall(r"<Prefix>release/(\d{4}-\d{2}-\d{2}\.\d+)/</Prefix>", body)
+    if not releases:
+        raise FetchError(f"no Overture releases listed at {url}")
+    return max(releases, key=lambda r: tuple(int(x) for x in re.split(r"[-.]", r)))
 
 
 def _category_exprs(con: duckdb.DuckDBPyConnection, src: str) -> tuple[str, str]:

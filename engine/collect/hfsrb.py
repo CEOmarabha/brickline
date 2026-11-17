@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import csv
 import html
+import http.client
 import io
 import json
 import re
@@ -141,7 +142,7 @@ class Fetcher:
                 req = urllib.request.Request(url, headers={"User-Agent": UA})
                 with urllib.request.urlopen(req, timeout=120) as resp:
                     return resp.read()
-            except (urllib.error.URLError, TimeoutError) as exc:
+            except (OSError, http.client.HTTPException) as exc:
                 if isinstance(exc, urllib.error.HTTPError) and exc.code in (403, 404):
                     raise
                 if attempt == attempts - 1:
@@ -263,9 +264,9 @@ def page_path(link: str) -> Path:
     return RAW / "pages" / (re.sub(r"[^A-Za-z0-9._-]", "_", link.rsplit("/", 1)[-1]) or "page.html")
 
 
-def fetch_page(fetcher: Fetcher, link: str) -> str | None:
+def fetch_page(fetcher: Fetcher, link: str, refresh: bool = False) -> str | None:
     path = page_path(link)
-    if path.exists():
+    if path.exists() and not refresh:
         return path.read_text(encoding="utf-8", errors="replace")
     url = BASE + link.replace("/content/soi/hfsrb/en/", "/")
     try:
@@ -362,8 +363,8 @@ def sync(
             document_count=0,
         )
         if link and year.isdigit() and int(year) >= since and (limit is None or fetched < limit):
-            had = page_path(link).exists()
-            page_html = fetch_page(fetcher, link)
+            had = page_path(link).exists() and not refresh
+            page_html = fetch_page(fetcher, link, refresh)
             fetched += 0 if had else 1
             if page_html:
                 parsed = parse_page(page_html)
@@ -412,6 +413,8 @@ def _add_document_fields(fetcher: Fetcher, row: dict, log) -> None:
                 log("  hfsrb: pypdf is not installed; skipping document fields")
                 fetcher.warned_no_pdf = True
             return
+        if not fields:
+            log(f"  hfsrb: could not read {path.name}")
         if fields and fields.get("doc_project_no", row["project_no"]) != row["project_no"]:
             row["doc_source"] = f"mismatch:{kind}"
             continue
@@ -429,7 +432,7 @@ def main() -> None:
     ap.add_argument(
         "--documents", action="store_true", help="also read staff report / approval letter PDFs (needs pypdf)"
     )
-    ap.add_argument("--refresh", action="store_true", help="re-download the listing")
+    ap.add_argument("--refresh", action="store_true", help="re-download the listing and the project pages")
     ap.add_argument("--limit", type=int, default=None, help="max project pages to download in this run")
     a = ap.parse_args()
     sync(a.since, a.documents, a.refresh, a.limit)

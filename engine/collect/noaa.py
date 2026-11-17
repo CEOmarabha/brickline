@@ -1,6 +1,8 @@
 """NOAA Storm Events (NCEI) for Cook County, IL: hail, damaging wind and similar events with coordinates.
 
-Writes data/raw/noaa/storms-<year>.csv (one file per year, resumable).
+Writes data/raw/noaa/storms-<year>.csv (one file per year, resumable). NCEI keeps revising a year's file for
+months after it ends, so the current and the previous year are fetched again on every sync; older years are
+kept.
 """
 
 from __future__ import annotations
@@ -9,8 +11,10 @@ import csv
 import gzip
 import io
 import re
-import urllib.request
+from datetime import date
 from pathlib import Path
+
+from engine.collect.http import get_bytes
 
 BASE = "https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/"
 KEEP = (
@@ -35,19 +39,19 @@ FIELDS = [
 ]
 
 
-def sync(out_dir: Path, years: range = range(2010, 2027), log=print) -> None:
+def sync(out_dir: Path, years: range | None = None, log=print) -> None:
+    this_year = date.today().year
+    years = years or range(2010, this_year + 1)
     out_dir.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(BASE, timeout=120) as resp:
-        index = resp.read().decode()
+    index = get_bytes(BASE, timeout=120).decode()
     for year in years:
         path = out_dir / f"storms-{year}.csv"
-        if path.exists() and year < max(years):
+        if path.exists() and year < this_year - 1:
             continue
         names = sorted(set(re.findall(rf"StormEvents_details-ftp_v1\.0_d{year}_c\d+\.csv\.gz", index)))
         if not names:
             continue
-        with urllib.request.urlopen(BASE + names[-1], timeout=600) as resp:
-            raw = gzip.decompress(resp.read()).decode("latin-1")
+        raw = gzip.decompress(get_bytes(BASE + names[-1])).decode("latin-1")
         rows = []
         for r in csv.DictReader(io.StringIO(raw)):
             if r["STATE"] != "ILLINOIS" or r["CZ_NAME"] != "COOK" or r["EVENT_TYPE"] not in KEEP:

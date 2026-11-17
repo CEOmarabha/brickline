@@ -28,6 +28,7 @@ list pages are re-fetched on every sync (about 20 requests) and per-matter pages
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import re
 import time
@@ -36,6 +37,7 @@ import urllib.parse
 import urllib.request
 import urllib.robotparser
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 BASE = "https://api.chicityclerkelms.chicago.gov"
@@ -46,6 +48,20 @@ FIRST_YEAR = 2012
 PAGE = 500
 MIN_INTERVAL = 1.0
 TITLE_RE = re.compile(r"^\s*zoning\s+reclassification\s+map\s+no", re.IGNORECASE)
+
+
+def retry_after(value: str | None) -> float:
+    """Seconds named by a Retry-After header (a number or an HTTP date); 0 when absent or unreadable."""
+    if not value:
+        return 0.0
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        pass
+    try:
+        return max(0.0, (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds())
+    except (TypeError, ValueError):
+        return 0.0
 
 
 class Fetcher:
@@ -94,8 +110,8 @@ class Fetcher:
             except urllib.error.HTTPError as exc:
                 if exc.code not in (429, 500, 502, 503, 504) or attempt == attempts - 1:
                     raise
-                delay = float(exc.headers.get("Retry-After") or 0) or 4 * 2**attempt
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+                delay = min(retry_after(exc.headers.get("Retry-After")), 300) or 4 * 2**attempt
+            except (OSError, http.client.HTTPException, json.JSONDecodeError):
                 if attempt == attempts - 1:
                     raise
                 delay = 4 * 2**attempt
@@ -134,6 +150,9 @@ def sync(out_dir: Path = RAW, since_year: int = FIRST_YEAR, details: int = 0, lo
             if (page + 1) * PAGE >= (meta.get("count") or 0):
                 break
             page += 1
+        for stale in (out_dir / "list").glob(f"list-{year}-*.json"):
+            if int(stale.stem.rsplit("-", 1)[1]) > page:
+                stale.unlink()
     if details:
         fetch_details(fx, out_dir, details, log)
 
