@@ -30,7 +30,7 @@ done
 rm -rf data/raw/permits data/raw/violations data/raw/sales data/raw/food_licenses data/raw/parcel_addresses \
   data/raw/sr311 data/raw/benchmarking data/raw/res_chars data/raw/food_inspections \
   data/raw/biz_licenses data/raw/biz_owners data/raw/biz_license_history data/raw/adu_preapprovals \
-  data/raw/zoning_districts
+  data/raw/zoning_districts data/raw/park_events data/raw/cdot_dumpsters data/raw/cdot_events
 
 uv run python -m engine.warehouse sync
 uv run python -m engine.warehouse build
@@ -41,6 +41,7 @@ uv run python -m engine.collect.archive || echo "WARNING: source archive failed 
 # snapshot and prospects must run before contacts, which reads web/data/snapshot.json and web/data/prospects.json.
 uv run python -m engine.leads.snapshot
 uv run python -m engine.leads.pest
+uv run python -m engine.leads.buyers
 uv run python -m engine.leads.prospects --trades porch masonry roofing
 # Free contact suggestions (Overture, Chicago business licenses, company websites). Safe to rerun: website
 # results are cached in data/raw/web_contacts for 30 days, so only new or stale sites are fetched (~1.5 min cold).
