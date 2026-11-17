@@ -107,3 +107,15 @@
 - **Evidence:** `docs/15-intelligence-engine.md`, `13-signal-lab.md` round 4, BT9, `research/findings/source-verification-2026-11-16.md`.
 - **Reverse if:** Pilot outcomes show the historical proxies rank leads worse than a learned model.
 
+### D-020 — No event vertical, no brokerage operation, no dumpster product (for now)
+- **Status:** Accepted 2026-11-17.
+- **Decision:** Do not build event intelligence, event coordination/brokerage, or a dumpster lead product. Keep the validated assets and sell them. Revisit events only if a rental company asks (recurring-series alerts from CDOT and Park District history), and brokerage only after ~10 paid outcomes show where a router would add value.
+- **Evidence:** Signal lab round 6: new events surface days to weeks ahead (Park District median 3 days after start; CDOT ~31 days), organizers named on 0.6% of recurring series; dumpster market top-10 share 83% and 70% hauler reuse by GCs; brokerage adds liability and hours without solving customer acquisition (`docs/16-vision-and-plan.md`).
+- **Reverse if:** A paying rental or hauler customer asks for these lists, or pilots show that buyers want coordination rather than leads.
+
+### D-021 — Pilot offer: free sample, 30-day pilot, then subscription or a fee per won job
+- **Status:** Accepted 2026-11-17 (pricing is a hypothesis to test).
+- **Decision:** Every pitch offers a 5-row sample, then a 30-day pilot in exchange for recorded outcomes; afterwards either a subscription or a fee per won job, recorded as the prospect's fee model with its monthly value. No 3-day trials; no price tiers until 5 customers pay.
+- **Evidence:** Leads take weeks to close, so short trials can't show value; job-value and deal-value tracking now make per-won-job pricing measurable.
+- **Reverse if:** Buyers consistently prefer a flat subscription, or attribution of won jobs proves unreliable.
+
