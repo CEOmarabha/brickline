@@ -29,7 +29,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from engine import db  # noqa: E402
-from engine.score import licenses  # noqa: E402
+from engine.score import events, licenses  # noqa: E402
 from engine.score.food import (  # noqa: E402
     INSPECTION_STRATA,
     NAME_KEY,
@@ -2722,6 +2722,18 @@ H33_METRIC_KEYS = (
 )
 
 
+_NEW_BUSINESS: dict = {}
+
+
+def new_business_result(con) -> dict:
+    """licenses.new_business over the lab's H33 period, computed once per run (H41 reuses it)."""
+    if "m" not in _NEW_BUSINESS:
+        max_issue = one(con, "SELECT max(issue_date) AS d FROM biz_license_history")["d"]
+        end = (max_issue - timedelta(days=365)).isoformat()
+        _NEW_BUSINESS["m"] = licenses.new_business(con, start=R4_START, end=end)
+    return _NEW_BUSINESS["m"]
+
+
 def h33_buildout_permit_to_new_license(con) -> dict:
     """Reverse of H32: a build-out permit at a space with no licensee -> a new business registers there.
 
@@ -2730,9 +2742,7 @@ def h33_buildout_permit_to_new_license(con) -> dict:
     cleaning or furniture can therefore reach the new tenant earlier through the permit than through the license.
     H21/H26 showed this for restaurants; this tests it for every premises-based license group.
     """
-    max_issue = one(con, "SELECT max(issue_date) AS d FROM biz_license_history")["d"]
-    end = (max_issue - timedelta(days=365)).isoformat()
-    m = licenses.new_business(con, start=R4_START, end=end)
+    m = new_business_result(con)
     metrics = _round_deep({k: m[k] for k in H33_METRIC_KEYS})
     return result(
         "H33",
@@ -3686,6 +3696,326 @@ def h37_zoning_plus_sale(con) -> dict:
     )
 
 
+# --- Round 6: event services, dumpsters, commercial cleaning ---------------------------------------------------
+def _pick(row: dict, mapping: dict[str, str]) -> dict:
+    return {new: row[old] for new, old in mapping.items()}
+
+
+def _flat(prefix: str, d: dict, keys: tuple[str, ...] | None = None) -> dict:
+    return {
+        f"{prefix}{k}": v
+        for k, v in d.items()
+        if (keys is None or k in keys) and not isinstance(v, (list, dict))
+    }
+
+
+def h38_recurring_events(con) -> dict:
+    """Event series (name + place) held in each of the last 2 years -> held again next year within +/- 31 days."""
+    as_of = one(con, "SELECT max(listed_date) AS d FROM park_events")["d"].isoformat()
+    events.build_series(con, "pk", events.park_series_src(), as_of)
+    m = events.series_metrics(con, "pk", as_of)
+    cd_as_of = one(con, "SELECT max(processed_date) AS d FROM street_events")["d"].isoformat()
+    events.build_series(con, "cd", events.cdot_series_src(), cd_as_of)
+    c = events.series_metrics(con, "cd", cd_as_of)
+    park_orgs = events.org_match(
+        con, "SELECT DISTINCT organization FROM park_events WHERE is_real AND organization IS NOT NULL"
+    )
+    cdot_orgs = events.org_match(
+        con,
+        "SELECT DISTINCT applicant_org FROM street_events WHERE applicant_org IS NOT NULL AND worktype IN "
+        "('Festival', 'Parade', 'Athletic', 'Assembly')",
+    )
+    metrics = {
+        "signals": m["series_years_held2"],
+        "conversion": m["conversion"],
+        "baseline": m["baseline"],
+        "lift": m["lift"],
+        "signals_per_week": m["recurring_per_year_last3"] / 52,
+        "recurring_series_per_year_last3": m["recurring_per_year_last3"],
+        **_flat("date_", m["date_stability"]),
+        **_flat("lead_", m["lead_time"]),
+        **_flat("park_", m["organization_named"]),
+        **_flat("park_org_", park_orgs),
+        "cdot_conversion": c["conversion"],
+        "cdot_baseline": c["baseline"],
+        "cdot_lift": c["lift"],
+        "cdot_recurring_per_year_last3": c["recurring_per_year_last3"],
+        **_flat("cdot_date_", c["date_stability"]),
+        **_flat("cdot_lead_", c["lead_time"]),
+        **_flat("cdot_", c["organization_named"]),
+        **_flat("cdot_org_", cdot_orgs),
+        "by_rule": m["by_rule"],
+        "by_period": m["by_period"],
+        "by_group": m["by_group"],
+        "by_year": m["by_year"],
+        "pipeline": m["pipeline"],
+        "cdot_by_rule": c["by_rule"],
+        "cdot_by_period": c["by_period"],
+        "cdot_by_group": c["by_group"],
+    }
+    return result(
+        "H38",
+        "Event series held in each of the last 2 years → held again next year at the same time of year",
+        who="Event-service sellers (rentals, staging, security, catering, porta-potties, insurance) and the venues "
+        "and sponsors around recurring events",
+        data="Chicago Park District outdoor event permits and reservations 2012+ (pk66-w54g, requestor names not "
+        "downloaded), CDOT festival/parade/athletic/assembly street-event permits 2013+ (pubx-yq2d), Overture places, "
+        "Chicago business licenses (organization name matching only)",
+        signal="A series = normalized event name at the same park (Park District, only the real-event tiers 'Permit - "
+        "Event N', Festival/Performance, Corporate, Promotions, civic/corporate/philanthropic venues) held (approved "
+        "reservation) in each of the two years up to the prediction year; features use only years up to the "
+        "prediction year, prediction date 31 December",
+        target="Any reservation of the same series within +/- 31 days of the same date one year later; baseline = "
+        "series in their debut year (no history), standardized to the held-2-years group mix. Prediction years "
+        "2019-2021 are left out of the pooled figures (pandemic); the CDOT table is the same test on street events "
+        "keyed by name and ward",
+        metrics=_round_deep(metrics),
+        notes="Not a lead source for NEW events: it only re-finds events that already ran. A series needs a usable "
+        "name (Park District event_description or organization, CDOT project name), so one-off unnamed events cannot "
+        "recur by construction. The Park District reorganized its permit types in 2020 ('Event N Cluster' tiers "
+        "replace Corporate/Picnic levels) and the number of real-event rows doubled after 2021, so groups are not "
+        "comparable across eras and the by-period table is the fair reading. Event 1 includes private birthday "
+        "parties and picnics. Organization names are matched by normalized name only; a name match is not a contact. "
+        "Private requestors' names are not stored; event names and organizations never appear in this report. "
+        "Reservations are final statuses today (Approved/Completed/Issued); a reservation cancelled before the event "
+        "disappears from the feed, so history is of events that were held or kept. The Park District has no "
+        "attendance field (the 'Event N' tier is the only size hint).",
+    )
+
+
+def h39_event_lead_time(con) -> dict:
+    """How far ahead do event permits show up? Park District feed (row-creation date) and CDOT (review start)."""
+    pk = events.park_listing(con)
+    cd = events.cdot_lead(con)
+    nr = pk["new_real_rows_since_baseline"]
+    metrics = {
+        "park_total_rows": pk["total_rows"],
+        "park_baseline_rows": pk["baseline_rows"],
+        "park_load_dates": pk["load_dates"],
+        "park_new_real_rows_since_baseline": nr["rows"],
+        "park_new_real_series_since_baseline": nr["series"],
+        "park_new_real_rows_median_lead_days": nr["median_lead_days"],
+        "park_new_real_rows_p25_lead_days": nr["p25_lead_days"],
+        "park_new_real_rows_p75_lead_days": nr["p75_lead_days"],
+        "park_new_real_rows_listed_before_event_share": nr["listed_before_event_share"],
+        "park_new_real_rows_listed_30_days_ahead_share": nr["ahead_30_days_share"],
+        "park_new_rows_per_week_weeks_observed": nr["weeks_observed"],
+        "park_all_new_rows_since_baseline": pk["all_new_rows_since_baseline"]["rows"],
+        "park_all_new_rows_median_lead_days": pk["all_new_rows_since_baseline"]["median_lead_days"],
+        "park_all_new_rows_listed_90_days_ahead_share": pk["all_new_rows_since_baseline"]["share_90_days"],
+        "park_real_rows_listed_after_today": pk["listed_after_today"]["real_rows_listed_after_today"],
+        "park_all_rows_listed_after_today": pk["listed_after_today"]["all_rows_after_today"],
+        **_flat("cdot_weekly_", cd["weekly"]),
+        "feed": [
+            {
+                "item": "Park District feed: bulk reload date (row-creation date of the baseline rows)",
+                "value": pk["baseline"],
+            },
+            {"item": "Park District feed: newest row-creation date", "value": pk["last_listed"]},
+            {"item": "Park District feed: latest event date listed", "value": pk["feed_ends"]},
+            {"item": "CDOT permit feed: newest review-start date", "value": cd["as_of"]},
+        ],
+        "park_by_threshold": pk["by_threshold"],
+        "park_by_group": pk["by_group"],
+        "cdot_by_type": cd["by_type"],
+        "cdot_large_by_year": cd["large_events_by_year"],
+        "cdot_pipeline": cd["pipeline_today"],
+        "license_lead": events.event_license_lead(con),
+    }
+    return result(
+        "H39",
+        "How far ahead do event permits become visible? (Park District feed, CDOT street-event permits)",
+        who="Event-service sellers deciding whether permits can find NEW events 3-9 months ahead",
+        data="Chicago Park District outdoor event permits (pk66-w54g incl. Socrata :created_at), CDOT permits "
+        "(pubx-yq2d, review-start date), both as ingested",
+        signal="Park District: the date a reservation first appeared in the open feed (Socrata row-creation date; the "
+        "dataset itself has no application date). CDOT: the date review of the application began, against the event "
+        "start date; large formal events = festival, parade, athletic, assembly",
+        target="Descriptive: share of events visible at least T days before they start (T = 14 ... 180)",
+        metrics=_round_deep(metrics),
+        notes="Park District: the feed was reloaded in bulk on the baseline date, so rows created then have unknown "
+        "true listing times; the threshold table counts only events starting at least T days after the baseline, "
+        "which is exact (nothing is left-censored for those). New rows appear in weekly batches, so a row's listing "
+        "date can trail the reservation by up to a week or more and is an upper bound on when it could be seen. "
+        "The latest event listed is the last day of the current year, consistent with a calendar-year horizon "
+        "(not verified). CDOT: review start is the earliest application date in the data (the application may have been "
+        "submitted earlier), so leads are lower bounds; permits cancelled or denied are excluded and only events "
+        "whose date has passed are in the lead statistics. Large-event lead times jump around 2021-22 (median 5-9 "
+        "days before, 36-46 days since; possibly a permit-system change, not verified), so use the recent years.",
+    )
+
+
+def h40_dumpsters(con) -> dict:
+    """Renovation/new-construction/demolition permit at an address -> CDOT dumpster permit there within 180 days."""
+    as_of = one(con, "SELECT max(processed_date) AS d FROM dumpster_permits")["d"].isoformat()
+    end = events.dumpster_prep(con, as_of)
+    c = events.dumpster_conversion(con, events.DUMP_START, end)
+    mk = events.dumpster_market(con, as_of)
+    pr = events.dumpster_partners(con)
+    h = c["head"]
+    stratum = {
+        "stratum": "label",
+        "signals": "signals",
+        "conversion": "conversion",
+        "own_earlier_window_rate": "own_earlier_window",
+        "control_rate": "control_rate",
+        "lift_vs_control": "lift_vs_control",
+        "lift_vs_own_earlier": "lift_vs_own_earlier",
+        "median_days": "median_days",
+        "p25_days": "p25_days",
+        "p75_days": "p75_days",
+    }
+    metrics = {
+        "signals": h["signals"],
+        "conversion": h["conversion"],
+        "baseline": h["own_earlier_window"],
+        "lift": h["lift_vs_own_earlier"],
+        "signals_per_week": c["sig_week"]["signals_per_week"],
+        "converted_per_week": c["sig_week"]["converted_per_week"],
+        "control_rate": h["control_rate"],
+        "lift_vs_control": h["lift_vs_control"],
+        "median_days": h["median_days"],
+        "days_p25": h["p25_days"],
+        "days_p75": h["p75_days"],
+        "dumpster_first_share_of_near": c["near"]["dumpster_first_share"],
+        "dumpster_30_days_first_share_of_near": c["near"]["dumpster_30_days_first_share"],
+        "with_dumpster_within_180_days_either_side": c["near"]["with_dumpster_within_180_days_either_side"],
+        "control_address_quarters": c["control_cells"],
+        "market_permits": mk["overall"]["permits"],
+        "market_haulers": mk["overall"]["haulers"],
+        "market_top1_share": mk["overall"]["top1_share"],
+        "market_top5_share": mk["overall"]["top5_share"],
+        "market_top10_share": mk["overall"]["top10_share"],
+        "market_hhi": mk["overall"]["hhi"],
+        "market_last_52_weeks_permits": mk["last_52_weeks"]["permits"],
+        "market_last_52_weeks_haulers": mk["last_52_weeks"]["haulers"],
+        "market_last_52_weeks_haulers_20_plus": mk["last_52_weeks"]["haulers_20_plus"],
+        "market_last_52_weeks_top5_share": mk["last_52_weeks"]["top5_share"],
+        "market_last_52_weeks_top10_share": mk["last_52_weeks"]["top10_share"],
+        "market_haulers_first_seen_after_2016": mk["entry"]["haulers_first_seen_after_2016"],
+        "market_haulers_first_seen_last_3_years": mk["entry"]["haulers_first_seen_last_3_years"],
+        **_flat("partner_", pr),
+        "by_type": [_pick(r, stratum) for r in c["by_type"]],
+        "by_cost": [_pick(r, stratum) for r in c["by_cost"]],
+        "by_year": [_pick(r, stratum) for r in c["by_year"]],
+        "recall": c["recall"],
+        "market_by_year": mk["by_year"],
+    }
+    return result(
+        "H40",
+        "Renovation, new-construction or demolition permit at an address → a dumpster permit on the public way there within 180 days",
+        who="Roll-off dumpster haulers (and their sales reps); GCs only as the buyers the haulers serve",
+        data="Chicago building permits, CDOT dumpster permits 2016+ (pubx-yq2d, applicant = the hauler, not the "
+        "customer; 241,343 location rows)",
+        signal="Renovation/alteration, new-construction or wrecking/demolition permit at an address with no such "
+        "permit in the previous 180 days (one per address per 180 days), 2017 to 180 days before the newest "
+        "dumpster permit",
+        target="An issued, not-cancelled CDOT dumpster permit (street-sweeping notes excluded) starting at the same "
+        "address within 180 days after the building permit; baseline = the same address's own earlier window (181-360 "
+        "days before); control = address-quarters of addresses that have had such a permit at some time, with none "
+        "within a year either side, year-standardized",
+        metrics=_round_deep(metrics),
+        notes="The applicant on a CDOT dumpster permit is the hauler (67 companies, 8 permit rows name an individual); "
+        "the customer, the project and the GC are not in the data, so the GC link goes through the building permit "
+        "at the address. Only dumpsters placed on the public way (curb lane or alley) need this permit: dumpsters on "
+        "private property or in a driveway are invisible, so conversion is a floor and most building permits will "
+        "never show one. A dumpster permit is issued for the day it is placed (median 0 days before start), so its "
+        "date is the placement date. The dumpster permit comes first in a large share of address pairs "
+        "(dumpster_first_share_of_near): a permit is not an early trigger for those. 'Repeat partner' = the hauler on "
+        "the project's first dumpster permit is a hauler this GC used on an earlier linked project; chance = the "
+        "market share, in the project's year, of the haulers the GC used before. Permit statuses are as of today "
+        "(a later cancellation is known only now). Address matching is by street address, not unit or lot.",
+    )
+
+
+def h41_commercial_cleaning(con) -> dict:
+    """Data check: what public signal marks 'construction complete / about to open', and how long is the window."""
+    ensure_lic(con)
+    nb = new_business_result(con)
+    as_of = one(con, "SELECT max(issue_date) AS d FROM permits")["d"].isoformat()
+    pre = events.preopening(con, as_of)
+    t, rt, bo, wk = pre["timing"], pre["routine"], pre["buildout"], pre["weekly"]
+    converted = round(nb["signals"] * nb["conversion"])
+    windows = [
+        {
+            "stage": "Build-out permit (no licensee) → new business license issued (H33)",
+            "cases": converted,
+            "median_days": nb["median_days"],
+            "p25_days": nb["days_p25"],
+            "p75_days": nb["days_p75"],
+        },
+        {
+            "stage": "Build-out/renovation permit → restaurant pre-opening ('License') inspection (permit in prior 365 days)",
+            "cases": bo["with_permit_in_prior_365_days"],
+            "median_days": bo["median_days_from_permit"],
+            "p25_days": bo["p25_days_from_permit"],
+            "p75_days": bo["p75_days_from_permit"],
+        },
+        {
+            "stage": "Pre-opening inspection → business license issued",
+            "cases": t["matched_to_issue_license"],
+            "median_days": t["median_days_to_issue"],
+            "p25_days": t["p25_days_to_issue"],
+            "p75_days": t["p75_days_to_issue"],
+        },
+        {
+            "stage": "Pre-opening inspection → License re-inspection (after a fail or conditions)",
+            "cases": round(t["matched_to_issue_license"] * t["reinspected_share"]),
+            "median_days": t["median_days_to_reinspection"],
+            "p25_days": None,
+            "p75_days": None,
+        },
+        {
+            "stage": "Pre-opening inspection → first routine (Canvass) inspection",
+            "cases": rt["with_routine_inspection"],
+            "median_days": rt["median_days_to_routine"],
+            "p25_days": rt["p25_days_to_routine"],
+            "p75_days": rt["p75_days_to_routine"],
+        },
+    ]
+    metrics = {
+        "h33_signals": nb["signals"],
+        "h33_conversion": nb["conversion"],
+        "h33_baseline": nb["baseline"],
+        "h33_lift": nb["lift"],
+        "h33_signals_per_week": nb["signals_per_week"],
+        "h33_median_days": nb["median_days"],
+        "restaurant_license_inspections": t["restaurant_license_inspections"],
+        "inspections_matched_to_issue_license": t["matched_to_issue_license"],
+        "inspected_before_issue_share": t["inspected_before_issue_share"],
+        "first_inspection_pass_share": t["first_inspection_pass_share"],
+        "reinspected_share": t["reinspected_share"],
+        "buildout_inspections_with_permit_share": bo["with_permit_share"],
+        "preopening_restaurant_inspections_per_week": wk["restaurant_per_week"],
+        "preopening_all_facilities_per_week": wk["all_facilities_per_week"],
+        "preopening_restaurant_fail_share": wk["restaurant_fail_share"],
+        "new_business_sites_per_week": pre["new_sites"]["new_business_sites_per_week"],
+        "new_food_sites_per_week": pre["new_sites"]["new_food_sites_per_week"],
+        "windows": windows,
+    }
+    return result(
+        "H41",
+        "Commercial cleaning: when is a space 'built out, about to open'? Build-out permit, pre-opening inspection, license",
+        who="Commercial (post-construction and janitorial) cleaning companies; also signage, POS, security sellers",
+        data="Chicago building permits, business license history 2014+, food inspections 2016+ ('License' = "
+        "pre-opening), H33",
+        signal="Descriptive timing of three public markers: build-out permit at an unlicensed commercial space (H33), "
+        "a restaurant's pre-opening 'License' inspection, the business license issue",
+        target="Descriptive: days between the markers and weekly volumes; no outcome test (cleaning contracts and "
+        "janitorial vendors are not public)",
+        metrics=_round_deep(metrics),
+        notes="What cannot be known: whether a space needs cleaning, who the janitorial vendor is, contract value or "
+        "term; no public dataset records cleaning purchases. The permit has no completion date, so 'construction "
+        "complete' is only bracketed: the pre-opening inspection is the end of construction (a restaurant must be "
+        "clean to pass), and it precedes the license by a median of two weeks, so a seller who reacts to the "
+        "inspection or the license arrives after the post-construction clean; only the build-out permit (H33) "
+        "arrives before it. Pre-opening 'License' inspections cover new licenses including ownership changes of "
+        "existing restaurants (no build-out), and about a third of them have a renovation permit at the address in "
+        "the prior year. Weekly inspection volumes carry the posting lag of the newest week. Restaurants are one "
+        "license group (56% of H33 conversions); offices and retail have no pre-opening inspection.",
+    )
+
+
 HYPOTHESES: dict[str, Callable] = {
     "H01": h01_solar_neighbors,
     "H02": h02_reroof_then_solar,
@@ -3724,12 +4054,17 @@ HYPOTHESES: dict[str, Callable] = {
     "H35": h35_zoning_to_big_permit,
     "H36": h36_adu_preapproval,
     "H37": h37_zoning_plus_sale,
+    "H38": h38_recurring_events,
+    "H39": h39_event_lead_time,
+    "H40": h40_dumpsters,
+    "H41": h41_commercial_cleaning,
 }
 
 
 # ----------------------------------------------------------------------------------------------------------
 ROUND4 = ("H29", "H30", "H31", "H32", "H33")
 ROUND5 = ("H34", "H35", "H36", "H37")
+ROUND6 = ("H38", "H39", "H40", "H41")
 
 
 def fmt(x, pct=False) -> str:
@@ -3810,6 +4145,22 @@ def render(results: list[dict], generated: str) -> str:
             "flats_precision",
             "flats_ablation",
             "flats_calibration",
+            "feed",
+            "by_rule",
+            "by_period",
+            "pipeline",
+            "cdot_by_rule",
+            "cdot_by_period",
+            "cdot_by_group",
+            "park_by_threshold",
+            "park_by_group",
+            "cdot_by_type",
+            "cdot_large_by_year",
+            "cdot_pipeline",
+            "license_lead",
+            "recall",
+            "market_by_year",
+            "windows",
         ):
             if key in m and m[key]:
                 rows = m[key]
@@ -3840,7 +4191,7 @@ def render(results: list[dict], generated: str) -> str:
                         )
                         + " |"
                     )
-        if r["id"] in ROUND4 + ROUND5:
+        if r["id"] in ROUND4 + ROUND5 + ROUND6:
             scalars = [
                 f"{k} = {fmt(v)}"
                 for k, v in m.items()

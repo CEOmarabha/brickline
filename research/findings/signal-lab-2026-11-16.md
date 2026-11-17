@@ -16,6 +16,8 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | H30 | Commercial and multifamily reroof cycle model (as-of quarters 2016-2023, time-split validation) | **Strong** | 4.59× | 3.6% | 0.8% | 76.90 | Commercial roofers, roof-coating and sheet-metal contractors, roof inspection and consulting firms |
 | H36 | ADU preapproval application → ADU-related or any new construction/renovation permit at the address | **Strong (provisional)** | 4.14× | 7.7% | 0.3% | 12.30 | ADU builders, architects and GCs; lenders and suppliers for coach houses and basement or attic units |
 | H29 | Which trades are still open after a $1M+ commercial/multifamily permit (signs, elevator, electrical, ...) | **Strong** | 3.06× | 62.1% | 20.3% | 8.70 | Sign shops, elevator service, electricians and other trade subcontractors; suppliers selling to them |
+| H40 | Renovation, new-construction or demolition permit at an address → a dumpster permit on the public way there within 180 days | **Strong** | 3.03× | 9.6% | 3.2% | 116.50 | Roll-off dumpster haulers (and their sales reps); GCs only as the buyers the haulers serve |
+| H38 | Event series held in each of the last 2 years → held again next year at the same time of year | **Useful** | 2.89× | 53.4% | 18.5% | 4.10 | Event-service sellers (rentals, staging, security, catering, porta-potties, insurance) and the venues and sponsors around recurring events |
 | H13 | Which buildings need masonry work: walls × age | **Useful** | 2.85× | 1.4% | 0.5% | — | Masons, tuckpointers |
 | H09 | Vacant-building complaint → property sells | **Useful** | 2.49× | 19.4% | 7.8% | 20.50 | Investors' contractors, rehab GCs, property managers (and investors themselves) |
 | H01 | Neighbors went solar → you go solar | **Useful** | 2.41× | 1.0% | 0.4% | 33.40 | Solar installers |
@@ -30,6 +32,8 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | H20 | 311 rodent complaint → building/pest violation (pest-control demand proxy) | **Weak** | 1.31× | 1.9% | 1.5% | 545.50 | Pest control, sanitation and property-management services |
 | H21 | New food license with no recent build-out permit (as-is takeover) → permits after opening | **Descriptive** | —× | 12.1% | 51.7% | 14.40 | Signage, cleaning, security, small-trade contractors serving new restaurants |
 | H22 | Seasonality: when permits are pulled and how fast citations turn into permits, by month | **Descriptive** | —× | — | — | — | Porch, masonry and roofing contractors (mailing calendar) |
+| H39 | How far ahead do event permits become visible? (Park District feed, CDOT street-event permits) | **Descriptive** | —× | — | — | — | Event-service sellers deciding whether permits can find NEW events 3-9 months ahead |
+| H41 | Commercial cleaning: when is a space 'built out, about to open'? Build-out permit, pre-opening inspection, license | **Descriptive** | —× | — | — | — | Commercial (post-construction and janitorial) cleaning companies; also signage, POS, security sellers |
 | H31 | New business license + build-out permit before it → business still operating 18-30 months later | **No signal** | 1.21× | 70.7% | 58.6% | 10.90 | B2B sellers to new businesses (insurance, payments/POS, signage, cleaning, security, accounting) who want to know which registrations are real and lasting |
 | H02 | New roof → solar within 2 years | **No signal** | 1.18× | 1.0% | 0.8% | 90.20 | Solar installers (and roofers partnering with them) |
 | H16 | Poor energy score → mechanical/electrical upgrades | **No signal** | 1.08× | 17.7% | 16.4% | — | Commercial HVAC, electrical, lighting retrofit, energy services |
@@ -463,6 +467,140 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 - Key numbers (rates are fractions): signals = 2330; conversion = 0.62; baseline = 0.20; lift = 3.06; matched_control_rate = 0.04; lift_vs_matched_control = 14.47; busy_control_rate = 0.41; lift_vs_busy = 1.53; signals_per_week_class_known = 4.71; median_days = 139.00; days_p25 = 62.00; days_p75 = 260.00; signals_per_week = 8.67; unknown_class_signals = 2425; unknown_class_followon_rate = 0.53
 
+## H40 — Renovation, new-construction or demolition permit at an address → a dumpster permit on the public way there within 180 days
+
+- **Signal:** Renovation/alteration, new-construction or wrecking/demolition permit at an address with no such permit in the previous 180 days (one per address per 180 days), 2017 to 180 days before the newest dumpster permit
+- **Target:** An issued, not-cancelled CDOT dumpster permit (street-sweeping notes excluded) starting at the same address within 180 days after the building permit; baseline = the same address's own earlier window (181-360 days before); control = address-quarters of addresses that have had such a permit at some time, with none within a year either side, year-standardized
+- **Data:** Chicago building permits, CDOT dumpster permits 2016+ (pubx-yq2d, applicant = the hauler, not the customer; 241,343 location rows)
+- **Verdict:** Strong
+- **Notes:** The applicant on a CDOT dumpster permit is the hauler (67 companies, 8 permit rows name an individual); the customer, the project and the GC are not in the data, so the GC link goes through the building permit at the address. Only dumpsters placed on the public way (curb lane or alley) need this permit: dumpsters on private property or in a driveway are invisible, so conversion is a floor and most building permits will never show one. A dumpster permit is issued for the day it is placed (median 0 days before start), so its date is the placement date. The dumpster permit comes first in a large share of address pairs (dumpster_first_share_of_near): a permit is not an early trigger for those. 'Repeat partner' = the hauler on the project's first dumpster permit is a hauler this GC used on an earlier linked project; chance = the market share, in the project's year, of the haulers the GC used before. Permit statuses are as of today (a later cancellation is known only now). Address matching is by street address, not unit or lot.
+- Signals tested: 73,204; conversion 9.6% vs baseline 3.2%; median 44.0 days to target
+
+| stratum | signals | conversion | own_earlier_window_rate | control_rate | lift_vs_control | lift_vs_own_earlier | median_days | p25_days | p75_days |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2017 | 9709 | 12.5% | 3.8% | 0.8% | 14.71 | 3.30 | 43.00 | 17.00 | 91.25 |
+| 2018 | 9478 | 10.0% | 3.4% | 0.8% | 13.05 | 2.95 | 40.00 | 17.00 | 91.00 |
+| 2019 | 9172 | 10.8% | 3.2% | 0.7% | 14.92 | 3.41 | 47.00 | 17.00 | 104.00 |
+| 2020 | 7481 | 10.2% | 3.3% | 0.8% | 13.21 | 3.08 | 42.00 | 16.00 | 98.00 |
+| 2021 | 7882 | 8.4% | 2.9% | 0.7% | 11.83 | 2.94 | 44.50 | 18.00 | 99.00 |
+| 2022 | 8064 | 9.5% | 3.0% | 0.7% | 14.39 | 3.16 | 46.00 | 17.00 | 100.00 |
+| 2023 | 6584 | 8.1% | 3.4% | 0.6% | 13.01 | 2.40 | 42.00 | 18.00 | 91.00 |
+| 2024 | 6518 | 8.0% | 2.9% | 0.6% | 13.73 | 2.80 | 51.00 | 18.00 | 109.00 |
+| 2025 | 6023 | 7.2% | 2.4% | 0.6% | 11.94 | 2.99 | 48.00 | 21.00 | 100.00 |
+| 2026 | 2293 | 8.2% | 2.9% | 0.6% | 13.87 | 2.82 | 46.00 | 22.00 | 94.00 |
+
+| stratum | signals | conversion | own_earlier_window_rate | control_rate | lift_vs_control | lift_vs_own_earlier | median_days | p25_days | p75_days |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| under $10k | 12189 | 5.2% | 2.4% | 0.7% | 7.08 | 2.14 | 70.00 | 27.00 | 119.75 |
+| $10k-$50k | 23752 | 6.4% | 3.2% | 0.7% | 9.03 | 2.00 | 38.00 | 15.00 | 91.00 |
+| $50k-$250k | 22380 | 13.6% | 4.2% | 0.7% | 19.47 | 3.25 | 35.00 | 14.00 | 79.00 |
+| $250k+ | 14863 | 12.1% | 2.2% | 0.7% | 17.68 | 5.63 | 62.00 | 25.25 | 116.00 |
+| no cost reported | 20 | 20.0% | 0.0% | 0.7% | 27.00 | — | 59.00 | 50.25 | 87.00 |
+
+| prior_permit | dumpster_permits | with_prior_permit | with_prior_permit_share |
+| --- | --- | --- | --- |
+| renovation, new construction or demolition permit | 174962 | 18660 | 10.7% |
+| express or easy permit (roofs, porches, small repairs) | 174962 | 17592 | 10.1% |
+| any building permit | 174962 | 31361 | 17.9% |
+
+| year | permits | haulers | haulers_20_plus | top1_share | top5_share | top10_share |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2016 | 25513 | 40 | 36 | 20.3% | 58.0% | 74.6% |
+| 2017 | 24810 | 42 | 36 | 20.3% | 60.0% | 75.6% |
+| 2018 | 22508 | 41 | 37 | 16.1% | 54.2% | 71.5% |
+| 2019 | 21403 | 43 | 36 | 20.7% | 55.4% | 73.8% |
+| 2020 | 18441 | 42 | 33 | 14.9% | 55.9% | 76.3% |
+| 2021 | 17068 | 41 | 28 | 15.0% | 56.0% | 77.1% |
+| 2022 | 16522 | 40 | 31 | 15.3% | 57.5% | 76.6% |
+| 2023 | 15189 | 40 | 29 | 21.8% | 61.7% | 80.7% |
+| 2024 | 14723 | 35 | 27 | 27.7% | 64.7% | 83.3% |
+| 2025 | 14709 | 32 | 27 | 26.6% | 62.0% | 85.1% |
+| 2026 | 13806 | 31 | 28 | 27.1% | 60.6% | 83.9% |
+
+- Key numbers (rates are fractions): signals = 73204; conversion = 0.10; baseline = 0.03; lift = 3.03; signals_per_week = 116.48; converted_per_week = 8.79; control_rate = 0.01; lift_vs_control = 13.57; median_days = 44.00; days_p25 = 18.00; days_p75 = 98.00; dumpster_first_share_of_near = 0.38; dumpster_30_days_first_share_of_near = 0.32; with_dumpster_within_180_days_either_side = 9010; control_address_quarters = 4223345; market_permits = 204692; market_haulers = 63; market_top1_share = 0.16; market_top5_share = 0.58; market_top10_share = 0.74; market_hhi = 0.08; market_last_52_weeks_permits = 15151; market_last_52_weeks_haulers = 32; market_last_52_weeks_haulers_20_plus = 29; market_last_52_weeks_top5_share = 0.60; market_last_52_weeks_top10_share = 0.83; market_haulers_first_seen_after_2016 = 23; market_haulers_first_seen_last_3_years = 5; partner_linked_projects = 6309; partner_gcs = 2393; partner_with_earlier_project = 3886; partner_repeat_partner_share = 0.70; partner_expected_by_chance_share = 0.14; partner_mean_haulers_used_before = 2.08; partner_self_hauled_share = 0.00; partner_repeat_vs_chance = 4.86; partner_gcs_with_5_plus_projects = 310; partner_median_top_hauler_share = 0.67; partner_gcs_80_percent_one_hauler_share = 0.40; partner_median_haulers_per_gc = 3.00
+
+## H38 — Event series held in each of the last 2 years → held again next year at the same time of year
+
+- **Signal:** A series = normalized event name at the same park (Park District, only the real-event tiers 'Permit - Event N', Festival/Performance, Corporate, Promotions, civic/corporate/philanthropic venues) held (approved reservation) in each of the two years up to the prediction year; features use only years up to the prediction year, prediction date 31 December
+- **Target:** Any reservation of the same series within +/- 31 days of the same date one year later; baseline = series in their debut year (no history), standardized to the held-2-years group mix. Prediction years 2019-2021 are left out of the pooled figures (pandemic); the CDOT table is the same test on street events keyed by name and ward
+- **Data:** Chicago Park District outdoor event permits and reservations 2012+ (pk66-w54g, requestor names not downloaded), CDOT festival/parade/athletic/assembly street-event permits 2013+ (pubx-yq2d), Overture places, Chicago business licenses (organization name matching only)
+- **Verdict:** Useful
+- **Notes:** Not a lead source for NEW events: it only re-finds events that already ran. A series needs a usable name (Park District event_description or organization, CDOT project name), so one-off unnamed events cannot recur by construction. The Park District reorganized its permit types in 2020 ('Event N Cluster' tiers replace Corporate/Picnic levels) and the number of real-event rows doubled after 2021, so groups are not comparable across eras and the by-period table is the fair reading. Event 1 includes private birthday parties and picnics. Organization names are matched by normalized name only; a name match is not a contact. Private requestors' names are not stored; event names and organizations never appear in this report. Reservations are final statuses today (Approved/Completed/Issued); a reservation cancelled before the event disappears from the feed, so history is of events that were held or kept. The Park District has no attendance field (the 'Event N' tier is the only size hint).
+
+| year | recurring_series | recurring_3_years | evaluated | hits | debut_n | debut_hits | held2_rate | debut_rate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2014 | 31 | 16 | 31 | 18 | 108 | 23 | 58.1% | 21.3% |
+| 2015 | 46 | 18 | 46 | 29 | 124 | 17 | 63.0% | 13.7% |
+| 2016 | 51 | 29 | 51 | 31 | 142 | 16 | 60.8% | 11.3% |
+| 2017 | 50 | 32 | 50 | 31 | 166 | 15 | 62.0% | 9.0% |
+| 2018 | 55 | 31 | 55 | 23 | 146 | 13 | 41.8% | 8.9% |
+| 2019 | 42 | 24 | 42 | 3 | 154 | 0 | 7.1% | 0.0% |
+| 2020 | 5 | 4 | 5 | 2 | 129 | 7 | — | 5.4% |
+| 2021 | 11 | 2 | 11 | 5 | 758 | 72 | 45.5% | 9.5% |
+| 2022 | 101 | 6 | 101 | 58 | 816 | 108 | 57.4% | 13.2% |
+| 2023 | 182 | 61 | 182 | 91 | 828 | 88 | 50.0% | 10.6% |
+| 2024 | 204 | 93 | 204 | 110 | 742 | 98 | 53.9% | 13.2% |
+| 2025 | 247 | 111 | 232 | 117 | 609 | 98 | 50.4% | 16.1% |
+
+| group | debut_n | debut_hits | held2_n | held2_hits | held3_n | held3_hits | debut_rate | held2_rate | held3_rate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Event 1 | 2039 | 208 | 323 | 132 | 94 | 49 | 10.2% | 40.9% | 52.1% |
+| Event 2 | 449 | 93 | 185 | 112 | 81 | 59 | 20.7% | 60.5% | 72.8% |
+| Event 3 | 144 | 34 | 68 | 41 | 27 | 17 | 23.6% | 60.3% | 63.0% |
+| Event 4 | 134 | 26 | 71 | 42 | 33 | 21 | 19.4% | 59.2% | 63.6% |
+| Event 5 | 99 | 25 | 43 | 25 | 14 | 11 | 25.3% | 58.1% | — |
+| Event 6 / Festival | 68 | 21 | 90 | 63 | 51 | 38 | 30.9% | 70.0% | 74.5% |
+| Corporate | 279 | 61 | 165 | 93 | 91 | 53 | 21.9% | 56.4% | 58.2% |
+| Promotions | 212 | 2 | 2 | 0 | 0 | 0 | 0.9% | — | — |
+| Venue (civic/corporate/philanthropic) | 257 | 6 | 5 | 0 | 0 | 0 | 2.3% | — | — |
+
+| rule | series_years | hits | precision_rate |
+| --- | --- | --- | --- |
+| every series held in the year (no history needed) | 4867 | 1089 | 22.4% |
+| debut year (not seen in any earlier year) | 3681 | 476 | 12.9% |
+| held in each of the last 2 years | 952 | 508 | 53.4% |
+| held in each of the last 3 years | 391 | 248 | 63.4% |
+| held in each of the last 2 years, organization named | 26 | 13 | 50.0% |
+
+| period | held2_n | held2_hits | held3_n | held3_hits | debut_n | debut_hits | all_series_n | all_series_hits | held2_rate | held3_rate | debut_rate | all_series_rate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2014-2018 (before the pandemic) | 233 | 132 | 126 | 77 | 686 | 84 | 962 | 237 | 56.7% | 61.1% | 12.2% | 24.6% |
+| 2022-2025 (after) | 719 | 376 | 265 | 171 | 2995 | 392 | 3905 | 852 | 52.3% | 64.5% | 13.1% | 21.8% |
+
+| group | predicted_3_to_9_months_per_year | hits_in_window | evaluated_in_window | hit_rate |
+| --- | --- | --- | --- | --- |
+| Event 1 | 83.33 | 99 | 250 | 39.6% |
+| Event 2 | 43.33 | 69 | 130 | 53.1% |
+| Event 3 | 17.00 | 34 | 51 | 66.7% |
+| Event 4 | 17.00 | 30 | 51 | 58.8% |
+| Event 5 | 10.00 | 20 | 30 | 66.7% |
+| Event 6 / Festival | 7.00 | 16 | 21 | 76.2% |
+| Corporate | 0.00 | 0 | 0 | — |
+| Promotions | 0.00 | 0 | 0 | — |
+| Venue (civic/corporate/philanthropic) | 0.00 | 0 | 0 | — |
+
+| rule | series_years | hits | precision_rate |
+| --- | --- | --- | --- |
+| every series held in the year (no history needed) | 3752 | 1587 | 42.3% |
+| debut year (not seen in any earlier year) | 2247 | 602 | 26.8% |
+| held in each of the last 2 years | 1279 | 842 | 65.8% |
+| held in each of the last 3 years | 552 | 404 | 73.2% |
+| held in each of the last 2 years, organization named | 854 | 567 | 66.4% |
+
+| period | held2_n | held2_hits | held3_n | held3_hits | debut_n | debut_hits | all_series_n | all_series_hits | held2_rate | held3_rate | debut_rate | all_series_rate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2014-2018 (before the pandemic) | 309 | 166 | 87 | 56 | 1060 | 263 | 1400 | 449 | 53.7% | 64.4% | 24.8% | 32.1% |
+| 2022-2025 (after) | 970 | 676 | 465 | 348 | 1187 | 339 | 2352 | 1138 | 69.7% | 74.8% | 28.6% | 48.4% |
+
+| group | debut_n | debut_hits | held2_n | held2_hits | held3_n | held3_hits | debut_rate | held2_rate | held3_rate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Assembly | 8 | 0 | 0 | 0 | 0 | 0 | — | — | — |
+| Athletic | 530 | 159 | 322 | 204 | 134 | 91 | 30.0% | 63.4% | 67.9% |
+| Festival | 1653 | 442 | 956 | 638 | 418 | 313 | 26.7% | 66.7% | 74.9% |
+| Parade | 56 | 1 | 1 | 0 | 0 | 0 | 1.8% | — | — |
+
+- Key numbers (rates are fractions): signals = 952; conversion = 0.53; baseline = 0.18; lift = 2.89; signals_per_week = 4.06; recurring_series_per_year_last3 = 211.00; date_n = 399; date_median_shift_days = 2.00; date_p75_shift_days = 6.00; date_within_7_days_share = 0.82; date_within_31_days_share = 0.97; lead_n = 508; lead_median_lead_days = 198.00; lead_p25_lead_days = 157.00; lead_p75_lead_days = 243.25; park_series_years = 3041; park_organization_named_share = 0.01; park_recurring_series_years = 633; park_recurring_organization_named_share = 0.01; park_org_organizations = 203; park_org_place_exact = 60; park_org_place_any = 78; park_org_license_exact = 54; park_org_license_any = 62; park_org_any_match = 105; park_org_place_exact_share = 0.30; park_org_place_any_share = 0.38; park_org_license_exact_share = 0.27; park_org_license_any_share = 0.31; park_org_any_match_share = 0.52; cdot_conversion = 0.66; cdot_baseline = 0.28; cdot_lift = 2.39; cdot_recurring_per_year_last3 = 293.00; cdot_date_n = 659; cdot_date_median_shift_days = 2.00; cdot_date_p75_shift_days = 6.00; cdot_date_within_7_days_share = 0.83; cdot_date_within_31_days_share = 0.97; cdot_lead_n = 842; cdot_lead_median_lead_days = 206.50; cdot_lead_p25_lead_days = 160.25; cdot_lead_p75_lead_days = 252.00; cdot_series_years = 1892; cdot_organization_named_share = 0.53; cdot_recurring_series_years = 879; cdot_recurring_organization_named_share = 0.57; cdot_org_organizations = 2878; cdot_org_place_exact = 574; cdot_org_place_any = 730; cdot_org_license_exact = 550; cdot_org_license_any = 676; cdot_org_any_match = 1045; cdot_org_place_exact_share = 0.20; cdot_org_place_any_share = 0.25; cdot_org_license_exact_share = 0.19; cdot_org_license_any_share = 0.23; cdot_org_any_match_share = 0.36
+
 ## H13 — Which buildings need masonry work: walls × age
 
 - **Signal:** Property group: Masonry / pre-1910
@@ -777,6 +915,97 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | 10 | 10.0% | 10.2% | 10.4% | 3691 | 14.4% | 203.00 |
 | 11 | 8.3% | 7.1% | 8.4% | 2577 | 14.9% | 189.50 |
 | 12 | 6.4% | 5.4% | 7.0% | 2288 | 13.7% | 187.00 |
+
+## H39 — How far ahead do event permits become visible? (Park District feed, CDOT street-event permits)
+
+- **Signal:** Park District: the date a reservation first appeared in the open feed (Socrata row-creation date; the dataset itself has no application date). CDOT: the date review of the application began, against the event start date; large formal events = festival, parade, athletic, assembly
+- **Target:** Descriptive: share of events visible at least T days before they start (T = 14 ... 180)
+- **Data:** Chicago Park District outdoor event permits (pk66-w54g incl. Socrata :created_at), CDOT permits (pubx-yq2d, review-start date), both as ingested
+- **Verdict:** Descriptive
+- **Notes:** Park District: the feed was reloaded in bulk on the baseline date, so rows created then have unknown true listing times; the threshold table counts only events starting at least T days after the baseline, which is exact (nothing is left-censored for those). New rows appear in weekly batches, so a row's listing date can trail the reservation by up to a week or more and is an upper bound on when it could be seen. The latest event listed is the last day of the current year, consistent with a calendar-year horizon (not verified). CDOT: review start is the earliest application date in the data (the application may have been submitted earlier), so leads are lower bounds; permits cancelled or denied are excluded and only events whose date has passed are in the lead statistics. Large-event lead times jump around 2021-22 (median 5-9 days before, 36-46 days since; possibly a permit-system change, not verified), so use the recent years.
+
+| item | value |
+| --- | --- |
+| Park District feed: bulk reload date (row-creation date of the baseline rows) | 2026-03-23 |
+| Park District feed: newest row-creation date | 2026-11-16 |
+| Park District feed: latest event date listed | 2026-12-31 |
+| CDOT permit feed: newest review-start date | 2026-11-16 |
+
+| days_ahead | rows_in_scope | rows_listed_that_early | listed_early_share |
+| --- | --- | --- | --- |
+| 14 | 3391 | 552 | 16.3% |
+| 30 | 3375 | 444 | 13.2% |
+| 60 | 3008 | 278 | 9.2% |
+| 90 | 2389 | 173 | 7.2% |
+| 120 | 1794 | 101 | 5.6% |
+| 180 | 502 | 23 | 4.6% |
+
+| group | rows_in_scope | rows_listed_90_days_ahead | listed_90_days_ahead_share |
+| --- | --- | --- | --- |
+| Event 1 | 864 | 34 | 3.9% |
+| Event 2 | 429 | 48 | 11.2% |
+| Event 3 | 140 | 32 | 22.9% |
+| Event 4 | 151 | 51 | 33.8% |
+| Event 5 | 125 | 0 | 0.0% |
+| Event 6 / Festival | 625 | 0 | 0.0% |
+| Promotions | 33 | 0 | 0.0% |
+| Venue (civic/corporate/philanthropic) | 22 | 8 | 36.4% |
+
+| worktype | permits | median_lead_days | p25_days | p75_days | p90_days | ahead_90_days_share | ahead_180_days_share | ahead_270_days_share | organization_applicant_share |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| BlockParty | 39971 | 29.00 | 11.00 | 58.00 | 96.00 | 11.8% | 0.6% | 0.1% | 13.4% |
+| Festival | 4135 | 31.00 | 9.00 | 67.00 | 137.00 | 17.8% | 3.3% | 3.0% | 60.5% |
+| Parade | 2510 | 11.00 | 5.00 | 21.00 | 40.00 | 2.8% | 0.4% | 0.0% | 98.8% |
+| Athletic | 1214 | 31.00 | 5.00 | 69.00 | 129.00 | 17.5% | 4.0% | 3.8% | 69.9% |
+| Assembly | 497 | 6.00 | 3.00 | 16.00 | 39.40 | 1.8% | 1.0% | 0.2% | 99.2% |
+| SideSale | 314 | 10.00 | 3.00 | 31.00 | 84.00 | 8.9% | 2.5% | 2.5% | 93.0% |
+
+| year | permits | median_lead_days | ahead_90_days_share | permits_90_days_ahead | organization_applicant_share |
+| --- | --- | --- | --- | --- | --- |
+| 2016 | 941 | 5.00 | 1.1% | 10 | 74.0% |
+| 2017 | 881 | 5.00 | 2.6% | 23 | 96.9% |
+| 2018 | 803 | 9.00 | 2.6% | 21 | 97.9% |
+| 2019 | 802 | 8.00 | 3.5% | 28 | 98.5% |
+| 2020 | 67 | 14.00 | 6.0% | 4 | 91.0% |
+| 2021 | 412 | 22.00 | 2.4% | 10 | 60.4% |
+| 2022 | 775 | 36.00 | 14.7% | 114 | 65.8% |
+| 2023 | 862 | 38.00 | 18.8% | 162 | 66.9% |
+| 2024 | 909 | 44.00 | 24.5% | 223 | 65.9% |
+| 2025 | 929 | 46.00 | 23.3% | 216 | 63.4% |
+| 2026 | 975 | 40.00 | 22.3% | 217 | 62.6% |
+
+| worktype | next_30_days | days_31_to_90 | days_91_to_180 | days_181_to_365 | org_applicant_91_to_365 |
+| --- | --- | --- | --- | --- | --- |
+| Assembly | 1 | 0 | 0 | 0 | 0 |
+| Athletic | 7 | 1 | 3 | 0 | 0 |
+| Festival | 21 | 9 | 13 | 0 | 7 |
+| Parade | 10 | 1 | 0 | 0 | 0 |
+
+| license_type | licenses | median_days | p25_days | p75_days | ahead_30_days_share | ahead_90_days_share |
+| --- | --- | --- | --- | --- | --- | --- |
+| Special Event Food | 5149 | 3.00 | 1.00 | 9.00 | 7.4% | 2.6% |
+| Special Event Liquor | 2192 | 1.00 | 0.00 | 4.00 | 5.4% | 4.2% |
+| Indoor Special Event | 262 | 17.00 | 10.00 | 28.75 | 23.3% | 1.5% |
+
+- Key numbers (rates are fractions): park_total_rows = 143133; park_baseline_rows = 132701; park_load_dates = 32; park_new_real_rows_since_baseline = 4144; park_new_real_series_since_baseline = 1245; park_new_real_rows_median_lead_days = -3.00; park_new_real_rows_p25_lead_days = -17.00; park_new_real_rows_p75_lead_days = 2.00; park_new_real_rows_listed_before_event_share = 0.31; park_new_real_rows_listed_30_days_ahead_share = 0.10; park_new_rows_per_week_weeks_observed = 34.00; park_all_new_rows_since_baseline = 3222; park_all_new_rows_median_lead_days = 22.00; park_all_new_rows_listed_90_days_ahead_share = 0.18; park_real_rows_listed_after_today = 10; park_all_rows_listed_after_today = 366; cdot_weekly_applications_per_week = 19.33; cdot_weekly_applications_3_to_9_months_ahead_per_week = 3.90; cdot_weekly_org_applicants_3_to_9_months_per_week = 2.06
+
+## H41 — Commercial cleaning: when is a space 'built out, about to open'? Build-out permit, pre-opening inspection, license
+
+- **Signal:** Descriptive timing of three public markers: build-out permit at an unlicensed commercial space (H33), a restaurant's pre-opening 'License' inspection, the business license issue
+- **Target:** Descriptive: days between the markers and weekly volumes; no outcome test (cleaning contracts and janitorial vendors are not public)
+- **Data:** Chicago building permits, business license history 2014+, food inspections 2016+ ('License' = pre-opening), H33
+- **Verdict:** Descriptive
+- **Notes:** What cannot be known: whether a space needs cleaning, who the janitorial vendor is, contract value or term; no public dataset records cleaning purchases. The permit has no completion date, so 'construction complete' is only bracketed: the pre-opening inspection is the end of construction (a restaurant must be clean to pass), and it precedes the license by a median of two weeks, so a seller who reacts to the inspection or the license arrives after the post-construction clean; only the build-out permit (H33) arrives before it. Pre-opening 'License' inspections cover new licenses including ownership changes of existing restaurants (no build-out), and about a third of them have a renovation permit at the address in the prior year. Weekly inspection volumes carry the posting lag of the newest week. Restaurants are one license group (56% of H33 conversions); offices and retail have no pre-opening inspection.
+
+| stage | cases | median_days | p25_days | p75_days |
+| --- | --- | --- | --- | --- |
+| Build-out permit (no licensee) → new business license issued (H33) | 1367 | 157.00 | 92.50 | 238.50 |
+| Build-out/renovation permit → restaurant pre-opening ('License') inspection (permit in prior 365 days) | 4232 | 106.00 | 42.00 | 186.25 |
+| Pre-opening inspection → business license issued | 10304 | 14.00 | 6.00 | 38.00 |
+| Pre-opening inspection → License re-inspection (after a fail or conditions) | 2989 | 10.00 | — | — |
+| Pre-opening inspection → first routine (Canvass) inspection | 7164 | 404.00 | 291.00 | 616.00 |
+
+- Key numbers (rates are fractions): h33_signals = 9011; h33_conversion = 0.15; h33_baseline = 0.01; h33_lift = 10.25; h33_signals_per_week = 17.67; h33_median_days = 157.00; restaurant_license_inspections = 12946; inspections_matched_to_issue_license = 10304; inspected_before_issue_share = 1.00; first_inspection_pass_share = 0.56; reinspected_share = 0.29; buildout_inspections_with_permit_share = 0.33; preopening_restaurant_inspections_per_week = 28.62; preopening_all_facilities_per_week = 48.19; preopening_restaurant_fail_share = 0.18; new_business_sites_per_week = 66.08; new_food_sites_per_week = 19.31
 
 ## H31 — New business license + build-out permit before it → business still operating 18-30 months later
 

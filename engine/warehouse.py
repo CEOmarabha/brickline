@@ -40,6 +40,20 @@ class Dataset:
 
 CONTACT_COLS = ",".join(f"contact_{i}_type,contact_{i}_name" for i in range(1, 16))
 
+CDOT_COLS = (
+    "uniquekey,applicationnumber,applicationtype,worktype,applicationstatus,currentmilestone,applicationstartdate,"
+    "applicationenddate,applicationprocesseddate,applicationissueddate,applicationname,primarycontactlast,"
+    "primarycontactfirst,primarycontactcity,primarycontactstate,streetnumberfrom,streetnumberto,direction,"
+    "streetname,suffix,placement,streetclosure,ward,latitude,longitude,totalfees"
+)
+CDOT_DUMPSTER_WHERE = "applicationtype = 'DOT_DMPSTR' AND applicationstartdate >= '2016-01-01T00:00:00'"
+CDOT_EVENT_TYPES = ("BlockParty", "Festival", "Parade", "Athletic", "Assembly", "SideSale")
+CDOT_EVENT_WHERE = (
+    "applicationtype = 'DOT_SE' AND applicationstartdate >= '2013-01-01T00:00:00' AND worktype in("
+    + ",".join(f"'{t}'" for t in CDOT_EVENT_TYPES)
+    + ")"
+)
+
 DATASETS = [
     Dataset(
         "permits",
@@ -133,6 +147,20 @@ DATASETS = [
         "case_numbe,case_type,zoning_id,zone_type,zone_class,create_dat,edit_date,pd_prefix,pd_num,ordinance,"
         "ordinance_1,clerk_docn,zoning_rel,shape_area",
     ),
+    # Round 6. Park District requestors are private individuals: `requestor_` is deliberately not selected.
+    # `:created_at` is Socrata's row-creation time: when a reservation first appeared in the open feed (one
+    # bulk reload, then weekly batches). The data has no application date, so it is the only timing hint.
+    Dataset(
+        "park_events",
+        CHICAGO,
+        "pk66-w54g",
+        "organization,park_number,park_facility_name,reservation_start_date,reservation_end_date,event_type,"
+        "event_description,permit_status,:created_at",
+    ),
+    # CDOT public-way permits (one row per location). Emergency contacts and applicant street addresses are
+    # not selected; `primarycontactfirst` only tells a person (private) from a company (`primarycontactlast`).
+    Dataset("cdot_dumpsters", CHICAGO, "pubx-yq2d", CDOT_COLS + ",comments", CDOT_DUMPSTER_WHERE),
+    Dataset("cdot_events", CHICAGO, "pubx-yq2d", CDOT_COLS, CDOT_EVENT_WHERE),
     Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community,the_geom"),
     Dataset("tracts_2010", CHICAGO, "74p9-q2aq", "geoid10,commarea,the_geom"),
     Dataset("tracts_2020", CHICAGO, "7qjk-677h", "tract_fips,tract_ce,commarea,the_geom"),
@@ -216,6 +244,65 @@ def address_key_sql(expr: str) -> str:
         f"regexp_extract({clean}, '{ADDRESS_RE}', 3), '  '), "
         f"nullif(regexp_extract({clean}, '{ADDRESS_FALLBACK_RE}', 1), ''), {clean})"
     )
+
+
+# Event names lose years, edition numbers and permit ids so the same event matches across years
+# ("Suenos 2025", "15th Annual Suenos #868" -> "suenos"). Every expression is lower-cased first.
+EDITION_WORDS = (
+    "annual|edition|inaugural|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|"
+    "thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth"
+)
+
+
+def event_key_sql(expr: str) -> str:
+    out = f"lower(trim(coalesce({expr}, '')))"
+    for pattern in (
+        r"\(non-exclusive use\)",
+        r"#\s*\d+",
+        r"\b(19|20)\d{2}\b",
+        r"\b\d+(st|nd|rd|th)\b",
+        rf"\b({EDITION_WORDS})\b",
+        r"\bdate option \d+\b",
+    ):
+        out = f"regexp_replace({out}, '{pattern}', ' ', 'g')"
+    out = f"trim(regexp_replace(regexp_replace({out}, '[^a-z0-9]+', ' ', 'g'), ' +', ' ', 'g'))"
+    return f"nullif({out}, '')"
+
+
+def park_tier_sql(event_type: str = "event_type") -> str:
+    """Normalized event tier of a Park District permit/reservation type."""
+    t = event_type
+    return f"""CASE
+        WHEN {t} LIKE 'Permit - Event %' OR {t} LIKE 'Permit - Festival%' THEN 'event'
+        WHEN {t} LIKE 'Permit - Corporate Event%' THEN 'corporate'
+        WHEN {t} LIKE 'Permit - Promotions%' THEN 'promotions'
+        WHEN {t} LIKE '%Commemorative%' THEN 'commemorative'
+        WHEN {t} LIKE 'Permit - Picnic%' THEN 'picnic'
+        WHEN {t} LIKE 'Permit - Athletic%' THEN 'athletic'
+        WHEN {t} LIKE 'Permit - Media%' THEN 'media'
+        WHEN {t} IN ('Venue Rental - Wedding', 'Venue Rental - Social') THEN 'venue_social'
+        WHEN {t} LIKE 'Venue Rental - %' THEN 'venue_org'
+        WHEN {t} LIKE 'Administrative Reservation%' THEN 'admin'
+        ELSE 'other' END"""
+
+
+def park_group_sql(event_type: str = "event_type") -> str:
+    """Size group for the real-event tiers ('Event 1' ... 'Event 6 / Festival'); NULL for everything else."""
+    t = event_type
+    return f"""CASE
+        WHEN {t} LIKE 'Permit - Festival%' OR {t} LIKE 'Permit - Event 6%' THEN 'Event 6 / Festival'
+        WHEN {t} LIKE 'Permit - Event _ %' THEN 'Event ' || substr({t}, 16, 1)
+        WHEN {t} LIKE 'Permit - Corporate Event%' THEN 'Corporate'
+        WHEN {t} LIKE 'Permit - Promotions%' THEN 'Promotions'
+        WHEN {t} LIKE 'Venue Rental - %' AND {t} NOT IN ('Venue Rental - Wedding', 'Venue Rental - Social')
+            THEN 'Venue (civic/corporate/philanthropic)'
+        END"""
+
+
+def hauler_name_sql(expr: str) -> str:
+    """Applicant company of a CDOT permit: asterisks (a registration mark) and extra spaces removed."""
+    star_free = f"regexp_replace(upper({expr}), '[*]+', ' ', 'g')"
+    return f"nullif(trim(regexp_replace({star_free}, ' +', ' ', 'g')), '')"
 
 
 NON_SOCRATA_SOURCES = ("clerk", "noaa", "hmda", "swdi", "overture")
@@ -648,6 +735,84 @@ def build() -> None:
                     addr_street: 'VARCHAR', addr_text: 'VARCHAR'}})
         """)
 
+    print("build park_events")
+    # Names of private requestors are never downloaded; descriptions can still contain a person's name
+    # (birthday parties, photo shoots), so only the normalized key is kept, and only for the real-event tiers.
+    con.execute(f"""
+        CREATE TABLE park_events AS
+        WITH src AS (
+            SELECT nullif(nullif(trim(organization), '--'), '') AS organization,
+                try_cast(try_cast(park_number AS DOUBLE) AS INTEGER) AS park_no,
+                park_facility_name AS park_name,
+                try_cast(reservation_start_date AS TIMESTAMP)::DATE AS start_date,
+                try_cast(reservation_end_date AS TIMESTAMP)::DATE AS end_date,
+                event_type, {park_tier_sql()} AS tier, {park_group_sql()} AS grp,
+                event_description, permit_status AS status,
+                try_cast(left(":created_at", 10) AS DATE) AS listed_date
+            FROM {_csv("park_events")}
+        )
+        SELECT organization, park_no, park_name, start_date, end_date, event_type, tier, grp,
+            grp IS NOT NULL AS is_real,
+            CASE WHEN grp IS NOT NULL THEN
+                coalesce({event_key_sql("event_description")}, {event_key_sql("organization")})
+            END AS event_key,
+            status, status IN ('Approved', 'Completed', 'Issued') AS is_held, listed_date
+        FROM src
+        WHERE start_date IS NOT NULL
+    """)
+
+    print("build dumpster_permits")
+    con.execute(f"""
+        CREATE TABLE dumpster_permits AS
+        SELECT uniquekey AS row_id, applicationnumber AS permit_no, applicationstatus AS status,
+            currentmilestone AS milestone,
+            try_cast(applicationstartdate AS TIMESTAMP)::DATE AS start_date,
+            try_cast(applicationenddate AS TIMESTAMP)::DATE AS end_date,
+            try_cast(applicationprocesseddate AS TIMESTAMP)::DATE AS processed_date,
+            try_cast(applicationissueddate AS TIMESTAMP)::DATE AS issue_date,
+            {
+        address_key_sql(
+            "coalesce(streetnumberfrom, '') || ' ' || coalesce(direction, '') || ' ' || "
+            "coalesce(streetname, '') || ' ' || coalesce(suffix, '')"
+        )
+    } AS address_key,
+            placement, try_cast(ward AS INTEGER) AS ward,
+            try_cast(latitude AS DOUBLE) AS lat, try_cast(longitude AS DOUBLE) AS lon,
+            try_cast(totalfees AS DOUBLE) AS fees,
+            CASE WHEN nullif(trim(primarycontactfirst), '') IS NULL
+                 THEN {hauler_name_sql("primarycontactlast")} END AS hauler,
+            nullif(trim(primarycontactfirst), '') IS NOT NULL AS applicant_is_person,
+            upper(coalesce(comments, '')) LIKE '%SWEEP%' AS purpose_sweep
+        FROM {_csv("cdot_dumpsters")}
+        WHERE try_cast(applicationstartdate AS TIMESTAMP) IS NOT NULL AND streetname IS NOT NULL
+    """)
+
+    print("build street_events")
+    # Until 2015-11 CDOT put the old permit number in the project name: digit-only names are no key.
+    con.execute(f"""
+        CREATE TABLE street_events AS
+        SELECT uniquekey AS row_id, applicationnumber AS permit_no, worktype, applicationstatus AS status,
+            currentmilestone AS milestone,
+            try_cast(applicationstartdate AS TIMESTAMP)::DATE AS start_date,
+            try_cast(applicationenddate AS TIMESTAMP)::DATE AS end_date,
+            try_cast(applicationprocesseddate AS TIMESTAMP)::DATE AS processed_date,
+            try_cast(applicationissueddate AS TIMESTAMP)::DATE AS issue_date,
+            nullif(regexp_replace({event_key_sql("applicationname")}, '^[0-9 ]+$', ''), '') AS event_key,
+            CASE WHEN nullif(trim(primarycontactfirst), '') IS NULL
+                 THEN {hauler_name_sql("primarycontactlast")} END AS applicant_org,
+            nullif(trim(primarycontactfirst), '') IS NOT NULL AS applicant_is_person,
+            {
+        address_key_sql(
+            "coalesce(streetnumberfrom, '') || ' ' || coalesce(direction, '') || ' ' || "
+            "coalesce(streetname, '') || ' ' || coalesce(suffix, '')"
+        )
+    } AS address_key,
+            streetclosure AS closure, try_cast(ward AS INTEGER) AS ward,
+            try_cast(latitude AS DOUBLE) AS lat, try_cast(longitude AS DOUBLE) AS lon
+        FROM {_csv("cdot_events")}
+        WHERE try_cast(applicationstartdate AS TIMESTAMP) IS NOT NULL
+    """)
+
     print("build biz_owners")
     con.execute(f"""
         CREATE TABLE biz_owners AS
@@ -681,6 +846,9 @@ def build() -> None:
         "biz_owners",
         "adu_preapprovals",
         "zoning_districts",
+        "park_events",
+        "dumpster_permits",
+        "street_events",
         *(["zoning_changes"] if zoning_json else []),
     ):
         n = con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
