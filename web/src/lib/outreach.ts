@@ -23,6 +23,11 @@ interface LetterContext {
   where: string;
 }
 
+/** Tax-roll names can be fragments like "2315 2"; address those letters to the property owner instead. */
+function ownerGreeting(name: string | null): string {
+  return name && /[A-Za-z]{2,}/.test(name) ? `Dear ${name},` : "Dear Property Owner,";
+}
+
 /** Body paragraphs for owner letters triggered by 311 signals. They never mention the 311 report itself. */
 function ownerLetterBody(kind: "complaint" | "porch_request" | "vacant", c: LetterContext): string[] {
   if (kind === "porch_request") {
@@ -53,7 +58,7 @@ export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaNam
   const where = areaName ? ` in ${areaName}` : "";
 
   if (lead.kind === "violation") {
-    const greeting = lead.owner.name ? `Dear ${lead.owner.name},` : "Dear Property Owner,";
+    const greeting = ownerGreeting(lead.owner.name);
     return {
       channel: "letter",
       body: [
@@ -79,7 +84,7 @@ export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaNam
   }
 
   if (lead.kind === "closed_restaurant") {
-    const greeting = lead.owner.name ? `Dear ${lead.owner.name},` : "Dear Property Owner,";
+    const greeting = ownerGreeting(lead.owner.name);
     const company = lead.owner.type === "company";
     return {
       channel: "letter",
@@ -110,7 +115,7 @@ export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaNam
   }
 
   if (lead.kind !== "investor_purchase") {
-    const greeting = lead.owner.name ? `Dear ${lead.owner.name},` : "Dear Property Owner,";
+    const greeting = ownerGreeting(lead.owner.name);
     const lines = ownerLetterBody(lead.kind, { address: lead.address, business, phone, noun, where });
     return {
       channel: "letter",

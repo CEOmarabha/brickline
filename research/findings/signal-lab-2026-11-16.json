@@ -972,60 +972,60 @@
       "groups": [
         {
           "grp": "1 purchase",
-          "purchases": 34367,
-          "buyers": 32497,
-          "conversion": 0.36049,
-          "median_days_to_first_permit": 96.0
+          "purchases": 37433,
+          "buyers": 35427,
+          "conversion": 0.36016,
+          "median_days_to_first_permit": 95.0
         },
         {
           "grp": "2 purchases",
-          "purchases": 4423,
-          "buyers": 3693,
-          "conversion": 0.34501,
+          "purchases": 5051,
+          "buyers": 4207,
+          "conversion": 0.34171,
           "median_days_to_first_permit": 93.0
         },
         {
           "grp": "3-5 purchases",
-          "purchases": 3771,
-          "buyers": 1506,
-          "conversion": 0.34633,
+          "purchases": 4336,
+          "buyers": 1759,
+          "conversion": 0.34248,
           "median_days_to_first_permit": 92.0
         },
         {
           "grp": "6+ purchases",
-          "purchases": 4023,
-          "buyers": 389,
-          "conversion": 0.30127,
-          "median_days_to_first_permit": 99.5
+          "purchases": 4562,
+          "buyers": 447,
+          "conversion": 0.29351,
+          "median_days_to_first_permit": 101.0
         }
       ],
-      "conversion": 0.3231,
-      "baseline": 0.3605,
-      "lift": 0.8962,
-      "signals_per_week": 14.8654,
-      "repeat_median_days_to_permit": 96.0,
-      "single_median_days_to_permit": 96.0,
-      "repeat_buyers": 1513,
-      "repeat_purchases": 7794,
-      "single_purchases": 34367,
+      "conversion": 0.3174,
+      "baseline": 0.3602,
+      "lift": 0.8812,
+      "signals_per_week": 16.3654,
+      "repeat_median_days_to_permit": 97.0,
+      "single_median_days_to_permit": 95.0,
+      "repeat_buyers": 1767,
+      "repeat_purchases": 8898,
+      "single_purchases": 37433,
       "loyalty": [
         {
           "measure": "Repeat buyers' permits naming a GC the buyer used before on another property",
-          "permits": 2201,
-          "buyers": 486,
-          "share": 0.557
+          "permits": 2454,
+          "buyers": 556,
+          "share": 0.5509
         },
         {
           "measure": "Benchmark: chance a randomly drawn Chicago GC (same year) would be one of those GCs",
-          "permits": 2201,
-          "buyers": 486,
+          "permits": 2454,
+          "buyers": 556,
           "share": 0.0026
         }
       ]
     },
     "verdict": "No signal",
     "notes": "Buyers are identified by name string (the sales feed truncates names to ~25 characters and investors often use a new LLC per building), so portfolio operators are undercounted and 'repeat' means a repeat name. Units are single-parcel deeds (multi-parcel deeds are excluded as units but count as one purchase date). Repeat investors differ from one-off buyers in building mix (more multi-family/commercial and larger parcels that need permits for any reason), so this is a targeting comparison, not a causal effect. GC loyalty: of repeat buyers' permits naming a GC where the buyer already had an earlier permit with a named GC on a different property, the share naming one of those same GCs, against the chance a random GC (weighted by that year's citywide GC permit share) would match. Only buyers with prior permits can be measured, which favors buyers who renovate repeatedly.",
-    "score": 21.52229
+    "score": 22.88643
   },
   {
     "id": "H19",
@@ -4595,8 +4595,8 @@
       "difference_ci95_high_points": 15.89784,
       "hits_with_sale": 370,
       "hits_zoning_alone": 801,
-      "investor_buyer_signals": 625,
-      "investor_buyer_conversion": 0.368,
+      "investor_buyer_signals": 686,
+      "investor_buyer_conversion": 0.35714,
       "signals_per_week": 1.98077,
       "by_year": [
         {

@@ -39,7 +39,7 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | H04 | Hail ≥ 1 inch → reroof wave | **No signal** | 0.98× | 1.14 | 1.17 | 0.10 | Roofers, gutter and siding contractors, restoration |
 | H24 | Restaurant plumbing violation → plumbing permit at the address within 365 days | **No signal** | 0.95× | 3.2% | 3.4% | 55.70 | Commercial plumbers, drain and grease-trap contractors |
 | H05 | Damaging wind (60+ kt) → reroof wave | **No signal** | 0.90× | 1.04 | 1.16 | 0.20 | Roofers, gutter and siding contractors, restoration |
-| H18 | Repeat investors (3+ purchases in 24 months) renovate more and faster than one-off company buyers | **No signal** | 0.90× | 32.3% | 36.0% | 14.90 | Rehab GCs, subs working for investors, property managers |
+| H18 | Repeat investors (3+ purchases in 24 months) renovate more and faster than one-off company buyers | **No signal** | 0.88× | 31.7% | 36.0% | 16.40 | Rehab GCs, subs working for investors, property managers |
 | H25 | Restaurant hood/ventilation violation → HVAC or mechanical permit at the address within 365 days | **No signal** | 0.86× | 1.8% | 2.0% | 18.00 | Commercial HVAC, hood and exhaust-cleaning contractors |
 | H06 | 311 'water in basement' → plumbing work | **No signal** | 0.74× | 0.5% | 0.6% | 271.40 | Plumbers, waterproofing and drain contractors |
 | H11 | Lead test kit request → plumbing work | **No signal** | 0.70× | 0.6% | 0.9% | 273.30 | Plumbers |
@@ -618,7 +618,7 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 | 2023 | 50 | 14.0% | 14.8% | 0.94 |
 | 2024 | 78 | 23.1% | 10.1% | 2.30 |
 
-- Key numbers (rates are fractions): signals = 1178; signals_zoning_alone = 4353; conversion = 0.31; baseline = 0.21; zoning_alone_raw_rate = 0.18; lift = 1.50; lift_raw = 1.71; difference_points = 13.01; difference_ci95_low_points = 10.12; difference_ci95_high_points = 15.90; hits_with_sale = 370; hits_zoning_alone = 801; investor_buyer_signals = 625; investor_buyer_conversion = 0.37; signals_per_week = 1.98
+- Key numbers (rates are fractions): signals = 1178; signals_zoning_alone = 4353; conversion = 0.31; baseline = 0.21; zoning_alone_raw_rate = 0.18; lift = 1.50; lift_raw = 1.71; difference_points = 13.01; difference_ci95_low_points = 10.12; difference_ci95_high_points = 15.90; hits_with_sale = 370; hits_zoning_alone = 801; investor_buyer_signals = 686; investor_buyer_conversion = 0.36; signals_per_week = 1.98
 
 ## H23 — Restaurant pest violation → another pest violation within 180 days (recurring pest-control need)
 
@@ -974,15 +974,15 @@ Creative lead hypotheses tested against Chicago history. Reproduce with `uv run 
 
 | grp | purchases | buyers | conversion | median_days_to_first_permit |
 | --- | --- | --- | --- | --- |
-| 1 purchase | 34367 | 32497 | 36.0% | 96.00 |
-| 2 purchases | 4423 | 3693 | 34.5% | 93.00 |
-| 3-5 purchases | 3771 | 1506 | 34.6% | 92.00 |
-| 6+ purchases | 4023 | 389 | 30.1% | 99.50 |
+| 1 purchase | 37433 | 35427 | 36.0% | 95.00 |
+| 2 purchases | 5051 | 4207 | 34.2% | 93.00 |
+| 3-5 purchases | 4336 | 1759 | 34.2% | 92.00 |
+| 6+ purchases | 4562 | 447 | 29.4% | 101.00 |
 
 | measure | permits | buyers | share |
 | --- | --- | --- | --- |
-| Repeat buyers' permits naming a GC the buyer used before on another property | 2201 | 486 | 55.7% |
-| Benchmark: chance a randomly drawn Chicago GC (same year) would be one of those GCs | 2201 | 486 | 0.3% |
+| Repeat buyers' permits naming a GC the buyer used before on another property | 2454 | 556 | 55.1% |
+| Benchmark: chance a randomly drawn Chicago GC (same year) would be one of those GCs | 2454 | 556 | 0.3% |
 
 ## H25 — Restaurant hood/ventilation violation → HVAC or mechanical permit at the address within 365 days
 

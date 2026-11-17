@@ -55,14 +55,14 @@ Each cell: post-sale rate (lift vs baseline).
 | 2-6 unit flat | 75,066 | 3.1% (5.4x) | 6.5% (4.2x) | 8.4% (3.7x) | 2.8% (5.3x) | 7.7% (4.1x) | 5.4% (4.1x) | 2.3% (4.0x) | 0.1% (4.3x) | 5.4% (5.2x) | 5.5% (5.5x) | 21.9% (3.6x) |
 | commercial/industrial | 7,621 | 4.4% (2.3x) | 8.5% (2.2x) | 1.8% (1.5x) | 3.3% (3.3x) | 10.8% (1.8x) | 5.9% (2.4x) | 3.1% (1.7x) | 0.1% (5.0x) | 8.9% (2.3x) | 9.9% (2.2x) | 28.6% (1.9x) |
 | apartment 7+ | 5,891 | 2.5% (1.7x) | 12.7% (2.4x) | 9.3% (2.0x) | 3.4% (2.9x) | 11.4% (2.5x) | 9.0% (3.6x) | 3.1% (2.7x) | 0.0% (2.0x) | 6.6% (4.3x) | 6.0% (2.7x) | 31.3% (1.9x) |
-| single-family / individual buyer | 141,213 | 1.4% (2.4x) | 1.1% (1.4x) | 1.7% (1.4x) | 1.1% (2.3x) | 3.4% (2.8x) | 1.8% (1.7x) | 0.7% (1.6x) | 0.5% (8.4x) | 1.8% (2.0x) | 1.3% (1.0x) | 9.1% (2.0x) |
-| 2-6 unit flat / individual buyer | 56,422 | 1.9% (3.0x) | 4.2% (2.6x) | 5.5% (2.3x) | 2.0% (3.4x) | 6.5% (3.3x) | 3.8% (2.6x) | 1.7% (2.8x) | 0.1% (4.2x) | 3.7% (3.2x) | 2.9% (2.5x) | 16.5% (2.5x) |
-| single-family / investor buyer | 23,187 | 4.8% (14.1x) | 5.7% (16.9x) | 8.2% (16.7x) | 6.1% (32.0x) | 9.0% (14.8x) | 8.9% (21.4x) | 3.4% (23.8x) | 0.2% (5.4x) | 8.7% (30.7x) | 7.7% (16.4x) | 29.6% (14.4x) |
-| 2-6 unit flat / investor buyer | 18,644 | 6.5% (16.7x) | 13.5% (10.1x) | 17.2% (9.4x) | 5.4% (14.3x) | 11.3% (6.7x) | 10.2% (11.3x) | 4.2% (8.2x) | 0.0% (6.0x) | 10.6% (14.9x) | 13.3% (27.6x) | 38.4% (7.3x) |
-| commercial/industrial / investor buyer | 4,621 | 5.0% (2.9x) | 9.0% (3.0x) | 1.8% (3.0x) | 3.4% (3.6x) | 11.3% (1.9x) | 6.2% (2.5x) | 3.2% (1.6x) | 0.0% (n/a) | 9.2% (2.5x) | 11.4% (3.3x) | 30.7% (2.0x) |
-| apartment 7+ / investor buyer | 4,242 | 2.8% (2.9x) | 13.6% (2.7x) | 10.0% (2.5x) | 3.7% (2.9x) | 11.7% (3.1x) | 9.2% (4.7x) | 3.4% (3.9x) | 0.0% (0.0x) | 7.0% (5.1x) | 6.5% (5.1x) | 31.6% (2.3x) |
-| commercial/industrial / individual buyer | 3,000 | 3.4% (1.6x) | 7.8% (1.6x) | 1.8% (0.9x) | 3.3% (2.8x) | 10.1% (1.7x) | 5.5% (2.2x) | 2.9% (2.0x) | 0.1% (4.0x) | 8.4% (2.0x) | 7.6% (1.2x) | 25.4% (1.7x) |
-| apartment 7+ / individual buyer | 1,649 | 1.9% (0.7x) | 10.2% (1.6x) | 7.3% (1.2x) | 2.5% (2.8x) | 10.5% (1.7x) | 8.2% (2.2x) | 2.3% (1.3x) | 0.1% (n/a) | 5.5% (2.8x) | 4.5% (1.0x) | 30.5% (1.3x) |
+| single-family / individual buyer | 138,635 | 1.3% (2.3x) | 1.1% (1.3x) | 1.6% (1.3x) | 1.0% (2.0x) | 3.3% (2.7x) | 1.6% (1.6x) | 0.6% (1.4x) | 0.5% (8.3x) | 1.7% (1.8x) | 1.2% (1.0x) | 8.8% (1.9x) |
+| 2-6 unit flat / individual buyer | 54,978 | 1.9% (2.9x) | 4.0% (2.5x) | 5.3% (2.2x) | 1.9% (3.2x) | 6.4% (3.3x) | 3.7% (2.5x) | 1.6% (2.7x) | 0.1% (4.0x) | 3.5% (3.0x) | 2.7% (2.3x) | 16.0% (2.5x) |
+| single-family / investor buyer | 25,765 | 4.7% (14.8x) | 5.5% (16.6x) | 8.0% (16.3x) | 6.1% (33.0x) | 9.1% (14.0x) | 8.9% (20.8x) | 3.5% (24.1x) | 0.2% (6.3x) | 8.6% (28.9x) | 7.4% (17.3x) | 29.3% (14.2x) |
+| 2-6 unit flat / investor buyer | 20,088 | 6.4% (16.3x) | 13.4% (9.8x) | 17.0% (9.1x) | 5.4% (13.9x) | 11.3% (6.5x) | 10.2% (11.1x) | 4.2% (8.0x) | 0.0% (9.0x) | 10.6% (14.6x) | 13.1% (25.7x) | 38.1% (7.1x) |
+| commercial/industrial / investor buyer | 4,975 | 5.0% (2.8x) | 9.0% (3.0x) | 1.8% (3.1x) | 3.4% (3.7x) | 11.4% (1.9x) | 6.3% (2.5x) | 3.2% (1.6x) | 0.0% (n/a) | 9.3% (2.5x) | 11.7% (3.4x) | 30.8% (2.0x) |
+| apartment 7+ / investor buyer | 4,564 | 2.7% (2.8x) | 13.5% (2.6x) | 9.9% (2.5x) | 3.7% (2.8x) | 11.6% (3.0x) | 9.0% (4.4x) | 3.3% (3.7x) | 0.0% (1.0x) | 6.7% (4.9x) | 6.6% (5.0x) | 31.4% (2.2x) |
+| commercial/industrial / individual buyer | 2,646 | 3.3% (1.5x) | 7.7% (1.4x) | 1.7% (0.8x) | 3.2% (2.6x) | 9.7% (1.7x) | 5.3% (2.1x) | 2.8% (2.0x) | 0.1% (3.0x) | 8.0% (1.9x) | 6.6% (1.0x) | 24.6% (1.6x) |
+| apartment 7+ / individual buyer | 1,327 | 1.9% (0.6x) | 10.0% (1.7x) | 7.2% (1.1x) | 2.5% (3.3x) | 10.6% (1.6x) | 8.9% (2.2x) | 2.4% (1.2x) | 0.1% (n/a) | 6.1% (2.9x) | 3.8% (0.7x) | 31.0% (1.2x) |
 
 | Segment | Median days sale → first permit | p25 | p75 |
 | --- | --- | --- | --- |
@@ -162,7 +162,7 @@ Target: a major permit (new construction or renovation ≥ $100k) *applied for* 
 | Signal | Weight if present | Train rate if present | Lift | Parcels with signal (train) |
 | --- | --- | --- | --- | --- |
 | recent sale (365d) | +1.21 | 1.5% | 3.3x | 239,205 |
-| recent sale to company/investor buyer (365d) | +2.19 | 4.0% | 8.6x | 42,315 |
+| recent sale to company/investor buyer (365d) | +2.15 | 3.8% | 8.3x | 49,106 |
 | demolition permit (365d) | +3.02 | 8.6% | 18.8x | 4,918 |
 | any building violation (365d) | +1.77 | 2.6% | 5.7x | 111,421 |
 | 3+ building violations (365d) | +1.79 | 2.7% | 5.9x | 66,357 |
@@ -174,7 +174,7 @@ Precision of the top-K parcels per half-year snapshot (test years):
 
 | Top-K per snapshot | ≈ per week | Naive Bayes precision | Combination-model precision | Combination lift |
 | --- | --- | --- | --- | --- |
-| 100 | 4 | 4.8% | 25.7% | 56x |
+| 100 | 4 | 4.7% | 25.7% | 56x |
 | 500 | 19 | 13.0% | 18.6% | 41x |
 | 2,000 | 77 | 7.4% | 12.4% | 27x |
 | 10,000 | 385 | — | 5.0% | 11x |
@@ -189,13 +189,13 @@ Highest-converting signal combinations (train rate, then out-of-sample test rate
 | any building violation (365d), any non-major permit (180d), major permit already in last 3 years | 2,596 | 15.3% | 1,085 | 16.5% |
 | any non-major permit (180d), major permit already in last 3 years | 6,290 | 13.3% | 5,882 | 12.6% |
 | demolition permit (365d), any non-major permit (180d) | 545 | 10.9% | 317 | 12.6% |
-| recent sale (365d), recent sale to company/investor buyer (365d), any non-major permit (180d), major permit already in last 3 years | 637 | 7.9% | 535 | 9.3% |
-| recent sale (365d), any non-major permit (180d), major permit already in last 3 years | 1,033 | 7.0% | 716 | 6.8% |
-| recent sale (365d), recent sale to company/investor buyer (365d), any building violation (365d), 3+ building violations (365d), vacant-building / board-up violation (730d) | 374 | 6.6% | 19 | 21.1% |
-| recent sale (365d), recent sale to company/investor buyer (365d), any building violation (365d), vacant-building / board-up violation (730d) | 324 | 6.3% | 2 | 50.0% |
-| recent sale (365d), recent sale to company/investor buyer (365d), major permit already in last 3 years | 1,082 | 5.3% | 1,189 | 4.0% |
-| recent sale (365d), any building violation (365d), any non-major permit (180d), major permit already in last 3 years | 402 | 5.1% | 96 | 6.2% |
+| recent sale (365d), recent sale to company/investor buyer (365d), any non-major permit (180d), major permit already in last 3 years | 690 | 8.1% | 546 | 9.3% |
+| recent sale (365d), any non-major permit (180d), major permit already in last 3 years | 980 | 6.9% | 705 | 6.8% |
+| recent sale (365d), recent sale to company/investor buyer (365d), any building violation (365d), 3+ building violations (365d), vacant-building / board-up violation (730d) | 437 | 6.1% | 19 | 21.1% |
+| recent sale (365d), recent sale to company/investor buyer (365d), any building violation (365d), vacant-building / board-up violation (730d) | 388 | 5.9% | 2 | 50.0% |
+| recent sale (365d), recent sale to company/investor buyer (365d), major permit already in last 3 years | 1,218 | 5.6% | 1,230 | 3.9% |
 | any building violation (365d), 3+ building violations (365d), major permit already in last 3 years | 2,721 | 5.1% | 1,271 | 6.5% |
+| recent sale (365d), any building violation (365d), any non-major permit (180d), major permit already in last 3 years | 370 | 4.7% | 96 | 6.2% |
 | demolition permit (365d), any non-major permit (180d), major permit already in last 3 years | 573 | 4.3% | 263 | 6.5% |
 
 ## BT7 — 311 lead types (re-validation of signal-lab H07–H09)

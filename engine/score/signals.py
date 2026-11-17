@@ -8,9 +8,13 @@ from __future__ import annotations
 
 import duckdb
 
-# Company-style buyer names. Banks, agencies and land trusts are separated out by NON_OPERATOR_RE.
+# Company-style owner or buyer names; banks, agencies and land trusts are separated out by NON_OPERATOR_RE.
+# Stems end in \w* so PROPERTIES, HOLDINGS, INVESTMENTS, DEVELOPMENT and CORPORATION match; names starting
+# with a digit are building entities ("2301 Alumni Park Plaza"), not people.
 INVESTOR_RE = (
-    r"\b(LLC|L L C|INC|CORP|TRUST|PROPERT|HOLDING|INVEST|CAPITAL|REALTY|HOMES|DEVELOP|PARTNERS|FUND|BANK)\b"
+    r"\b(LLC|L L C|INC|CORP\w*|TRUST|PROPERT\w*|HOLDING\w*|INVEST\w*|CAPITAL|REALTY|HOMES|DEVELOP\w*"
+    r"|PARTNERS\w*|PTNR\w*|FUND\w*|BANK|LP|L P|LTD|LIMITED|REAL ESTATE|EQUITY|MANAGEMENT|MGMT|GROUP|VENTURES?"
+    r"|ENTERPRISES?|APARTMENTS)\b|^[0-9]"
 )
 NON_OPERATOR_RE = (
     r"BANK|MORTGAGE|FEDERAL|SECRETARY|\bHUD\b|FANNIE|FREDDIE|CITY OF|COUNTY|LAND TRUST|TRUST NO|TRUST #"
