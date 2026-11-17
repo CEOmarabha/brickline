@@ -39,8 +39,8 @@ async function Market() {
         <CardHeader>
           <CardTitle>Top {label.toLowerCase()} contractors, citywide</CardTitle>
           <CardDescription>
-            Permitted jobs in the last 12 months. The top 25 account for {pct(comp.contractors.reduce((s, c) => s + c.share, 0), 0)}{" "}
-            of all permits in this trade ({count(total)} jobs).
+            Permitted jobs in the last 12 months. The top {comp.contractors.length} pulled {count(total)} jobs,{" "}
+            {pct(comp.contractors.reduce((s, c) => s + c.share, 0), 0)} of all permits in this trade.
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto px-0">

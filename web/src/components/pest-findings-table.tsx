@@ -1,8 +1,8 @@
 import { Globe, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { count, dateLabel } from "@/lib/format";
+import { displayUrl, isHttpUrl } from "@/lib/links";
 import type { PestContact, PestFinding } from "@/lib/pest";
-import { isHttpUrl } from "@/lib/pipeline";
 import { cn } from "@/lib/utils";
 
 function Contact({ contact }: { contact: PestContact | null }) {
@@ -18,7 +18,7 @@ function Contact({ contact }: { contact: PestContact | null }) {
         <div className="flex items-center gap-1">
           <Globe className="size-3 shrink-0 text-muted-foreground" aria-hidden />
           <a href={contact.website} target="_blank" rel="noopener noreferrer" className="max-w-40 truncate underline">
-            {contact.website.replace(/^https?:\/\/(www\.)?/, "")}
+            {displayUrl(contact.website)}
           </a>
         </div>
       )}

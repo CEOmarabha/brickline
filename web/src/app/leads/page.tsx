@@ -2,7 +2,7 @@ import { Download } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { EmptyState, PageHeader } from "@/components/bits";
+import { EmptyState, PageHeader, Pagination } from "@/components/bits";
 import { LeadFilters } from "@/components/lead-filters";
 import { LeadList } from "@/components/lead-list";
 import { buttonVariants } from "@/components/ui/button";
@@ -10,9 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { count } from "@/lib/format";
 import { filtersToSearch, parseFilters, queryLeads } from "@/lib/lead-query";
 import { getCloseRates } from "@/lib/outcomes";
+import { firstParam } from "@/lib/search-params";
 import { areaNames, getSnapshot } from "@/lib/snapshot";
 import { getStatuses, getWorkspace } from "@/lib/workspace";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Leads" };
 
@@ -37,12 +37,15 @@ async function Leads({ searchParams }: { searchParams: PageProps<"/leads">["sear
   const [snap, ws, statuses, rates] = await Promise.all([getSnapshot(), getWorkspace(), getStatuses(), getCloseRates()]);
   const names = areaNames(snap);
   const values = parseFilters(sp);
-  const page = Math.max(1, Number(Array.isArray(sp.page) ? sp.page[0] : sp.page) || 1);
   const areaIds = ws.areas.length > 0 ? ws.areas : snap.areas.map((a) => a.id);
   const filtered = queryLeads(snap, ws, statuses, values, rates);
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const page = Math.min(pages, Math.max(1, Math.floor(Number(firstParam(sp.page))) || 1));
   const shown = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const pageHref = (n: number) => `/leads?${filtersToSearch(values, n > 1 ? { page: String(n) } : {})}`;
+  const pageHref = (n: number) => {
+    const search = filtersToSearch(values, n > 1 ? { page: String(n) } : {});
+    return search ? `/leads?${search}` : "/leads";
+  };
   const exportHref = (format: string) => `/export/leads?${filtersToSearch(values, { format })}`;
 
   return (
@@ -74,29 +77,7 @@ async function Leads({ searchParams }: { searchParams: PageProps<"/leads">["sear
       ) : (
         <LeadList leads={shown} snap={snap} trade={ws.trade} statuses={statuses} areaNames={names} rates={rates} />
       )}
-      {pages > 1 && (
-        <nav className="mt-4 flex items-center justify-between text-sm" aria-label="Pagination">
-          <span className="text-muted-foreground">
-            Page {page} of {pages}
-          </span>
-          <div className="flex gap-2">
-            <Link
-              href={pageHref(page - 1)}
-              aria-disabled={page <= 1}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), page <= 1 && "pointer-events-none opacity-50")}
-            >
-              Previous
-            </Link>
-            <Link
-              href={pageHref(page + 1)}
-              aria-disabled={page >= pages}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), page >= pages && "pointer-events-none opacity-50")}
-            >
-              Next
-            </Link>
-          </div>
-        </nav>
-      )}
+      <Pagination page={page} pages={pages} href={pageHref} className="mt-4" />
     </>
   );
 }

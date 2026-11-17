@@ -5,17 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { KIND_LABEL } from "@/lib/kinds";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-export interface FilterValues {
-  kind: string;
-  tier: string;
-  area: string;
-  status: string;
-  sort: string;
-  q: string;
-}
+import { KIND_LABEL } from "@/lib/kinds";
+import type { LeadFiltersInput } from "@/lib/lead-query";
 
 const KIND = { all: "All signals", ...KIND_LABEL };
 const TIER = { all: "Any priority", act_now: "Act now", this_week: "This week", monitor: "Monitor" };
@@ -29,8 +21,9 @@ const STATUS = {
   not_relevant: "Not relevant",
 };
 const SORT = { priority: "Priority", value: "Expected value", newest: "Newest", probability: "Chance of work" };
+const FILTER_LABEL = { kind: "Signal type", tier: "Priority", area: "Neighborhood", status: "Status", sort: "Sort by" };
 
-export function LeadFilters({ values, areas }: { values: FilterValues; areas: { id: number; name: string }[] }) {
+export function LeadFilters({ values, areas }: { values: LeadFiltersInput; areas: { id: number; name: string }[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -38,7 +31,7 @@ export function LeadFilters({ values, areas }: { values: FilterValues; areas: { 
   const areaItems: Record<string, string> = { all: "All my areas" };
   for (const a of areas) areaItems[String(a.id)] = a.name;
 
-  function update(patch: Partial<FilterValues>) {
+  function update(patch: Partial<LeadFiltersInput>) {
     const next = { ...values, ...patch };
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(next)) {
@@ -47,9 +40,9 @@ export function LeadFilters({ values, areas }: { values: FilterValues; areas: { 
     startTransition(() => router.push(`${pathname}?${params.toString()}`));
   }
 
-  const select = (key: keyof FilterValues, items: Record<string, string>, width: string) => (
+  const select = (key: keyof typeof FILTER_LABEL, items: Record<string, string>, width: string) => (
     <Select items={items} value={values[key] || "all"} onValueChange={(v) => update({ [key]: String(v) })}>
-      <SelectTrigger className={width} aria-label={key}>
+      <SelectTrigger className={width} aria-label={FILTER_LABEL[key]}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -62,7 +55,7 @@ export function LeadFilters({ values, areas }: { values: FilterValues; areas: { 
     </Select>
   );
 
-  const active = ["kind", "tier", "area", "status"].some((k) => values[k as keyof FilterValues] !== "all") || values.q;
+  const active = ["kind", "tier", "area", "status"].some((k) => values[k as keyof LeadFiltersInput] !== "all") || values.q;
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2" data-pending={pending || undefined}>
@@ -92,6 +85,7 @@ export function LeadFilters({ values, areas }: { values: FilterValues; areas: { 
       </div>
       {active && (
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           onClick={() => {

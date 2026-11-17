@@ -24,7 +24,9 @@ export async function POST(request: Request) {
 
   let body: { messages?: unknown; quick?: unknown };
   try {
-    body = await request.json();
+    const parsed: unknown = await request.json();
+    if (typeof parsed !== "object" || parsed === null) return json({ error: "Invalid JSON" }, 400);
+    body = parsed;
   } catch {
     return json({ error: "Invalid JSON" }, 400);
   }
@@ -67,7 +69,8 @@ export async function POST(request: Request) {
   try {
     const { reply, tools } = await askAssistant(history, ctx);
     return json({ reply, tools, mode: "ai" });
-  } catch {
+  } catch (error) {
+    console.error("assistant:", error instanceof Error ? error.message : error);
     return json({ error: "The assistant couldn't answer right now. Try again in a moment." }, 502);
   }
 }

@@ -3,6 +3,7 @@ import "server-only";
 import { headers } from "next/headers";
 import { connection } from "next/server";
 import { cache } from "react";
+import { UserError } from "@/lib/action-result";
 import { sql } from "@/lib/db";
 import type { TradeKey } from "@/lib/snapshot";
 import { getIdentity } from "../../cursor/identity";
@@ -17,6 +18,13 @@ export const viewerId = cache(async (): Promise<string | null> => {
   if (!identity.verified) return null;
   return `${identity.stage}:${identity.sub}`;
 });
+
+/** The signed-in owner for a server action; signed-out viewers get a UserError. */
+export async function requireOwner(): Promise<string> {
+  const owner = await viewerId();
+  if (!owner) throw new UserError("Sign in to save changes");
+  return owner;
+}
 
 export interface Workspace {
   id: string;
@@ -46,6 +54,9 @@ export const STATUS_LABEL: Record<LeadStatus, string> = {
   lost: "Lost",
   not_relevant: "Not relevant",
 };
+
+/** A lead left at Contacted this many days or longer counts as an overdue follow-up. */
+export const LEAD_FOLLOW_UP_DAYS = 21;
 
 export interface LeadStatusRow {
   leadId: string;
@@ -140,6 +151,11 @@ export const getStatuses = cache(async (): Promise<Map<string, LeadStatusRow>> =
     ]),
   );
 });
+
+/** A lead nobody has worked: no saved status, or one that was reset to New. */
+export function isOpenLead(statuses: Map<string, LeadStatusRow>, leadId: string): boolean {
+  return (statuses.get(leadId)?.status ?? "new") === "new";
+}
 
 export async function getLeadHistory(leadId: string) {
   const ws = await getWorkspace();

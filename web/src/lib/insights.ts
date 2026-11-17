@@ -2,6 +2,7 @@ import "server-only";
 
 import { ago, change, count, pct } from "@/lib/format";
 import {
+  areaSignal,
   type CloseRates,
   expectedValue,
   type InvestorLead,
@@ -9,7 +10,7 @@ import {
   type Snapshot,
   type TradeKey,
 } from "@/lib/snapshot";
-import type { LeadStatusRow, Workspace } from "@/lib/workspace";
+import { isOpenLead, LEAD_FOLLOW_UP_DAYS, type LeadStatusRow, type Workspace } from "@/lib/workspace";
 
 export interface Insight {
   id: string;
@@ -19,8 +20,6 @@ export interface Insight {
   cta?: string;
   kind: "opportunity" | "market" | "competition" | "follow_up" | "data";
 }
-
-const FOLLOW_UP_DAYS = 21;
 
 /** Suggested next moves, each computed from the snapshot and the workspace's own pipeline. */
 export function buildInsights(
@@ -33,7 +32,7 @@ export function buildInsights(
   const out: Insight[] = [];
   const trade = ws.trade;
   const tradeLabel = snap.trades[trade].label.toLowerCase();
-  const open = leads.filter((l) => !statuses.has(l.id));
+  const open = leads.filter((l) => isOpenLead(statuses, l.id));
 
   const repeatInvestors = open.filter(
     (l): l is InvestorLead => l.kind === "investor_purchase" && l.buyer.purchases24m >= 3 && l.tier === "act_now",
@@ -104,16 +103,9 @@ export function buildInsights(
   }
 
   const areaPool = snap.areas.filter((a) => ws.areas.length === 0 || ws.areas.includes(a.id));
-  const metric = (a: (typeof areaPool)[number]) =>
-    trade === "general"
-      ? { now: a.majorProjects.last90, before: a.majorProjects.lastYear, what: "major renovations" }
-      : {
-          now: a.violations[trade]?.last90 ?? 0,
-          before: a.violations[trade]?.lastYear ?? 0,
-          what: `${tradeLabel} violations`,
-        };
+  const what = trade === "general" ? "major renovations" : `${tradeLabel} violations`;
   const rising = areaPool
-    .map((a) => ({ a, ...metric(a) }))
+    .map((a) => ({ a, ...areaSignal(a, trade) }))
     .filter((x) => x.now >= 5 && x.now > x.before * 1.25)
     .sort((x, y) => y.now - y.before - (x.now - x.before))[0];
   if (rising) {
@@ -122,7 +114,7 @@ export function buildInsights(
       id: "rising-area",
       kind: "market",
       title: `${rising.a.name} is heating up`,
-      detail: `${count(rising.now)} ${rising.what} in the last 90 days vs ${count(rising.before)} in the same period last year (${c.label}). Consider concentrating mail and door hangers there.`,
+      detail: `${count(rising.now)} ${what} in the last 90 days vs ${count(rising.before)} in the same period last year (${c.label}). Consider concentrating mail and door hangers there.`,
       href: "/areas",
       cta: "Compare neighborhoods",
     });
@@ -153,14 +145,14 @@ export function buildInsights(
 
   const now = Date.now();
   const due = [...statuses.values()].filter(
-    (s) => s.status === "contacted" && now - s.updatedAt.getTime() > FOLLOW_UP_DAYS * 86_400_000,
+    (s) => s.status === "contacted" && now - s.updatedAt.getTime() > LEAD_FOLLOW_UP_DAYS * 86_400_000,
   );
   if (due.length > 0) {
     out.push({
       id: "follow-ups",
       kind: "follow_up",
       title: `${count(due.length)} follow-ups are due`,
-      detail: `You contacted these more than ${FOLLOW_UP_DAYS} days ago. Most permitted repairs happen 3–9 months after the signal, so a second touch matters.`,
+      detail: `You contacted these more than ${LEAD_FOLLOW_UP_DAYS} days ago. Most permitted repairs happen 3–9 months after the signal, so a second touch matters.`,
       href: "/leads?status=contacted",
       cta: "Open follow-ups",
     });

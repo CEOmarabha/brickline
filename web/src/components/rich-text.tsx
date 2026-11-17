@@ -3,7 +3,8 @@ import { Fragment, type ReactNode } from "react";
 
 /**
  * Minimal, safe markdown for assistant replies: paragraphs, "- " lists, **bold**, and [text](/internal)
- * links. Builds React elements (no HTML injection); only same-site paths starting with "/" become links.
+ * links. Builds React elements (no HTML injection); only same-site paths starting with a single "/" become links
+ * ("//host" and "/\host" can point to another site).
  */
 export function RichText({ text }: { text: string }) {
   const blocks: ReactNode[] = [];
@@ -50,7 +51,7 @@ function inline(s: string): ReactNode[] {
       out.push(<strong key={m.index}>{m[1]}</strong>);
     } else {
       const href = m[3];
-      const safe = href.startsWith("/") && !href.startsWith("//");
+      const safe = /^\/(?![/\\])/.test(href);
       out.push(
         safe ? (
           <Link key={m.index} href={href} className="font-medium text-primary underline-offset-2 hover:underline">

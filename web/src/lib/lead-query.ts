@@ -9,7 +9,8 @@ import {
   TIER_ORDER,
   tradeProbability,
 } from "@/lib/snapshot";
-import type { LeadStatusRow, Workspace } from "@/lib/workspace";
+import { firstParam } from "@/lib/search-params";
+import { isOpenLead, type LeadStatusRow, type Workspace } from "@/lib/workspace";
 
 export interface LeadFiltersInput {
   kind: string;
@@ -31,13 +32,9 @@ export const DEFAULT_FILTERS: LeadFiltersInput = {
 
 type Params = Record<string, string | string[] | undefined>;
 
-function first(v: string | string[] | undefined, fallback: string): string {
-  return (Array.isArray(v) ? v[0] : v) || fallback;
-}
-
 export function parseFilters(sp: Params | URLSearchParams): LeadFiltersInput {
   const get = (k: keyof LeadFiltersInput) =>
-    sp instanceof URLSearchParams ? sp.get(k) || DEFAULT_FILTERS[k] : first(sp[k], DEFAULT_FILTERS[k]);
+    (sp instanceof URLSearchParams ? sp.get(k) : firstParam(sp[k])) || DEFAULT_FILTERS[k];
   return {
     kind: get("kind"),
     tier: get("tier"),
@@ -70,9 +67,9 @@ export function queryLeads(
     if (f.kind !== "all" && l.kind !== f.kind) return false;
     if (f.tier !== "all" && l.tier !== f.tier) return false;
     if (f.area !== "all" && String(l.communityArea) !== f.area) return false;
-    const st = statuses.get(l.id)?.status;
-    if (f.status === "open" && st && st !== "new") return false;
-    if (f.status !== "all" && f.status !== "open" && st !== f.status) return false;
+    if (f.status === "open") {
+      if (!isOpenLead(statuses, l.id)) return false;
+    } else if (f.status !== "all" && statuses.get(l.id)?.status !== f.status) return false;
     if (q) {
       const hay = [
         l.address,

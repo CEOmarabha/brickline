@@ -6,23 +6,23 @@ import { draftOutreach } from "@/lib/outreach";
 import { areaNames, expectedValue, getSnapshot, tradeProbability } from "@/lib/snapshot";
 import { getStatuses, getWorkspace, STATUS_LABEL } from "@/lib/workspace";
 
-const MAX_ROWS = 5000;
+const NO_STORE = { "cache-control": "private, no-store" };
 
 export async function GET(request: Request) {
   const ws = await getWorkspace();
-  if (!ws.signedIn) return new Response("Sign in required", { status: 401 });
+  if (!ws.signedIn) return new Response("Sign in required", { status: 401, headers: NO_STORE });
   const url = new URL(request.url);
   const format = url.searchParams.get("format") === "mail" ? "mail" : "all";
   const [snap, statuses, rates] = await Promise.all([getSnapshot(), getStatuses(), getCloseRates()]);
   const names = areaNames(snap);
-  const leads = queryLeads(snap, ws, statuses, parseFilters(url.searchParams), rates).slice(0, MAX_ROWS);
+  const leads = queryLeads(snap, ws, statuses, parseFilters(url.searchParams), rates);
   const area = (id: number | null) => (id ? (names.get(id) ?? "") : "");
   const stamp = snap.meta.dataAsOf.violations;
 
   let body: string;
   if (format === "mail") {
     const rows = leads
-      .filter((l) => l.owner.mailing)
+      .filter((l) => l.kind !== "investor_purchase" && l.owner.mailing)
       .map((l) => {
         const m = splitMailing(l.owner.mailing);
         const draft = draftOutreach(l, ws, snap, area(l.communityArea) || null);
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
     headers: {
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": `attachment; filename="brickline-${format === "mail" ? "mail-merge" : "leads"}-${stamp}.csv"`,
-      "cache-control": "private, no-store",
+      ...NO_STORE,
     },
   });
 }

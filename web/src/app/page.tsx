@@ -9,8 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { count, money } from "@/lib/format";
 import { buildInsights, type Insight } from "@/lib/insights";
 import { getCloseRates } from "@/lib/outcomes";
-import { areaNames, expectedValue, getSnapshot, leadsForWorkspace, TIER_ORDER } from "@/lib/snapshot";
-import { getStatuses, getWorkspace } from "@/lib/workspace";
+import { areaNames, areaSignal, expectedValue, getSnapshot, leadsForWorkspace, TIER_ORDER } from "@/lib/snapshot";
+import { getStatuses, getWorkspace, isOpenLead } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
@@ -31,7 +31,7 @@ async function Dashboard() {
   const names = areaNames(snap);
   const tradeLabel = snap.trades[ws.trade].label;
   const leads = leadsForWorkspace(snap, ws.trade, ws.areas);
-  const open = leads.filter((l) => !statuses.has(l.id) || statuses.get(l.id)?.status === "new");
+  const open = leads.filter((l) => isOpenLead(statuses, l.id));
   const actNow = open.filter((l) => l.tier === "act_now");
   const top = [...open]
     .sort(
@@ -43,12 +43,7 @@ async function Dashboard() {
   const insights = buildInsights(snap, ws, leads, statuses, rates);
   const areaRows = snap.areas
     .filter((a) => ws.areas.length === 0 || ws.areas.includes(a.id))
-    .map((a) => {
-      const v = a.violations[ws.trade];
-      const now = ws.trade === "general" ? a.majorProjects.last90 : (v?.last90 ?? 0);
-      const before = ws.trade === "general" ? a.majorProjects.lastYear : (v?.lastYear ?? 0);
-      return { a, now, before, openLeads: open.filter((l) => l.communityArea === a.id).length };
-    })
+    .map((a) => ({ a, ...areaSignal(a, ws.trade), openLeads: open.filter((l) => l.communityArea === a.id).length }))
     .sort((x, y) => y.openLeads - x.openLeads || y.now - x.now)
     .slice(0, 6);
 

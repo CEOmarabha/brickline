@@ -9,7 +9,7 @@ import { buildInsights } from "@/lib/insights";
 import { queryLeads, DEFAULT_FILTERS } from "@/lib/lead-query";
 import { getCloseRates } from "@/lib/outcomes";
 import { draftOutreach } from "@/lib/outreach";
-import { areaNames, expectedValue, getSnapshot, tradeProbability } from "@/lib/snapshot";
+import { areaNames, areaSignal, expectedValue, getSnapshot, tradeProbability } from "@/lib/snapshot";
 import { getStatuses, getWorkspace, workspaceLabel } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
@@ -103,12 +103,7 @@ async function Report({ searchParams }: { searchParams: PageProps<"/report">["se
   const insights = buildInsights(snap, ws, open, statuses, rates).filter((i) => i.kind !== "data");
   const areas = snap.areas
     .filter((a) => ws.areas.length === 0 || ws.areas.includes(a.id))
-    .map((a) => ({
-      a,
-      now: ws.trade === "general" ? a.majorProjects.last90 : (a.violations[ws.trade]?.last90 ?? 0),
-      before: ws.trade === "general" ? a.majorProjects.lastYear : (a.violations[ws.trade]?.lastYear ?? 0),
-      leads: open.filter((l) => l.communityArea === a.id).length,
-    }))
+    .map((a) => ({ a, ...areaSignal(a, ws.trade), leads: open.filter((l) => l.communityArea === a.id).length }))
     .sort((x, y) => y.leads - x.leads)
     .slice(0, 6);
   const competitors = snap.competitors[ws.trade].contractors.slice(0, 5);

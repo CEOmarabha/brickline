@@ -45,12 +45,12 @@ export function AssistantChat({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload.quick ? { quick: payload.quick } : { messages: history }),
       });
-      const data = (await res.json()) as { reply?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string };
       setTurns((t) => [
         ...t,
         data.reply
           ? { role: "assistant", content: data.reply }
-          : { role: "assistant", content: data.error ?? "Something went wrong.", error: true },
+          : { role: "assistant", content: data.error ?? `Something went wrong (${res.status}). Try again.`, error: true },
       ]);
     } catch {
       setTurns((t) => [...t, { role: "assistant", content: "Network error. Try again.", error: true }]);

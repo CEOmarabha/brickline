@@ -401,6 +401,13 @@ export function leadsForWorkspace(snap: Snapshot, trade: TradeKey, areas: number
   return snap.leads.filter((l) => inArea(l.communityArea) && l.trades.includes(trade));
 }
 
+/** Signals in the last 90 days and the same period a year earlier: major projects for general contractors, violations for every other trade. */
+export function areaSignal(area: Area, trade: TradeKey): { now: number; before: number } {
+  if (trade === "general") return { now: area.majorProjects.last90, before: area.majorProjects.lastYear };
+  const v = area.violations[trade];
+  return { now: v?.last90 ?? 0, before: v?.lastYear ?? 0 };
+}
+
 export function areaNames(snap: Snapshot): Map<number, string> {
   return new Map(snap.areas.map((a) => [a.id, a.name]));
 }

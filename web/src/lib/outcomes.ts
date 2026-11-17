@@ -68,14 +68,10 @@ export const getOutcomes = cache(async () => {
     individual: { won: 0, lost: 0, expectedJobs: 0 },
     company: { won: 0, lost: 0, expectedJobs: 0 },
   };
-  let unknown = 0;
 
   for (const [leadId, st] of statuses) {
     const lead = byId.get(leadId);
-    if (!lead) {
-      unknown++;
-      continue;
-    }
+    if (!lead || st.status === "new") continue;
     const seg = segmentOf(lead, snap);
     const row =
       segments.get(seg.key) ??
@@ -124,7 +120,7 @@ export const getOutcomes = cache(async () => {
     t.won + t.lost >= MIN_DECIDED && t.expectedJobs > 0 ? Math.min(1, t.won / t.expectedJobs) : null;
   const rates: CloseRates = { individual: measured(ownerTotals.individual), company: measured(ownerTotals.company) };
 
-  return { rows, rates, ownerTotals, unknown };
+  return { rows, rates, ownerTotals };
 });
 
 export async function getCloseRates(): Promise<CloseRates> {

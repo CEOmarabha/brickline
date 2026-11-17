@@ -4,6 +4,7 @@ import type { LeadOutreachSummary, ToolContext } from "@/lib/assistant-tools";
 import { getLeadContacts, getProspectContacts, type ContactSuggestions } from "@/lib/contacts";
 import { count, dateLabel, pct } from "@/lib/format";
 import { tradeNoun } from "@/lib/insights";
+import { MIN_DECIDED } from "@/lib/outcomes";
 import { draftOutreach } from "@/lib/outreach";
 import {
   isDue,
@@ -484,7 +485,7 @@ function prospectCallBrief(ctx: ToolContext, p: Prospect, row: PipelineRow | und
       },
       {
         objection: "How do I know these convert?",
-        honest_answer: `${rate ? `${rate} ` : ""}Each lead shows the historical rate and the number of cases behind it, and they're floors because permits miss unpermitted work. During the pilot you mark each lead won or lost, and after 10 decided leads the Results page replaces my averages with your own measured close rate. Never promise a close rate.`,
+        honest_answer: `${rate ? `${rate} ` : ""}Each lead shows the historical rate and the number of cases behind it, and they're floors because permits miss unpermitted work. During the pilot you mark each lead won or lost, and after ${MIN_DECIDED} decided leads the Results page replaces my averages with your own measured close rate. Never promise a close rate.`,
       },
       {
         objection: "I don't do computers / I don't read email.",

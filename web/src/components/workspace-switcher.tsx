@@ -46,17 +46,21 @@ export function WorkspaceSwitcher({
           onValueChange={(v) =>
             startTransition(async () => {
               try {
-                await switchWorkspace(String(v));
+                const result = await switchWorkspace(String(v));
+                if (!result.ok) toast.error(result.error);
               } catch {
                 toast.error("Couldn't switch workspace");
               }
             })
           }
         >
-          <SelectTrigger className="w-full min-w-0 border-sidebar-border bg-sidebar-accent text-sidebar-foreground">
+          <SelectTrigger
+            aria-label="Workspace"
+            className="w-full min-w-0 border-sidebar-border bg-sidebar-accent text-sidebar-foreground"
+          >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent alignItemWithTrigger={false}>
             {list.map((w) => (
               <SelectItem key={w.id} value={w.id}>
                 {w.label}
@@ -83,7 +87,11 @@ export function WorkspaceSwitcher({
                 e.preventDefault();
                 startTransition(async () => {
                   try {
-                    await createWorkspace(name);
+                    const result = await createWorkspace(name);
+                    if (!result.ok) {
+                      toast.error(result.error);
+                      return;
+                    }
                     toast.success(`Created ${name.trim()}. Set its trade and neighborhoods in Settings.`);
                     setName("");
                     setOpen(false);
@@ -107,6 +115,7 @@ export function WorkspaceSwitcher({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Northside Porch Co."
+                  maxLength={120}
                   autoFocus
                 />
               </div>

@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { count, dateLabel, pct } from "@/lib/format";
 import { draftPilotEmail, findingsFor, getPest, parsePestRange, type PestCompany, type PestFile, type PestRange } from "@/lib/pest";
-import { isHttpUrl } from "@/lib/pipeline";
+import { displayUrl, isHttpUrl } from "@/lib/links";
 import { cn } from "@/lib/utils";
 import { viewerId } from "@/lib/workspace";
 
@@ -218,7 +218,7 @@ function PestCompanies({ companies }: { companies: PestCompany[] }) {
                   <td className="px-3 py-2">
                     {c.website && isHttpUrl(c.website) ? (
                       <a href={c.website} target="_blank" rel="noopener noreferrer" className="underline">
-                        {c.website.replace(/^https?:\/\/(www\.)?/, "")}
+                        {displayUrl(c.website)}
                       </a>
                     ) : (
                       "—"

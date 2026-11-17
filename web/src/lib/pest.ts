@@ -2,8 +2,9 @@ import "server-only";
 
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import type { EmailDraft } from "@/lib/outreach";
 
-export const PEST_RANGES = ["week", "28d"] as const;
+const PEST_RANGES = ["week", "28d"] as const;
 export type PestRange = (typeof PEST_RANGES)[number];
 
 export interface PestContact {
@@ -106,11 +107,6 @@ export async function getPest(): Promise<PestFile | null> {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   }
-}
-
-export interface EmailDraft {
-  subject: string;
-  body: string;
 }
 
 /** Cold email to a pest-control owner offering the free 4-week pilot list. Sender fields are placeholders. */

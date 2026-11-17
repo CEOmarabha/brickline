@@ -39,7 +39,7 @@ interface StatusRow {
 const COLUMNS = `prospect_id, status, contact_name, email, phone, website, notes, sequence_step,
   next_follow_up::text as next_follow_up, updated_at`;
 
-export function toPipelineRow(r: StatusRow): PipelineRow {
+function toPipelineRow(r: StatusRow): PipelineRow {
   return {
     prospectId: r.prospect_id,
     status: r.status,

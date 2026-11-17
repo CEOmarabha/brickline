@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { count, dateLabel, money, pct } from "@/lib/format";
-import { areaNames, getSnapshot, leadsForWorkspace, type Snapshot } from "@/lib/snapshot";
-import { getStatuses, getWorkspace } from "@/lib/workspace";
+import { areaNames, areaSignal, getSnapshot, leadsForWorkspace, type Snapshot } from "@/lib/snapshot";
+import { getStatuses, getWorkspace, isOpenLead } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Neighborhoods" };
@@ -41,24 +41,18 @@ async function Areas({ searchParams }: { searchParams: PageProps<"/areas">["sear
   const mineOnly = sp.scope === "mine";
   const [snap, ws, statuses] = await Promise.all([getSnapshot(), getWorkspace(), getStatuses()]);
   const trade = ws.trade;
-  const open = leadsForWorkspace(snap, trade, []).filter((l) => !statuses.has(l.id));
+  const open = leadsForWorkspace(snap, trade, []).filter((l) => isOpenLead(statuses, l.id));
   const signalLabel = trade === "general" ? "Major projects" : "Violations";
 
   const rows = snap.areas
     .filter((a) => !mineOnly || ws.areas.length === 0 || ws.areas.includes(a.id))
-    .map((a) => {
-      const sig =
-        trade === "general"
-          ? { now: a.majorProjects.last90, before: a.majorProjects.lastYear }
-          : { now: a.violations[trade]?.last90 ?? 0, before: a.violations[trade]?.lastYear ?? 0 };
-      return {
-        a,
-        sig,
-        permits: a.permits[trade],
-        leads: open.filter((l) => l.communityArea === a.id).length,
-        mine: ws.areas.length === 0 || ws.areas.includes(a.id),
-      };
-    });
+    .map((a) => ({
+      a,
+      sig: areaSignal(a, trade),
+      permits: a.permits[trade],
+      leads: open.filter((l) => l.communityArea === a.id).length,
+      mine: ws.areas.length === 0 || ws.areas.includes(a.id),
+    }));
   const key: Record<SortKey, (r: (typeof rows)[number]) => number> = {
     leads: (r) => r.leads,
     signals: (r) => r.sig.now,

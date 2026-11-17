@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactValue, SourceLine } from "@/components/contact-bits";
+import { type ActionResult, UserError } from "@/lib/action-result";
 import type { ContactField, ContactSuggestions } from "@/lib/contacts";
+import { isHttpUrl } from "@/lib/links";
 import {
   cleanProspectFields,
   isDue,
-  isHttpUrl,
   MAX_SEQUENCE_STEP,
   PROSPECT_STATUS_LABEL,
   PROSPECT_STATUSES,
@@ -84,9 +85,7 @@ function SuggestionRow({
 
 const DAYS_LABEL = ["Day 0", "Day 4", "Day 10"];
 
-function fail(error: unknown) {
-  toast.error(error instanceof Error && error.message ? error.message : "Couldn't save. Try again.");
-}
+const SAVE_FAILED = "Couldn't save. Try again.";
 
 export function ProspectPipelinePanel({
   prospectId,
@@ -112,26 +111,24 @@ export function ProspectPipelinePanel({
   const nextEmail = state.sequenceStep + 1;
   const due = isDue(state, today);
 
-  function setStatus(status: ProspectStatus) {
+  function run(action: () => Promise<ActionResult>, success: string) {
     startTransition(async () => {
       try {
-        await saveProspect(prospectId, { status });
-        toast.success(`Marked as ${PROSPECT_STATUS_LABEL[status]}`);
-      } catch (error) {
-        fail(error);
+        const result = await action();
+        if (result.ok) toast.success(success);
+        else toast.error(result.error);
+      } catch {
+        toast.error(SAVE_FAILED);
       }
     });
   }
 
+  function setStatus(status: ProspectStatus) {
+    run(() => saveProspect(prospectId, { status }), `Marked as ${PROSPECT_STATUS_LABEL[status]}`);
+  }
+
   function sendEmail() {
-    startTransition(async () => {
-      try {
-        await logEmailSent(prospectId);
-        toast.success(`Email ${nextEmail} logged`);
-      } catch (error) {
-        fail(error);
-      }
-    });
+    run(() => logEmailSent(prospectId), `Email ${nextEmail} logged`);
   }
 
   function saveDetails(e: React.FormEvent) {
@@ -141,17 +138,10 @@ export function ProspectPipelinePanel({
       const clean = cleanProspectFields(fields);
       setWebsite(clean.website ?? "");
     } catch (error) {
-      fail(error);
+      toast.error(error instanceof UserError ? error.message : SAVE_FAILED);
       return;
     }
-    startTransition(async () => {
-      try {
-        await saveProspect(prospectId, fields);
-        toast.success("Saved");
-      } catch (error) {
-        fail(error);
-      }
-    });
+    run(() => saveProspect(prospectId, fields), "Saved");
   }
 
   return (

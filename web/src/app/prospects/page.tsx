@@ -2,7 +2,7 @@ import { Download, FileText, Globe, Mail, Phone, UserRound } from "lucide-react"
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { EmptyState, PageHeader, ProspectStatusBadge, Trend } from "@/components/bits";
+import { EmptyState, PageHeader, Pagination, ProspectStatusBadge, Trend } from "@/components/bits";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ContactSuggestions, getContacts, hasAnyContact } from "@/lib/contacts";
@@ -16,6 +16,7 @@ import {
 } from "@/lib/pipeline";
 import { getPipeline, type PipelineRow } from "@/lib/prospect-pipeline";
 import { getProspects, isBestFit, PROSPECT_TRADES, type Prospect, type ProspectTrade } from "@/lib/prospects";
+import { firstParam } from "@/lib/search-params";
 import { areaNames, getSnapshot } from "@/lib/snapshot";
 import { cn } from "@/lib/utils";
 import { viewerId } from "@/lib/workspace";
@@ -43,10 +44,6 @@ export default function ProspectsPage({ searchParams }: PageProps<"/prospects">)
   );
 }
 
-function first(v: string | string[] | undefined): string {
-  return (Array.isArray(v) ? v[0] : v) ?? "";
-}
-
 type StatusFilter = ProspectStatus | "due" | "all";
 
 function href(trade: string, best: boolean, status: StatusFilter = "all", page = 1, withContact = false): string {
@@ -62,13 +59,13 @@ function href(trade: string, best: boolean, status: StatusFilter = "all", page =
 
 async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects">["searchParams"] }) {
   const sp = await searchParams;
-  const tradeParam = first(sp.trade);
+  const tradeParam = firstParam(sp.trade);
   const trade: ProspectTrade | "all" = PROSPECT_TRADES.includes(tradeParam as ProspectTrade)
     ? (tradeParam as ProspectTrade)
     : "all";
-  const best = first(sp.fit) === "best";
-  const withContact = first(sp.contact) === "1";
-  const statusParam = first(sp.status);
+  const best = firstParam(sp.fit) === "best";
+  const withContact = firstParam(sp.contact) === "1";
+  const statusParam = firstParam(sp.status);
   const status: StatusFilter =
     statusParam === "due" || PROSPECT_STATUSES.includes(statusParam as ProspectStatus)
       ? (statusParam as StatusFilter)
@@ -114,7 +111,7 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
     );
   }
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const page = Math.min(pages, Math.max(1, Number(first(sp.page)) || 1));
+  const page = Math.min(pages, Math.max(1, Math.floor(Number(firstParam(sp.page))) || 1));
   const shown = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const pill = (active: boolean) =>
@@ -213,25 +210,7 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
         </div>
       )}
 
-      {pages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            Page {page} of {pages}
-          </span>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <Link href={href(trade, best, status, page - 1, withContact)} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                Previous
-              </Link>
-            )}
-            {page < pages && (
-              <Link href={href(trade, best, status, page + 1, withContact)} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                Next
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
+      <Pagination page={page} pages={pages} href={(n) => href(trade, best, status, n, withContact)} />
     </div>
   );
 }
@@ -296,7 +275,7 @@ function ProspectRow({
         {p.areaIds.map((a) => names.get(a)).filter(Boolean).join(", ")}
       </td>
       <td className="px-4 py-2.5 text-right">
-        <Link href={`/prospects/${p.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+        <Link href={`/prospects/${encodeURIComponent(p.id)}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
           <FileText /> Teaser
         </Link>
       </td>

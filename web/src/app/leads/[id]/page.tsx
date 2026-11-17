@@ -11,9 +11,10 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContactValue, SourceLine } from "@/components/contact-bits";
 import { getLeadContacts } from "@/lib/contacts";
-import { ago, count, dateLabel, liftLabel, money, pct } from "@/lib/format";
+import { ago, count, dateLabel, dateTimeLabel, liftLabel, money, pct } from "@/lib/format";
+import { isHttpUrl } from "@/lib/links";
 import { draftOutreach } from "@/lib/outreach";
-import { getCloseRates } from "@/lib/outcomes";
+import { getCloseRates, MIN_DECIDED } from "@/lib/outcomes";
 import { areaNames, closeRateFor, expectedValue, getSnapshot, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
 import { cn } from "@/lib/utils";
 import { getLeadHistory, getStatuses, getWorkspace, STATUS_LABEL } from "@/lib/workspace";
@@ -155,7 +156,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                 {pct(margin, 0)} margin.{" "}
                 {close.measured
                   ? "Close rate measured from your own won and lost leads."
-                  : "Close rate is an assumption until you've recorded 10+ won or lost leads."}
+                  : `Close rate is an assumption until you've recorded ${MIN_DECIDED}+ won or lost leads.`}
               </p>
             </div>
           </CardContent>
@@ -256,9 +257,11 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
             <CardTitle>Evidence</CardTitle>
             <CardDescription>
               From public records.{" "}
-              <a href={lead.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline-offset-2 hover:underline">
-                View source record <ExternalLink className="size-3" />
-              </a>
+              {isHttpUrl(lead.sourceUrl) && (
+                <a href={lead.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline-offset-2 hover:underline">
+                  View source record <ExternalLink className="size-3" />
+                </a>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -411,7 +414,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                   <li key={i}>
                     <div className="font-medium">{STATUS_LABEL[h.status]}</div>
                     <div className="text-xs text-muted-foreground">
-                      {new Date(h.created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                      {dateTimeLabel(new Date(h.created_at))}
                     </div>
                     {h.note && <div className="mt-0.5 text-muted-foreground">{h.note}</div>}
                   </li>

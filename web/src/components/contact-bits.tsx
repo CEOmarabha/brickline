@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { CONFIDENCE_LABEL, CONTACT_SOURCE_LABEL } from "@/lib/contact-labels";
 import type { ContactField } from "@/lib/contacts";
 import { dateLabel } from "@/lib/format";
-import { isHttpUrl } from "@/lib/pipeline";
+import { displayUrl, isHttpUrl } from "@/lib/links";
 import { cn } from "@/lib/utils";
 
 /** The suggested value; a website is shown as a link, and only http(s) URLs ever become links. */
@@ -16,7 +16,7 @@ export function ContactValue({ field, kind }: { field: ContactField; kind: "webs
         rel="noopener noreferrer nofollow"
         className="inline-flex items-center gap-1 break-all text-primary underline-offset-4 hover:underline"
       >
-        {field.value.replace(/^https?:\/\//i, "")} <ExternalLink className="size-3 shrink-0" />
+        {displayUrl(field.value)} <ExternalLink className="size-3 shrink-0" />
       </a>
     );
   }

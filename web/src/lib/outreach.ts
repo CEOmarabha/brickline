@@ -3,6 +3,11 @@ import { tradeNoun } from "@/lib/insights";
 import type { Lead, Snapshot, TradeKey } from "@/lib/snapshot";
 import type { Workspace } from "@/lib/workspace";
 
+export interface EmailDraft {
+  subject: string;
+  body: string;
+}
+
 export interface Draft {
   channel: "letter" | "email";
   subject?: string;

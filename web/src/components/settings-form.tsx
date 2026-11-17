@@ -43,8 +43,9 @@ export function SettingsForm({ initial, trades, areas }: Props) {
         for (const id of selected) fd.append("areas", String(id));
         startTransition(async () => {
           try {
-            await saveWorkspace(fd);
-            toast.success("Saved. Your leads are updated.");
+            const result = await saveWorkspace(fd);
+            if (result.ok) toast.success("Saved. Your leads are updated.");
+            else toast.error(result.error);
           } catch {
             toast.error("Couldn't save. Try again.");
           }
@@ -54,12 +55,18 @@ export function SettingsForm({ initial, trades, areas }: Props) {
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="businessName">Company name</Label>
-          <Input id="businessName" name="businessName" defaultValue={initial.businessName} placeholder="Northside Porch Co." />
+          <Input
+            id="businessName"
+            name="businessName"
+            defaultValue={initial.businessName}
+            placeholder="Northside Porch Co."
+            maxLength={120}
+          />
         </div>
         <div className="space-y-1.5">
-          <Label>Trade</Label>
+          <Label htmlFor="trade">Trade</Label>
           <Select items={trades} value={trade} onValueChange={(v) => setTrade(String(v))}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="trade" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -73,7 +80,7 @@ export function SettingsForm({ initial, trades, areas }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="phone">Phone for letters and emails</Label>
-          <Input id="phone" name="phone" defaultValue={initial.phone} placeholder="(312) 555-0142" />
+          <Input id="phone" name="phone" defaultValue={initial.phone} placeholder="(312) 555-0142" maxLength={40} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="mailingAddress">Business mailing address</Label>
@@ -82,6 +89,7 @@ export function SettingsForm({ initial, trades, areas }: Props) {
             name="mailingAddress"
             defaultValue={initial.mailingAddress}
             placeholder="1234 N Milwaukee Ave, Chicago, IL 60622"
+            maxLength={200}
           />
           <p className="text-xs text-muted-foreground">Required by law on marketing emails (CAN-SPAM).</p>
         </div>
@@ -96,7 +104,13 @@ export function SettingsForm({ initial, trades, areas }: Props) {
             </p>
           </div>
           <div className="flex gap-2">
-            <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter" className="w-40" />
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter"
+              aria-label="Filter neighborhoods"
+              className="w-40"
+            />
             <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
               Clear
             </Button>

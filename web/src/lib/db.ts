@@ -8,14 +8,23 @@ import pg from "pg";
 const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
 let pool: pg.Pool | undefined;
 
+function getPool(): pg.Pool {
+  if (!pool) {
+    pool = new pg.Pool({ connectionString: databaseUrl, max: 5, connectionTimeoutMillis: 10_000 });
+    // An idle client that loses its connection (database restart, proxy idle timeout) emits "error" on the pool;
+    // unhandled, that would take the whole server down. The pool drops the client and the next query reconnects.
+    pool.on("error", (error) => console.error("postgres: idle client error:", error.message));
+  }
+  return pool;
+}
+
 // Local PGlite is kept on globalThis so route handlers, pages and server actions share one database in dev,
 // where each is bundled separately.
 const shared = globalThis as typeof globalThis & { __bricklineLocalDb?: Promise<PGlite> };
 
 export async function sql<T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
   if (databaseUrl !== "") {
-    pool ??= new pg.Pool({ connectionString: databaseUrl, max: 5 });
-    return (await pool.query(text, params)).rows as T[];
+    return (await getPool().query(text, params)).rows as T[];
   }
   shared.__bricklineLocalDb ??= startLocal().catch((error: unknown) => {
     shared.__bricklineLocalDb = undefined;

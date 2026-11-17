@@ -1,5 +1,7 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { change } from "@/lib/format";
 import { PROSPECT_STATUS_LABEL, type ProspectStatus } from "@/lib/pipeline";
@@ -123,6 +125,40 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
       <div className="font-medium">{title}</div>
       {children && <div className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{children}</div>}
     </div>
+  );
+}
+
+/** Previous/next links for a paged list; renders nothing for a single page. `href` builds the URL of page n. */
+export function Pagination({
+  page,
+  pages,
+  href,
+  className,
+}: {
+  page: number;
+  pages: number;
+  href: (page: number) => string;
+  className?: string;
+}) {
+  if (pages <= 1) return null;
+  return (
+    <nav className={cn("flex items-center justify-between text-sm", className)} aria-label="Pagination">
+      <span className="text-muted-foreground">
+        Page {page} of {pages}
+      </span>
+      <div className="flex gap-2">
+        {page > 1 && (
+          <Link href={href(page - 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Previous
+          </Link>
+        )}
+        {page < pages && (
+          <Link href={href(page + 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Next
+          </Link>
+        )}
+      </div>
+    </nav>
   );
 }
 

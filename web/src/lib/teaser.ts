@@ -4,12 +4,13 @@ import { DEFAULT_FILTERS, queryLeads } from "@/lib/lead-query";
 import { count, dateLabel, pct } from "@/lib/format";
 import { tradeNoun } from "@/lib/insights";
 import { KIND_LABEL, type LeadKindKey } from "@/lib/kinds";
+import type { EmailDraft } from "@/lib/outreach";
 import type { Prospect } from "@/lib/prospects";
 import { areaNames, expectedValue, type Lead, type Snapshot, tradeProbability } from "@/lib/snapshot";
 import type { Workspace } from "@/lib/workspace";
 
 /** "2837 W Polk St" -> "28xx W Polk St". Keeps everything but the last two digits of the house number. */
-export function maskAddress(address: string): string {
+function maskAddress(address: string): string {
   return address.replace(/^(\d+)/, (digits) => `${digits.slice(0, Math.max(0, digits.length - 2))}xx`);
 }
 
@@ -164,11 +165,6 @@ export function buildTeaser(snap: Snapshot, p: Prospect): Teaser {
     margin: snap.meta.assumptions.margin,
     violationModel: vm ? { individual: vm.p365, episodes: vm.episodes } : null,
   };
-}
-
-export interface EmailDraft {
-  subject: string;
-  body: string;
 }
 
 /** "Hello Maria," when the founder saved a contact name; a neutral "Hello," otherwise. Never guesses a name. */

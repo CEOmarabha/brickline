@@ -9,7 +9,7 @@ import { PrintButton } from "@/components/print-button";
 import { ProspectPipelinePanel } from "@/components/prospect-pipeline-panel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { count, dateLabel, money, pct } from "@/lib/format";
+import { count, dateLabel, dateTimeLabel, money, pct } from "@/lib/format";
 import { tradeNoun } from "@/lib/insights";
 import { getProspectContacts } from "@/lib/contacts";
 import { todayChicago } from "@/lib/pipeline";
@@ -197,7 +197,8 @@ async function Teaser({ params }: { params: PageProps<"/prospects/[id]">["params
           <h2 className="mb-2 font-semibold">Most active competitors in your areas</h2>
           {t.competitors.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              None of the citywide top 25 {noun} contractors is concentrated in your neighborhoods.
+              None of the citywide top {snap.competitors[prospect.trade].contractors.length} {noun} contractors is concentrated in your
+              neighborhoods.
             </p>
           ) : (
             <ul className="space-y-2 text-sm">
@@ -264,14 +265,6 @@ async function Teaser({ params }: { params: PageProps<"/prospects/[id]">["params
   );
 }
 
-const historyTime = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Chicago",
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-});
-
 async function Pipeline({ prospectId }: { prospectId: string }) {
   const owner = await viewerId();
   if (!owner) return <p className="text-sm text-muted-foreground">Sign in to track this prospect.</p>;
@@ -295,7 +288,7 @@ async function Pipeline({ prospectId }: { prospectId: string }) {
         sequenceStep: row?.sequenceStep ?? 0,
         nextFollowUp: row?.nextFollowUp ?? null,
       }}
-      history={history.map((h) => ({ id: h.id, status: h.status, note: h.note, at: historyTime.format(h.createdAt) }))}
+      history={history.map((h) => ({ id: h.id, status: h.status, note: h.note, at: dateTimeLabel(h.createdAt) }))}
     />
   );
 }

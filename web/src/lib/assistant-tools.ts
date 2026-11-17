@@ -7,6 +7,7 @@ import { DEFAULT_FILTERS, queryLeads } from "@/lib/lead-query";
 import type { SegmentOutcome } from "@/lib/outcomes";
 import {
   areaNames,
+  areaSignal,
   type CloseRates,
   expectedValue,
   type Lead,
@@ -15,7 +16,14 @@ import {
   type Snapshot,
   tradeProbability,
 } from "@/lib/snapshot";
-import { type LeadStatusRow, STATUS_LABEL, type Workspace, workspaceLabel } from "@/lib/workspace";
+import {
+  isOpenLead,
+  LEAD_FOLLOW_UP_DAYS,
+  type LeadStatusRow,
+  STATUS_LABEL,
+  type Workspace,
+  workspaceLabel,
+} from "@/lib/workspace";
 
 export interface ToolContext {
   snap: Snapshot;
@@ -75,7 +83,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "pipeline",
-    description: "Leads this workspace has worked, by status, including follow-ups that are overdue (contacted 21+ days ago).",
+    description: `Leads this workspace has worked, by status, including follow-ups that are overdue (contacted ${LEAD_FOLLOW_UP_DAYS}+ days ago).`,
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -192,9 +200,6 @@ function compactLead(l: Lead, ctx: ToolContext) {
   };
 }
 
-/** A lead left at Contacted this many days or longer counts as an overdue follow-up. */
-const LEAD_FOLLOW_UP_DAYS = 21;
-
 function leadStatusCounts(statuses: Map<string, LeadStatusRow>): Record<string, number> {
   return Object.fromEntries(
     Object.entries(STATUS_LABEL).map(([k, v]) => [v, [...statuses.values()].filter((s) => s.status === k).length]),
@@ -204,7 +209,7 @@ function leadStatusCounts(statuses: Map<string, LeadStatusRow>): Record<string, 
 const daysSince = (d: Date) => Math.floor((Date.now() - d.getTime()) / 86_400_000);
 
 /** This workspace's lead outreach, as the `pipeline` tool counts it, without free-text notes or owner details. */
-export function leadOutreachSummary(ctx: ToolContext) {
+function leadOutreachSummary(ctx: ToolContext) {
   const byId = new Map(ctx.snap.leads.map((l) => [l.id, l]));
   const overdue = [...ctx.statuses.values()]
     .filter((s) => s.status === "contacted" && daysSince(s.updatedAt) >= LEAD_FOLLOW_UP_DAYS)
@@ -283,14 +288,11 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
     case "neighborhood_stats": {
       const only = input.only_my_areas !== false && ws.areas.length > 0;
       const single = areaIdByName(snap, str(input.neighborhood));
-      const open = leadsForWorkspace(snap, ws.trade, []).filter((l) => !statuses.has(l.id));
+      const open = leadsForWorkspace(snap, ws.trade, []).filter((l) => isOpenLead(statuses, l.id));
       const rows = snap.areas
         .filter((a) => (single ? a.id === single : !only || ws.areas.includes(a.id)))
         .map((a) => {
-          const sig =
-            ws.trade === "general"
-              ? { now: a.majorProjects.last90, before: a.majorProjects.lastYear }
-              : { now: a.violations[ws.trade]?.last90 ?? 0, before: a.violations[ws.trade]?.lastYear ?? 0 };
+          const sig = areaSignal(a, ws.trade);
           return {
             neighborhood: a.name,
             signals_last_90_days: sig.now,

@@ -30,6 +30,20 @@ export function dateLabel(iso: string | null | undefined): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+const dateTime = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Chicago",
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+/** A timestamp in Chicago time (the app's business timezone), whatever timezone the server runs in. */
+export function dateTimeLabel(d: Date): string {
+  return dateTime.format(d);
+}
+
 export function ago(days: number): string {
   if (days <= 0) return "today";
   if (days === 1) return "yesterday";

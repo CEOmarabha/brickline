@@ -5,6 +5,7 @@ import { SettingsForm } from "@/components/settings-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pct } from "@/lib/format";
+import { isHttpUrl } from "@/lib/links";
 import { getSnapshot, leadsForWorkspace, TRADE_KEYS } from "@/lib/snapshot";
 import { getWorkspace } from "@/lib/workspace";
 
@@ -35,6 +36,7 @@ async function Settings() {
       <Card className="lg:col-span-2">
         <CardContent>
           <SettingsForm
+            key={ws.id}
             initial={{
               businessName: ws.businessName,
               trade: ws.trade,
@@ -74,9 +76,13 @@ async function Settings() {
             <ul className="space-y-2 text-sm">
               {snap.meta.sources.map((s) => (
                 <li key={s.url}>
-                  <a href={s.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                    {s.name}
-                  </a>
+                  {isHttpUrl(s.url) ? (
+                    <a href={s.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                      {s.name}
+                    </a>
+                  ) : (
+                    s.name
+                  )}
                 </li>
               ))}
             </ul>
