@@ -26,6 +26,8 @@ export async function GET() {
         r.nextFollowUp ?? "",
         r.notes,
         r.updatedAt.toISOString(),
+        r.monthlyValueUsd === null ? "" : r.monthlyValueUsd.toFixed(2),
+        r.feeModel,
       ];
     });
   const body = toCsv(
@@ -42,6 +44,8 @@ export async function GET() {
       "next_follow_up",
       "notes",
       "updated_at",
+      "monthly_value_usd",
+      "fee_model",
     ],
     rows,
   );

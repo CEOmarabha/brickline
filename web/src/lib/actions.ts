@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { type ActionResult, runAction, UserError } from "@/lib/action-result";
 import { multiLine, singleLine } from "@/lib/clean-text";
 import { sql } from "@/lib/db";
+import { MAX_JOB_VALUE, parseMoney } from "@/lib/money-input";
 import { getSnapshot, TRADE_KEYS, type TradeKey } from "@/lib/snapshot";
 import {
   currentWorkspaceId,
@@ -88,7 +89,17 @@ async function setCurrent(owner: string, workspaceId: string) {
   );
 }
 
-export async function setLeadStatus(leadId: string, status: LeadStatus, note: string): Promise<ActionResult> {
+/**
+ * Sets a lead's status and note. `jobValue` (dollars the user entered) belongs to Won leads only: leaving it out
+ * keeps the value a Won lead already has, an empty value clears it, and any other status always clears it. The
+ * event row records the value as it was at that moment, so history survives later changes.
+ */
+export async function setLeadStatus(
+  leadId: string,
+  status: LeadStatus,
+  note: string,
+  jobValue?: string | number | null,
+): Promise<ActionResult> {
   return runAction(async () => {
     const owner = await requireOwner();
     const wsId = await currentWorkspaceId(owner);
@@ -97,18 +108,33 @@ export async function setLeadStatus(leadId: string, status: LeadStatus, note: st
     }
     if (!LEAD_STATUSES.includes(status)) throw new UserError("Unknown status");
     const cleanNote = multiLine(note, MAX_NOTE, "Note");
-    const [current] = await sql<{ status: string; note: string }>(
-      "select status, note from lead_status where workspace_id = $1 and lead_id = $2",
+    const entered = parseMoney(jobValue, { label: "Job value", max: MAX_JOB_VALUE });
+    if (entered && status !== "won") throw new UserError("A job value can only be saved on a Won lead");
+    const [current] = await sql<{ status: string; note: string; job_value_usd: string | null }>(
+      "select status, note, job_value_usd::text as job_value_usd from lead_status where workspace_id = $1 and lead_id = $2",
       [wsId, leadId],
     );
-    if (current ? current.status === status && current.note === cleanNote : status === "new" && cleanNote === "") return;
+    let value: string | null = null;
+    if (status === "won") {
+      value = jobValue === undefined ? (current?.status === "won" ? current.job_value_usd : null) : (entered?.text ?? null);
+    }
+    if (
+      current
+        ? current.status === status && current.note === cleanNote && (current.job_value_usd ?? null) === value
+        : status === "new" && cleanNote === ""
+    ) {
+      return;
+    }
     await sql(
       `with saved as (
-         insert into lead_status (workspace_id, lead_id, status, note, updated_at) values ($1, $2, $3, $4, now())
-         on conflict (workspace_id, lead_id) do update set status = $3, note = $4, updated_at = now()
+         insert into lead_status (workspace_id, lead_id, status, note, job_value_usd, updated_at)
+         values ($1, $2, $3, $4, $5::numeric(12,2), now())
+         on conflict (workspace_id, lead_id) do update
+           set status = $3, note = $4, job_value_usd = $5::numeric(12,2), updated_at = now()
        )
-       insert into lead_event (workspace_id, lead_id, status, note) values ($1, $2, $3, $4)`,
-      [wsId, leadId, status, cleanNote],
+       insert into lead_event (workspace_id, lead_id, status, note, job_value_usd)
+       values ($1, $2, $3, $4, $5::numeric(12,2))`,
+      [wsId, leadId, status, cleanNote, value],
     );
     refresh();
   });

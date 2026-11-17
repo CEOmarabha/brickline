@@ -1,5 +1,6 @@
 import { UserError } from "@/lib/action-result";
 import { multiLine, singleLine } from "@/lib/clean-text";
+import { type MoneyAmount, parseMoney } from "@/lib/money-input";
 
 export const PROSPECT_STATUSES = [
   "not_contacted",
@@ -30,6 +31,22 @@ export const PROSPECT_FOLLOW_UP_DAYS: Record<number, number | null> = { 1: 4, 2:
 /** Statuses that never show up as "due": the conversation is finished or already a customer. */
 export const CLOSED_STATUSES: readonly ProspectStatus[] = ["paying", "not_interested"];
 
+/** How a prospect pays. Mirrors the check constraint on `prospect_status.fee_model`; "" means not set. */
+export const FEE_MODELS = ["subscription", "per_lead", "per_won_job", "flat_pilot"] as const;
+export type FeeModel = (typeof FEE_MODELS)[number];
+
+export const FEE_MODEL_LABEL: Record<FeeModel, string> = {
+  subscription: "Subscription (monthly fee)",
+  per_lead: "Per lead",
+  per_won_job: "Per won job",
+  flat_pilot: "Flat pilot fee",
+};
+
+/** Only a prospect in one of these statuses has deal terms (monthly value, fee model). */
+export const DEAL_STATUSES: readonly ProspectStatus[] = ["pilot", "paying"];
+
+export const MAX_MONTHLY_VALUE = 1_000_000;
+
 export interface ProspectFields {
   status?: ProspectStatus;
   contactName?: string;
@@ -39,9 +56,53 @@ export interface ProspectFields {
   notes?: string;
   /** YYYY-MM-DD, or null/"" to clear. */
   nextFollowUp?: string | null;
+  /** Dollars per month as typed ("1,500", "1500.50"); null/"" to clear. */
+  monthlyValue?: string | number | null;
+  /** One of FEE_MODELS, or "" to clear. */
+  feeModel?: string;
 }
 
-export type CleanFields = ProspectFields;
+export interface CleanFields extends Omit<ProspectFields, "monthlyValue" | "feeModel"> {
+  monthlyValue?: MoneyAmount | null;
+  feeModel?: FeeModel | "";
+}
+
+export interface DealSummary {
+  /** Prospects at this status. */
+  count: number;
+  /** Of those, how many have a monthly value entered. */
+  withValue: number;
+  /** Sum of the monthly values entered, in dollars. */
+  totalMonthlyUsd: number;
+  byFeeModel: Record<FeeModel, number>;
+}
+
+/** Counts and entered monthly values of Pilot and Paying prospects. Computed, never estimated. */
+export function summarizeDeals(
+  rows: Iterable<{ status: ProspectStatus; monthlyValueUsd: number | null; feeModel: FeeModel | "" } | undefined>,
+): Record<"paying" | "pilot", DealSummary> {
+  const empty = (): DealSummary => ({
+    count: 0,
+    withValue: 0,
+    totalMonthlyUsd: 0,
+    byFeeModel: { subscription: 0, per_lead: 0, per_won_job: 0, flat_pilot: 0 },
+  });
+  const out = { paying: empty(), pilot: empty() };
+  const cents = { paying: 0, pilot: 0 };
+  for (const row of rows) {
+    if (!row || (row.status !== "paying" && row.status !== "pilot")) continue;
+    const s = out[row.status];
+    s.count++;
+    if (row.monthlyValueUsd !== null) {
+      s.withValue++;
+      cents[row.status] += Math.round(row.monthlyValueUsd * 100);
+    }
+    if (row.feeModel !== "") s.byFeeModel[row.feeModel]++;
+  }
+  out.paying.totalMonthlyUsd = cents.paying / 100;
+  out.pilot.totalMonthlyUsd = cents.pilot / 100;
+  return out;
+}
 
 const LIMITS = { contactName: 120, email: 200, phone: 40, website: 200, notes: 4000 } as const;
 
@@ -115,6 +176,14 @@ export function cleanProspectFields(fields: ProspectFields): CleanFields {
     const d = fields.nextFollowUp === null ? "" : String(fields.nextFollowUp).trim();
     if (d !== "" && !isValidDate(d)) throw new UserError("Follow-up date is not a valid date");
     out.nextFollowUp = d === "" ? null : d;
+  }
+  if (fields.monthlyValue !== undefined) {
+    out.monthlyValue = parseMoney(fields.monthlyValue, { label: "Monthly value", max: MAX_MONTHLY_VALUE });
+  }
+  if (fields.feeModel !== undefined) {
+    const model = typeof fields.feeModel === "string" ? fields.feeModel.trim() : null;
+    if (model === null || (model !== "" && !FEE_MODELS.includes(model as FeeModel))) throw new UserError("Unknown fee model");
+    out.feeModel = model as FeeModel | "";
   }
   return out;
 }

@@ -287,6 +287,8 @@ async function Pipeline({ prospectId }: { prospectId: string }) {
         notes: row?.notes ?? "",
         sequenceStep: row?.sequenceStep ?? 0,
         nextFollowUp: row?.nextFollowUp ?? null,
+        monthlyValueUsd: row?.monthlyValueUsd ?? null,
+        feeModel: row?.feeModel ?? "",
       }}
       history={history.map((h) => ({ id: h.id, status: h.status, note: h.note, at: dateTimeLabel(h.createdAt) }))}
     />

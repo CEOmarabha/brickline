@@ -1,7 +1,7 @@
 import "server-only";
 
 import { sql } from "@/lib/db";
-import type { ProspectStatus } from "@/lib/pipeline";
+import type { FeeModel, ProspectStatus } from "@/lib/pipeline";
 
 export interface PipelineRow {
   prospectId: string;
@@ -14,6 +14,9 @@ export interface PipelineRow {
   sequenceStep: number;
   nextFollowUp: string | null;
   updatedAt: Date;
+  /** Entered by the founder for a Pilot or Paying prospect; null when none was entered. */
+  monthlyValueUsd: number | null;
+  feeModel: FeeModel | "";
 }
 
 export interface PipelineEvent {
@@ -34,10 +37,12 @@ interface StatusRow {
   sequence_step: number;
   next_follow_up: string | null;
   updated_at: Date;
+  monthly_value_usd: number | null;
+  fee_model: FeeModel | "";
 }
 
 const COLUMNS = `prospect_id, status, contact_name, email, phone, website, notes, sequence_step,
-  next_follow_up::text as next_follow_up, updated_at`;
+  next_follow_up::text as next_follow_up, updated_at, monthly_value_usd::float8 as monthly_value_usd, fee_model`;
 
 function toPipelineRow(r: StatusRow): PipelineRow {
   return {
@@ -51,6 +56,8 @@ function toPipelineRow(r: StatusRow): PipelineRow {
     sequenceStep: r.sequence_step,
     nextFollowUp: r.next_follow_up,
     updatedAt: new Date(r.updated_at),
+    monthlyValueUsd: r.monthly_value_usd === null ? null : Number(r.monthly_value_usd),
+    feeModel: r.fee_model,
   };
 }
 

@@ -7,10 +7,14 @@ import { tradeNoun } from "@/lib/insights";
 import { MIN_DECIDED } from "@/lib/outcomes";
 import { draftOutreach } from "@/lib/outreach";
 import {
+  type DealSummary,
+  FEE_MODEL_LABEL,
+  FEE_MODELS,
   isDue,
   MAX_SEQUENCE_STEP,
   PROSPECT_STATUS_LABEL,
   PROSPECT_STATUSES,
+  summarizeDeals,
   todayChicago,
   type ProspectStatus,
 } from "@/lib/pipeline";
@@ -88,8 +92,25 @@ function eventKind(note: string): { kind: string; email_number?: number } {
   if (note.startsWith("Status:")) return { kind: "status_change" };
   if (note.startsWith("Contact details updated")) return { kind: "contact_details_updated" };
   if (note.startsWith("Notes updated")) return { kind: "notes_updated" };
+  if (note.startsWith("Monthly value") || note.startsWith("Fee model")) return { kind: "deal_terms_updated" };
   if (note.startsWith("Follow-up")) return { kind: "follow_up_changed" };
   return { kind: "added_to_pipeline" };
+}
+
+export interface DealValueSummary {
+  prospects: number;
+  with_monthly_value: number;
+  total_monthly_value_usd: number | null;
+  by_fee_model: Record<string, number>;
+}
+
+function dealValueSummary(s: DealSummary): DealValueSummary {
+  return {
+    prospects: s.count,
+    with_monthly_value: s.withValue,
+    total_monthly_value_usd: s.withValue > 0 ? s.totalMonthlyUsd : null,
+    by_fee_model: Object.fromEntries(FEE_MODELS.map((m) => [FEE_MODEL_LABEL[m], s.byFeeModel[m]])),
+  };
 }
 
 export interface OutreachDueRow {
@@ -113,6 +134,11 @@ export interface OutreachStatusResult {
     prospects_total: number;
     prospects_tracked: number;
     counts_by_status: Record<string, number>;
+    deal_value: {
+      note: string;
+      paying: DealValueSummary;
+      pilot: DealValueSummary;
+    };
     due_total: number;
     due: OutreachDueRow[];
     recent_events: { date: string; kind: string; email_number?: number; status: string; company: string; link: string }[];
@@ -147,6 +173,7 @@ export async function outreachStatus(
     if (row) tracked++;
     if (row && isDue(row, today)) due.push({ p, row });
   }
+  const deals = summarizeDeals(file.prospects.map((p) => pipeline.get(p.id)));
   due.sort((a, b) => (a.row.nextFollowUp ?? "").localeCompare(b.row.nextFollowUp ?? "") || a.p.id.localeCompare(b.p.id));
 
   const dueRows = await Promise.all(
@@ -192,6 +219,11 @@ export async function outreachStatus(
       prospects_total: file.prospects.length,
       prospects_tracked: tracked,
       counts_by_status: Object.fromEntries(PROSPECT_STATUSES.map((s) => [PROSPECT_STATUS_LABEL[s], counts.get(s) ?? 0])),
+      deal_value: {
+        note: "Monthly values are what the founder entered for Paying and Pilot prospects; nothing is estimated, and the totals count only prospects with a value entered. No contact details.",
+        paying: dealValueSummary(deals.paying),
+        pilot: dealValueSummary(deals.pilot),
+      },
       due_total: due.length,
       due: dueRows,
       recent_events: recent,

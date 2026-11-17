@@ -4,7 +4,7 @@ import { callBrief, draftEmail, outreachStatus } from "@/lib/assistant-outreach"
 import { liftLabel, pct } from "@/lib/format";
 import { buildInsights } from "@/lib/insights";
 import { DEFAULT_FILTERS, queryLeads } from "@/lib/lead-query";
-import type { SegmentOutcome } from "@/lib/outcomes";
+import { MIN_VALUED_WON, type RevenueTotals, type SegmentOutcome } from "@/lib/outcomes";
 import {
   areaNames,
   areaSignal,
@@ -32,7 +32,7 @@ export interface ToolContext {
   owner: string | null;
   statuses: Map<string, LeadStatusRow>;
   rates: CloseRates;
-  outcomes: { rows: SegmentOutcome[] };
+  outcomes: { rows: SegmentOutcome[]; revenue: RevenueTotals; permitJobValue: number };
 }
 
 /** JSON-schema tool definitions for the Messages API. All tools are read-only. */
@@ -88,7 +88,8 @@ export const TOOL_DEFS = [
   },
   {
     name: "my_results",
-    description: "Measured outcomes by signal type and the close rates used in scoring (measured or default).",
+    description:
+      "Measured outcomes by signal type, the close rates used in scoring (measured or default), and the measured revenue: won jobs with a job value the user entered (count, total, median, revenue per worked lead), overall and by signal, and whether expected value uses the user's median job value or the permit-based typical job for each signal. Only entered values are counted; nothing is estimated.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -348,14 +349,38 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
         recent: rows.sort((a, b) => a.days_since_update - b.days_since_update).slice(0, 15),
       };
     }
-    case "my_results":
+    case "my_results": {
+      const { revenue, rows, permitJobValue } = ctx.outcomes;
       return {
-        by_signal: ctx.outcomes.rows,
+        by_signal: rows,
         close_rates_used: {
           homeowners_by_mail: ctx.rates.individual ?? `${pct(snap.meta.assumptions.winRate.individual)} (default)`,
           companies_and_investors: ctx.rates.company ?? `${pct(snap.meta.assumptions.winRate.company)} (default)`,
         },
+        measured_revenue: {
+          source: "Job values the user typed on Won leads. Nothing is estimated; won jobs without a value are not counted.",
+          won_jobs: revenue.won,
+          won_jobs_with_value: revenue.wonWithValue,
+          total_won_value_usd: revenue.wonWithValue > 0 ? revenue.totalWonValue : null,
+          median_job_value_usd: revenue.medianJobValue,
+          leads_worked: revenue.worked,
+          revenue_per_worked_lead_usd: revenue.revenuePerWorkedLead,
+          by_signal: rows
+            .filter((r) => r.won > 0)
+            .map((r) => ({
+              signal: r.label,
+              won: r.won,
+              won_with_value: r.wonWithValue,
+              total_won_value_usd: r.wonWithValue > 0 ? r.totalWonValue : null,
+              median_job_value_usd: r.medianJobValue,
+              revenue_per_worked_lead_usd: r.revenuePerWorkedLead,
+              expected_value_job_value: r.jobValueMeasured
+                ? `measured median ${r.medianJobValue}`
+                : `permit-based ${permitJobValue} (needs ${MIN_VALUED_WON} won jobs with a value, has ${r.wonWithValue})`,
+            })),
+        },
       };
+    }
     case "suggested_moves":
       return buildInsights(snap, ws, leadsForWorkspace(snap, ws.trade, ws.areas), statuses, ctx.rates).map((i) => ({
         title: i.title,

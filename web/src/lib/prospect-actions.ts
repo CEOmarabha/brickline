@@ -3,10 +3,14 @@
 import { refresh } from "next/cache";
 import { type ActionResult, runAction, UserError } from "@/lib/action-result";
 import { sql } from "@/lib/db";
+import { centsToText, dollarsToCents } from "@/lib/money-input";
 import {
   addDays,
   cleanProspectFields,
   CLOSED_STATUSES,
+  DEAL_STATUSES,
+  FEE_MODEL_LABEL,
+  type FeeModel,
   MAX_SEQUENCE_STEP,
   PROSPECT_FOLLOW_UP_DAYS,
   PROSPECT_STATUS_LABEL,
@@ -35,6 +39,8 @@ interface SavedRow {
   notes: string;
   sequenceStep: number;
   nextFollowUp: string | null;
+  monthlyCents: number | null;
+  feeModel: FeeModel | "";
 }
 
 /** Upserts the pipeline row and logs the history line in one statement, so they never disagree. */
@@ -42,13 +48,16 @@ async function persist(owner: string, prospectId: string, row: SavedRow, history
   await sql(
     `with saved as (
        insert into prospect_status
-         (owner_id, prospect_id, status, contact_name, email, phone, website, notes, sequence_step, next_follow_up, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, now())
+         (owner_id, prospect_id, status, contact_name, email, phone, website, notes, sequence_step, next_follow_up,
+          monthly_value_usd, fee_model, updated_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $12::numeric(12,2), $13, now())
        on conflict (owner_id, prospect_id) do update set
          status = $3, contact_name = $4, email = $5, phone = $6, website = $7, notes = $8,
-         sequence_step = $9, next_follow_up = $10::date, updated_at = now()
+         sequence_step = $9, next_follow_up = $10::date, monthly_value_usd = $12::numeric(12,2), fee_model = $13,
+         updated_at = now()
      )
-     insert into prospect_event (owner_id, prospect_id, status, note) values ($1, $2, $3, $11)`,
+     insert into prospect_event (owner_id, prospect_id, status, note, monthly_value_usd, fee_model)
+     values ($1, $2, $3, $11, $12::numeric(12,2), $13)`,
     [
       owner,
       prospectId,
@@ -61,6 +70,8 @@ async function persist(owner: string, prospectId: string, row: SavedRow, history
       row.sequenceStep,
       row.nextFollowUp,
       historyNote,
+      row.monthlyCents === null ? null : centsToText(row.monthlyCents),
+      row.feeModel,
     ],
   );
 }
@@ -93,15 +104,38 @@ export async function saveProspect(prospectId: string, fields: ProspectFields): 
       next.website !== (cur?.website ?? "");
     const notesChanged = next.notes !== (cur?.notes ?? "");
     const followUpChanged = nextFollowUp !== (cur?.nextFollowUp ?? null);
-    if (cur && !statusChanged && !contactChanged && !notesChanged && !followUpChanged) return;
+
+    // Deal terms belong to Pilot and Paying prospects: any other status clears them (the history keeps what they were).
+    const curCents = dollarsToCents(cur?.monthlyValueUsd);
+    let monthlyCents = clean.monthlyValue !== undefined ? (clean.monthlyValue?.cents ?? null) : curCents;
+    let feeModel = clean.feeModel !== undefined ? clean.feeModel : (cur?.feeModel ?? "");
+    if (!DEAL_STATUSES.includes(status)) {
+      if (clean.monthlyValue || clean.feeModel) {
+        throw new UserError("Monthly value and fee model apply to Pilot or Paying prospects");
+      }
+      monthlyCents = null;
+      feeModel = "";
+    }
+    const monthlyChanged = monthlyCents !== curCents;
+    const feeModelChanged = feeModel !== (cur?.feeModel ?? "");
+    if (cur && !statusChanged && !contactChanged && !notesChanged && !followUpChanged && !monthlyChanged && !feeModelChanged) {
+      return;
+    }
 
     const parts: string[] = [];
     if (statusChanged) parts.push(`Status: ${PROSPECT_STATUS_LABEL[status]}`);
     if (contactChanged) parts.push("Contact details updated");
     if (notesChanged) parts.push("Notes updated");
+    if (monthlyChanged) parts.push(monthlyCents === null ? "Monthly value cleared" : `Monthly value set to $${centsToText(monthlyCents)}`);
+    if (feeModelChanged) parts.push(feeModel === "" ? "Fee model cleared" : `Fee model set to ${FEE_MODEL_LABEL[feeModel]}`);
     if (followUpChanged) parts.push(nextFollowUp ? `Follow-up set for ${nextFollowUp}` : "Follow-up cleared");
     if (parts.length === 0) parts.push("Added to pipeline");
-    await persist(owner, id, { status, ...next, sequenceStep: cur?.sequenceStep ?? 0, nextFollowUp }, parts.join(". "));
+    await persist(
+      owner,
+      id,
+      { status, ...next, sequenceStep: cur?.sequenceStep ?? 0, nextFollowUp, monthlyCents, feeModel },
+      parts.join(". "),
+    );
     refresh();
   });
 }
@@ -136,6 +170,8 @@ export async function logEmailSent(prospectId: string): Promise<ActionResult> {
         notes: cur?.notes ?? "",
         sequenceStep: step,
         nextFollowUp,
+        monthlyCents: dollarsToCents(cur?.monthlyValueUsd),
+        feeModel: cur?.feeModel ?? "",
       },
       `Email ${step} of ${MAX_SEQUENCE_STEP} sent. ${nextFollowUp ? `Next follow-up ${nextFollowUp}` : "Sequence finished"}`,
     );

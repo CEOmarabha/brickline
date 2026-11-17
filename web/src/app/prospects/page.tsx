@@ -6,11 +6,12 @@ import { EmptyState, PageHeader, Pagination, ProspectStatusBadge, Trend } from "
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ContactSuggestions, getContacts, hasAnyContact } from "@/lib/contacts";
-import { count, dateLabel, money } from "@/lib/format";
+import { count, dateLabel, exactMoney, money } from "@/lib/format";
 import {
   isDue,
   PROSPECT_STATUS_LABEL,
   PROSPECT_STATUSES,
+  summarizeDeals,
   todayChicago,
   type ProspectStatus,
 } from "@/lib/pipeline";
@@ -114,6 +115,8 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
   const page = Math.min(pages, Math.max(1, Math.floor(Number(firstParam(sp.page))) || 1));
   const shown = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const deals = summarizeDeals(file.prospects.map((p) => pipeline.get(p.id)));
+
   const pill = (active: boolean) =>
     cn("rounded-full border px-3 py-1 text-sm hover:bg-muted", active && "border-primary bg-primary/10 text-primary");
 
@@ -140,6 +143,21 @@ async function Prospects({ searchParams }: { searchParams: PageProps<"/prospects
               <div className="text-xl font-semibold tabular-nums">{count(byStatus.get(s) ?? 0)}</div>
             </Link>
           ))}
+        </div>
+      )}
+      {owner && deals.paying.count + deals.pilot.count > 0 && (
+        <div className="rounded-lg border p-3 text-sm">
+          <div className="text-xs text-muted-foreground">Monthly value of Paying prospects (entered by you)</div>
+          <div className="text-xl font-semibold tabular-nums">
+            {deals.paying.withValue > 0 ? exactMoney(deals.paying.totalMonthlyUsd) : "—"}
+            <span className="text-sm font-normal text-muted-foreground"> a month</span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {count(deals.paying.withValue)} of {count(deals.paying.count)} Paying{" "}
+            {deals.paying.count === 1 ? "prospect has" : "prospects have"} a monthly value.
+            {deals.pilot.count > 0 &&
+              ` Pilots, not counted above: ${deals.pilot.withValue > 0 ? exactMoney(deals.pilot.totalMonthlyUsd) : "—"} a month from ${count(deals.pilot.withValue)} of ${count(deals.pilot.count)}.`}
+          </p>
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">

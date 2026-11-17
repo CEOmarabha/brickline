@@ -7,6 +7,14 @@ export function money(n: number | null | undefined): string {
   return usd0.format(n);
 }
 
+const usdCents = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Dollars a person typed in, shown as entered: no rounding to thousands or millions, and cents (always two) only when present. */
+export function exactMoney(n: number | null | undefined): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return Number.isInteger(n) ? usd0.format(n) : usdCents.format(n);
+}
+
 export function count(n: number | null | undefined): string {
   return n === null || n === undefined ? "—" : int.format(n);
 }

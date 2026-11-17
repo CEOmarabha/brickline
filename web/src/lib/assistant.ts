@@ -2,7 +2,7 @@ import "server-only";
 
 import type { OutreachStatusResult } from "@/lib/assistant-outreach";
 import { runTool, TOOL_DEFS, type ToolContext } from "@/lib/assistant-tools";
-import { count, dateLabel, money } from "@/lib/format";
+import { count, dateLabel, exactMoney, money } from "@/lib/format";
 import { MIN_DECIDED } from "@/lib/outcomes";
 import { LEAD_FOLLOW_UP_DAYS, workspaceLabel } from "@/lib/workspace";
 
@@ -121,6 +121,7 @@ const EVENT_TEXT: Record<string, string> = {
   contact_details_updated: "contact details updated",
   notes_updated: "notes updated",
   follow_up_changed: "follow-up date changed",
+  deal_terms_updated: "deal terms updated",
   added_to_pipeline: "added to your pipeline",
 };
 
@@ -195,12 +196,40 @@ export async function quickAnswer(key: QuickKey, ctx: ToolContext): Promise<stri
       const r = (await runTool("my_results", {}, ctx)) as {
         by_signal: { label: string; worked: number; won: number; lost: number; meetingRate: number | null }[];
         close_rates_used: Record<string, unknown>;
+        measured_revenue: {
+          won_jobs: number;
+          won_jobs_with_value: number;
+          total_won_value_usd: number | null;
+          median_job_value_usd: number | null;
+          leads_worked: number;
+          revenue_per_worked_lead_usd: number | null;
+          by_signal: { signal: string; won_with_value: number; total_won_value_usd: number | null; median_job_value_usd: number | null }[];
+        };
       };
       if (r.by_signal.length === 0) return "No outcomes yet. Mark leads Contacted, Won or Lost and this fills in.";
+      const m = r.measured_revenue;
+      const valued = m.by_signal.filter((s) => s.won_with_value > 0);
       return [
         "**Outcomes by signal:**",
         ...r.by_signal.map((s) => `- ${s.label}: ${s.worked} worked, ${s.won} won, ${s.lost} lost.`),
-      ].join("\n");
+        m.won_jobs_with_value > 0
+          ? [
+              `\n**Won value (entered by you):** ${exactMoney(m.total_won_value_usd)} across ${count(m.won_jobs_with_value)} won ${
+                m.won_jobs_with_value === 1 ? "job" : "jobs"
+              } with a value (of ${count(m.won_jobs)} won), median job ${exactMoney(m.median_job_value_usd)}, ${exactMoney(
+                m.revenue_per_worked_lead_usd,
+              )} per worked lead (${count(m.leads_worked)} worked).`,
+              ...valued.map(
+                (s) =>
+                  `- ${s.signal}: ${exactMoney(s.total_won_value_usd)} from ${s.won_with_value} won, median ${exactMoney(s.median_job_value_usd)}.`,
+              ),
+            ].join("\n")
+          : m.won_jobs > 0
+            ? `\n${count(m.won_jobs)} won, but no job values entered yet: open a won lead and add its job value to see revenue here.`
+            : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
     }
     case "outreach": {
       const r = (await runTool("outreach_status", {}, ctx)) as OutreachStatusResult | { error: string };
@@ -214,8 +243,16 @@ export async function quickAnswer(key: QuickKey, ctx: ToolContext): Promise<stri
         .map(([label, n]) => `${label} ${count(n)}`)
         .join(", ");
       const overdueLeads = r.lead_outreach.overdue_follow_ups_total;
+      const dealLine = (label: string, d: OutreachStatusResult["prospect_pipeline"]["deal_value"]["paying"]) =>
+        d.prospects === 0
+          ? null
+          : `${label} ${count(d.prospects)}: ${
+              d.total_monthly_value_usd === null ? "no monthly value entered" : `${exactMoney(d.total_monthly_value_usd)} a month`
+            } (${count(d.with_monthly_value)} with a value)`;
+      const deals = [dealLine("Paying", p.deal_value.paying), dealLine("Pilot", p.deal_value.pilot)].filter(Boolean);
       return [
         `**Your prospect pipeline** (${count(p.prospects_total)} contractors, ${count(p.prospects_tracked)} in your pipeline): ${counts}.`,
+        deals.length > 0 ? `**Deal value (entered by you):** ${deals.join("; ")}.` : "",
         p.due_total === 0
           ? "Nothing is due today or overdue."
           : [

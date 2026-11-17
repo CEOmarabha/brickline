@@ -7,13 +7,19 @@ import { ProspectStatusBadge } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactValue, SourceLine } from "@/components/contact-bits";
 import { type ActionResult, UserError } from "@/lib/action-result";
 import type { ContactField, ContactSuggestions } from "@/lib/contacts";
 import { isHttpUrl } from "@/lib/links";
+import { centsToInput, dollarsToCents } from "@/lib/money-input";
 import {
   cleanProspectFields,
+  DEAL_STATUSES,
+  FEE_MODEL_LABEL,
+  FEE_MODELS,
+  type FeeModel,
   isDue,
   MAX_SEQUENCE_STEP,
   PROSPECT_STATUS_LABEL,
@@ -31,6 +37,8 @@ export interface PanelState {
   notes: string;
   sequenceStep: number;
   nextFollowUp: string | null;
+  monthlyValueUsd: number | null;
+  feeModel: FeeModel | "";
 }
 
 export interface PanelEvent {
@@ -86,6 +94,84 @@ function SuggestionRow({
 const DAYS_LABEL = ["Day 0", "Day 4", "Day 10"];
 
 const SAVE_FAILED = "Couldn't save. Try again.";
+
+const NOT_SET = "none";
+const FEE_ITEMS: Record<string, string> = {
+  [NOT_SET]: "Not set",
+  ...Object.fromEntries(FEE_MODELS.map((m) => [m, FEE_MODEL_LABEL[m]])),
+};
+
+/** Monthly value and fee model of a Pilot or Paying prospect. Remounted (via `key`) whenever the saved values change. */
+function DealTerms({
+  monthlyValueUsd,
+  feeModel,
+  pending,
+  onSave,
+}: {
+  monthlyValueUsd: number | null;
+  feeModel: FeeModel | "";
+  pending: boolean;
+  onSave: (fields: { monthlyValue: string; feeModel: string }) => void;
+}) {
+  const [monthly, setMonthly] = useState(centsToInput(dollarsToCents(monthlyValueUsd)));
+  const [fee, setFee] = useState<string>(feeModel || NOT_SET);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const fields = { monthlyValue: monthly, feeModel: fee === NOT_SET ? "" : fee };
+    try {
+      cleanProspectFields(fields);
+    } catch (error) {
+      toast.error(error instanceof UserError ? error.message : SAVE_FAILED);
+      return;
+    }
+    onSave(fields);
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-lg border p-4">
+      <div>
+        <h3 className="text-sm font-medium">Deal terms</h3>
+        <p className="text-xs text-muted-foreground">
+          Optional. What you actually agreed with this contractor. Totals on the Prospects page add up only the monthly
+          values entered here; nothing is estimated.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="pp-monthly">Monthly value ($)</Label>
+          <Input
+            id="pp-monthly"
+            inputMode="decimal"
+            autoComplete="off"
+            value={monthly}
+            onChange={(e) => setMonthly(e.target.value)}
+            placeholder="e.g. 500"
+            maxLength={14}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="pp-fee">Fee model</Label>
+          <Select items={FEE_ITEMS} value={fee} onValueChange={(v) => setFee(String(v))}>
+            <SelectTrigger id="pp-fee" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(FEE_ITEMS).map(([k, label]) => (
+                <SelectItem key={k} value={k}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <Button type="submit" variant="secondary" size="sm" disabled={pending}>
+        Save deal terms
+      </Button>
+    </form>
+  );
+}
 
 export function ProspectPipelinePanel({
   prospectId,
@@ -222,6 +308,16 @@ export function ProspectPipelinePanel({
             {suggestions.address && <SuggestionRow label="Address" field={suggestions.address} />}
           </ul>
         </section>
+      )}
+
+      {DEAL_STATUSES.includes(state.status) && (
+        <DealTerms
+          key={`${state.status}|${state.monthlyValueUsd ?? ""}|${state.feeModel}`}
+          monthlyValueUsd={state.monthlyValueUsd}
+          feeModel={state.feeModel}
+          pending={pending}
+          onSave={(fields) => run(() => saveProspect(prospectId, fields), "Deal terms saved")}
+        />
       )}
 
       <form onSubmit={saveDetails} className="space-y-3">

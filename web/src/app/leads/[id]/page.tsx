@@ -11,11 +11,11 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContactValue, SourceLine } from "@/components/contact-bits";
 import { getLeadContacts } from "@/lib/contacts";
-import { ago, count, dateLabel, dateTimeLabel, liftLabel, money, pct } from "@/lib/format";
+import { ago, count, dateLabel, dateTimeLabel, exactMoney, liftLabel, money, pct } from "@/lib/format";
 import { isHttpUrl } from "@/lib/links";
 import { draftOutreach } from "@/lib/outreach";
-import { getCloseRates, MIN_DECIDED } from "@/lib/outcomes";
-import { areaNames, closeRateFor, expectedValue, getSnapshot, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
+import { getCloseRates, MIN_DECIDED, MIN_VALUED_WON } from "@/lib/outcomes";
+import { areaNames, closeRateFor, expectedValue, getSnapshot, jobValueFor, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
 import { cn } from "@/lib/utils";
 import { getLeadHistory, getStatuses, getWorkspace, STATUS_LABEL } from "@/lib/workspace";
 
@@ -89,6 +89,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
   const p = tradeProbability(lead, ws.trade, snap);
   const ev = expectedValue(lead, ws.trade, snap, rates);
   const close = closeRateFor(lead, snap, rates);
+  const job = jobValueFor(lead, ws.trade, snap, rates);
   const draft = draftOutreach(lead, ws, snap, area);
   const { margin } = snap.meta.assumptions;
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lead.address}, Chicago, IL`)}`;
@@ -152,11 +153,13 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                 <span className="text-lg font-semibold tabular-nums">{money(ev)}</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Chance of work × {pct(close.rate, 0)} close rate × {money(snap.trades[ws.trade].jobValue)} typical job ×{" "}
-                {pct(margin, 0)} margin.{" "}
+                Chance of work × {pct(close.rate, 0)} close rate × {job.measured ? exactMoney(job.value) : money(job.value)} typical job × {pct(margin, 0)} margin.{" "}
                 {close.measured
                   ? "Close rate measured from your own won and lost leads."
-                  : `Close rate is an assumption until you've recorded ${MIN_DECIDED}+ won or lost leads.`}
+                  : `Close rate is an assumption until you've recorded ${MIN_DECIDED}+ won or lost leads.`}{" "}
+                {job.measured
+                  ? `Typical job is the median of the ${job.n} won jobs you entered for this kind of lead.`
+                  : `Typical job comes from permits until you've entered job values on ${MIN_VALUED_WON}+ won leads of this kind.`}
               </p>
             </div>
           </CardContent>
@@ -321,7 +324,12 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
           <CardContent className="space-y-4 text-sm">
             <p>{lead.action}</p>
             <Separator />
-            <LeadStatusPanel leadId={lead.id} current={status?.status ?? null} note={status?.note ?? ""} />
+            <LeadStatusPanel
+              leadId={lead.id}
+              current={status?.status ?? null}
+              note={status?.note ?? ""}
+              jobValue={status?.status === "won" ? status.jobValueUsd : null}
+            />
           </CardContent>
         </Card>
 
@@ -412,7 +420,12 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
               <ol className="space-y-3 text-sm">
                 {history.map((h, i) => (
                   <li key={i}>
-                    <div className="font-medium">{STATUS_LABEL[h.status]}</div>
+                    <div className="font-medium">
+                      {STATUS_LABEL[h.status]}
+                      {h.job_value_usd !== null && (
+                        <span className="font-normal tabular-nums"> · job value {exactMoney(h.job_value_usd)}</span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {dateTimeLabel(new Date(h.created_at))}
                     </div>

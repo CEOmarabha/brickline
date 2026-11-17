@@ -358,10 +358,37 @@ export const TRADE_KEYS: TradeKey[] = ["porch", "masonry", "roofing", "plumbing"
 
 export const TIER_ORDER: Record<Tier, number> = { act_now: 0, this_week: 1, monitor: 2 };
 
-/** Close rates measured from a workspace's own outcomes; null means "not enough data, use the assumption". */
+/**
+ * What a workspace's own outcomes have measured. A null close rate means "not enough data, use the assumption".
+ * `jobValues` holds the median job value the user entered on won leads, by results segment (`segmentOf`), and only for
+ * segments with enough won jobs to trust it; absent segments keep the permit-based typical job.
+ */
 export interface CloseRates {
   individual: number | null;
   company: number | null;
+  jobValues?: Record<string, { median: number; n: number }>;
+}
+
+/** The results segment a lead belongs to: the unit that outcomes and measured job values are grouped by. */
+export function segmentOf(lead: Lead, snap: Snapshot): { key: string; label: string } {
+  if (lead.kind === "investor_purchase") {
+    return lead.buyer.purchases24m >= 3
+      ? { key: "investor-repeat", label: "Repeat investor purchases" }
+      : { key: "investor", label: "Investor purchases" };
+  }
+  const owner = lead.owner.type === "company" ? "company-owned" : "individual-owned";
+  switch (lead.kind) {
+    case "complaint":
+      return { key: `complaint-${owner}`, label: `311 building complaints, ${owner}` };
+    case "porch_request":
+      return { key: `porch-request-${owner}`, label: `Porch inspection requests, ${owner}` };
+    case "vacant":
+      return { key: `vacant-${owner}`, label: `Vacant buildings, ${owner}` };
+    case "closed_restaurant":
+      return { key: `closed-restaurant-${owner}`, label: `Closed restaurant spaces, ${owner}` };
+    case "violation":
+      return { key: `violation-${lead.trade}-${owner}`, label: `${snap.trades[lead.trade].label} violations, ${owner}` };
+  }
 }
 
 /** Investor and vacant-building leads are worked like company leads (business contact, not homeowner mail). */
@@ -379,10 +406,27 @@ export function closeRateFor(lead: Lead, snap: Snapshot, rates?: CloseRates): { 
     : { rate: measured, measured: true };
 }
 
+/**
+ * The job value behind a lead's expected value: the median the user entered on won leads of the same segment once
+ * there are enough of them (`rates.jobValues`), else the permit-based typical job for the trade.
+ */
+export function jobValueFor(
+  lead: Lead,
+  trade: TradeKey,
+  snap: Snapshot,
+  rates?: CloseRates,
+): { value: number; measured: boolean; n: number } {
+  const m = rates?.jobValues ? rates.jobValues[segmentOf(lead, snap).key] : undefined;
+  return m
+    ? { value: m.median, measured: true, n: m.n }
+    : { value: snap.trades[trade].jobValue, measured: false, n: 0 };
+}
+
 /** Expected gross profit for a contractor in `trade` pursuing this lead. */
 export function expectedValue(lead: Lead, trade: TradeKey, snap: Snapshot, rates?: CloseRates): number {
   const { rate } = closeRateFor(lead, snap, rates);
-  return tradeProbability(lead, trade, snap) * rate * snap.trades[trade].jobValue * snap.meta.assumptions.margin;
+  const { value } = jobValueFor(lead, trade, snap, rates);
+  return tradeProbability(lead, trade, snap) * rate * value * snap.meta.assumptions.margin;
 }
 
 /** Probability that this lead turns into work for `trade` (historical rate, time-adjusted where the kind allows). */

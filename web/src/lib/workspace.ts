@@ -63,6 +63,8 @@ export interface LeadStatusRow {
   status: LeadStatus;
   note: string;
   updatedAt: Date;
+  /** What the user entered for a Won lead; null when none was entered or the lead is not Won. */
+  jobValueUsd: number | null;
 }
 
 interface WorkspaceRow {
@@ -140,14 +142,26 @@ export const getWorkspace = cache(async (): Promise<Workspace> => {
 export const getStatuses = cache(async (): Promise<Map<string, LeadStatusRow>> => {
   const ws = await getWorkspace();
   if (!ws.signedIn) return new Map();
-  const rows = await sql<{ lead_id: string; status: LeadStatus; note: string; updated_at: Date }>(
-    "select lead_id, status, note, updated_at from lead_status where workspace_id = $1",
+  const rows = await sql<{
+    lead_id: string;
+    status: LeadStatus;
+    note: string;
+    updated_at: Date;
+    job_value_usd: number | null;
+  }>(
+    "select lead_id, status, note, updated_at, job_value_usd::float8 as job_value_usd from lead_status where workspace_id = $1",
     [ws.id],
   );
   return new Map(
     rows.map((r) => [
       r.lead_id,
-      { leadId: r.lead_id, status: r.status, note: r.note, updatedAt: new Date(r.updated_at) },
+      {
+        leadId: r.lead_id,
+        status: r.status,
+        note: r.note,
+        updatedAt: new Date(r.updated_at),
+        jobValueUsd: r.job_value_usd === null ? null : Number(r.job_value_usd),
+      },
     ]),
   );
 });
@@ -160,10 +174,12 @@ export function isOpenLead(statuses: Map<string, LeadStatusRow>, leadId: string)
 export async function getLeadHistory(leadId: string) {
   const ws = await getWorkspace();
   if (!ws.signedIn) return [];
-  return sql<{ status: LeadStatus; note: string; created_at: Date }>(
-    "select status, note, created_at from lead_event where workspace_id = $1 and lead_id = $2 order by created_at desc",
+  const rows = await sql<{ status: LeadStatus; note: string; created_at: Date; job_value_usd: number | null }>(
+    `select status, note, created_at, job_value_usd::float8 as job_value_usd from lead_event
+     where workspace_id = $1 and lead_id = $2 order by created_at desc, id desc`,
     [ws.id, leadId],
   );
+  return rows.map((r) => ({ ...r, job_value_usd: r.job_value_usd === null ? null : Number(r.job_value_usd) }));
 }
 
 export interface OutcomeEvent {
