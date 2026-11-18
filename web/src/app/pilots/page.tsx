@@ -5,11 +5,13 @@ import { EmptyState, PageHeader } from "@/components/bits";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getBuyers, listOf } from "@/lib/buyers";
+import { getEvents } from "@/lib/events";
 import { dateLabel } from "@/lib/format";
 import { getPest } from "@/lib/pest";
-import { buildPilotCards } from "@/lib/pilot-pitches";
+import { buildEventsCard, buildPilotCards } from "@/lib/pilot-pitches";
 import { getSnapshot } from "@/lib/snapshot";
 import { viewerId } from "@/lib/workspace";
+import { EventsListCard } from "./events-card";
 import { PilotListCard } from "./pilot-card";
 
 export const metadata: Metadata = { title: "Pilot lists" };
@@ -19,7 +21,7 @@ export default function PilotsPage() {
     <>
       <PageHeader
         title="Pilot lists"
-        description="Four validated lists with no paying buyer yet. For each one: what it is, where to see it, who to sell it to, and an email to send."
+        description="Four validated lists and the upcoming-events list, none with a paying buyer yet. For each one: what it is, where to see it, who to sell it to, and an email to send."
       />
       <Suspense fallback={<Skeleton className="h-[40rem] w-full" />}>
         <Pilots />
@@ -29,8 +31,15 @@ export default function PilotsPage() {
 }
 
 async function Pilots() {
-  const [owner, snap, pest, buyers] = await Promise.all([viewerId(), getSnapshot(), getPest(), getBuyers()]);
+  const [owner, snap, pest, buyers, events] = await Promise.all([
+    viewerId(),
+    getSnapshot(),
+    getPest(),
+    getBuyers(),
+    getEvents(),
+  ]);
   const cards = buildPilotCards(snap, pest, buyers);
+  const eventsCard = buildEventsCard(events);
 
   return (
     <div className="space-y-8">
@@ -53,8 +62,16 @@ async function Pilots() {
               </span>
             ))}
             {" · "}
+            <a href={`#${eventsCard.anchor}`} className="underline underline-offset-2">
+              {eventsCard.title}
+            </a>
+            {" · "}
             <Link href="/pilots/pest" className="underline underline-offset-2">
               Pest list in full
+            </Link>
+            {" · "}
+            <Link href="/pilots/events" className="underline underline-offset-2">
+              Events list in full
             </Link>
           </p>
           {buyers && (
@@ -74,6 +91,8 @@ async function Pilots() {
       {cards.map((card) => (
         <PilotListCard key={card.key} card={card} list={buyers ? listOf(buyers, card.key) : undefined} signedIn={Boolean(owner)} />
       ))}
+
+      <EventsListCard card={eventsCard} signedIn={Boolean(owner)} />
 
       {buyers && <p className="text-xs text-muted-foreground print:hidden">{buyers.attribution.text}</p>}
     </div>

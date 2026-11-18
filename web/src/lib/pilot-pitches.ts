@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { BuyerList, BuyerListKey, BuyersFile } from "@/lib/buyers";
+import type { EventsFile } from "@/lib/events";
 import { count, pct } from "@/lib/format";
 import type { PestFile } from "@/lib/pest";
 import type { ClosedRestaurantLead, OpenTradeRow, Snapshot } from "@/lib/snapshot";
@@ -53,6 +54,7 @@ const NOUN: Record<string, string> = {
   kitchen: "restaurant equipment and supply dealer",
   brokers: "commercial real estate firm",
   pest: "pest-control company",
+  events: "rental or event-services company",
 };
 
 /** Why this list could matter to this kind of buyer, in plain words and without any promise. */
@@ -353,4 +355,108 @@ export function buildPilotCards(snap: Snapshot, pest: PestFile | null, buyers: B
     closedRestaurantCard(snap, find("closedRestaurant")),
     pestCard(pest, find("pest")),
   ];
+}
+
+export interface EventsPilotCard {
+  key: "events";
+  title: string;
+  anchor: string;
+  summary: string;
+  caveat: string;
+  stats: PilotStat[];
+  links: PilotLink[];
+  buyerTypes: { label: string; why: string }[];
+  emails: PilotEmail[];
+}
+
+const DISCLAIMER_EVENTS =
+  "This is a targeting list built from public permit records, not a promise of customers or revenue. It shows which events are on file and who filed them, not who will hire a vendor; many organizers already have one.";
+
+/** The "Upcoming events" card: the founder's own event-services list and a pitch to rental and service vendors. */
+export function buildEventsCard(events: EventsFile | null): EventsPilotCard {
+  const base = {
+    key: "events" as const,
+    title: "Upcoming events",
+    anchor: "events",
+    caveat:
+      "A targeting list, not a prediction: no chance of hiring anyone is modelled, no buyer has paid for it yet, and the signal lab did not find new events visible 3 to 9 months ahead. Event volume is seasonal, so winter lists are short.",
+    buyerTypes: [
+      {
+        label: "Your own event-services business",
+        why: "Organizations that filed a street or park event 2 to 8 weeks ahead, and recurring organizers to approach the season before, each with a public listing to start from.",
+      },
+      {
+        label: "Tent and staging rental",
+        why: "Outdoor festivals, markets and races that closed a street or booked a park may need cover and staging.",
+      },
+      {
+        label: "Portable restrooms and handwash",
+        why: "Larger street festivals, races and park events are the kind that bring crowds to a block with no facilities.",
+      },
+      {
+        label: "Fencing and barricades",
+        why: "A street closure is on file for each CDOT event: closure type and segments are in the list.",
+      },
+      { label: "Generators and power", why: "Outdoor events with vendors, stages or lighting often need temporary power." },
+      { label: "Event security", why: "Larger festivals, parades and races draw crowds the organizer may want to staff." },
+    ],
+  };
+  if (!events) {
+    return {
+      ...base,
+      summary: "The events list has not been generated yet. Run uv run python -m engine.leads.events, then reload.",
+      stats: [],
+      links: [{ href: "/pilots/events", label: "See the list" }],
+      emails: [],
+    };
+  }
+  const c = events.counts;
+  const lt = (type: string) => events.context.byType.find((r) => r.type === type);
+  const fest = lt("Festival");
+  const notice =
+    fest?.medianDays != null && fest.p25Days != null && fest.p75Days != null
+      ? `Festival permits were first reviewed a median ${Math.round(fest.medianDays)} days before the event (middle half ${Math.round(fest.p25Days)} to ${Math.round(fest.p75Days)}).`
+      : "";
+  const soon = events.recurring.filter((s) => s.daysUntilExpected <= events.windowDays).length;
+  const match = events.contactMatch.all;
+  const matchText =
+    match.suggestionShare === null
+      ? ""
+      : ` ${pct(match.suggestionShare, 0)} of the ${count(match.organizations)} organizations have a public business listing match.`;
+  const summary = `Chicago street and park events through ${events.asOf}: ${count(c.upcomingWithOrganization)} events in the next ${events.windowDays} days name an organization (${count(c.upcoming2To8Weeks)} of them 2 to 8 weeks out), ${count(c.recurring)} recurring series are expected in the next year (${count(c.recurringWithOrganization)} name an organization), and ${count(c.blockParties)} block parties are filed (resident-filed: flyers only). ${notice}${matchText}`;
+  const subject = "Free sample: Chicago events with an organizer, 2 to 8 weeks out";
+  const paragraphs = [
+    "Each week I put together a list of upcoming Chicago street and park events from public City records: the date, location and event type, the organization that filed it (individuals are never listed), and a business listing to start from when one exists.",
+    `Right now the list has ${count(c.upcomingWithOrganization)} events in the next ${events.windowDays} days that name an organization, ${count(c.upcoming2To8Weeks)} of them 2 to 8 weeks out, plus ${count(c.recurring)} recurring series with the dates they are expected next year. ${notice} It is a list of who is running events, not of who needs a tent, restroom, fence, generator or guard.`,
+  ];
+  const body = [
+    "Hello [Owner first name],",
+    "",
+    INTRO,
+    "",
+    ...paragraphs.flatMap((p) => [p, ""]),
+    OFFER,
+    "",
+    DISCLAIMER_EVENTS,
+    "",
+    "Would you like me to send the 5-row sample?",
+    "",
+    footer("events", false),
+  ].join("\n");
+  return {
+    ...base,
+    summary,
+    stats: [
+      { label: `Organizations, next ${events.windowDays} days`, value: count(c.upcomingWithOrganization), hint: `of ${count(c.upcoming)} events on file` },
+      { label: "2 to 8 weeks out", value: count(c.upcoming2To8Weeks), hint: "organizations to contact now" },
+      { label: `Recurring, expected in ${events.windowDays} days`, value: count(soon), hint: `${count(c.recurring)} in the next ${events.recurringDays}` },
+      { label: "Block parties on file", value: count(c.blockParties), hint: "resident-filed; flyers only" },
+    ],
+    links: [
+      { href: "/pilots/events", label: "See the list" },
+      { href: "/export/events?group=organizations", label: "Organizations CSV", csv: true },
+      { href: "/export/events?group=recurring", label: "Recurring CSV", csv: true },
+    ],
+    emails: [{ key: "events-vendors", label: "Rental and event-service companies", subject, body }],
+  };
 }
