@@ -70,7 +70,7 @@ async function Pilots() {
               Pest list in full
             </Link>
             {" · "}
-            <Link href="/pilots/events" className="underline underline-offset-2">
+            <Link href="/events" className="underline underline-offset-2">
               Events list in full
             </Link>
           </p>

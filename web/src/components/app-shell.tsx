@@ -2,8 +2,10 @@ import { Suspense } from "react";
 import { cacheLife } from "next/cache";
 import { DataFreshness } from "@/components/data-freshness";
 import { MobileNav, SidebarNav } from "@/components/nav";
+import { TargetSwitcher } from "@/components/target-switcher";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { getSnapshot } from "@/lib/snapshot";
+import { targetOptions } from "@/lib/targets";
 import { getWorkspace, listWorkspaces, viewerId, workspaceLabel } from "@/lib/workspace";
 
 async function freshness() {
@@ -17,20 +19,26 @@ async function Freshness() {
   return <DataFreshness asOf={await freshness()} />;
 }
 
+/** Workspace switcher with the "looking for" picker right under it; signed-out viewers have neither. */
 async function Workspaces() {
   const owner = await viewerId();
   if (!owner) return null;
-  const [ws, list] = await Promise.all([getWorkspace(), listWorkspaces(owner)]);
-  return <WorkspaceSwitcher workspaces={list} currentId={ws.id} currentLabel={workspaceLabel(ws)} />;
+  const [ws, list, snap] = await Promise.all([getWorkspace(), listWorkspaces(owner), getSnapshot()]);
+  return (
+    <div className="space-y-3">
+      <WorkspaceSwitcher workspaces={list} currentId={ws.id} currentLabel={workspaceLabel(ws)} />
+      <TargetSwitcher options={targetOptions(snap.trades)} current={ws.target} />
+    </div>
+  );
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
-      <aside data-app-chrome className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-sidebar text-sidebar-foreground lg:flex print:hidden">
+      <aside data-app-chrome className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto bg-sidebar text-sidebar-foreground lg:flex print:hidden">
         <Brand />
         <div className="px-4 pb-4">
-          <Suspense fallback={<div className="h-14" />}>
+          <Suspense fallback={<div className="h-28" />}>
             <Workspaces />
           </Suspense>
         </div>

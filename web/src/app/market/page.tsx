@@ -3,8 +3,10 @@ import { Suspense } from "react";
 import { EmptyState, PageHeader, Trend } from "@/components/bits";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TradeOnlyNote } from "@/components/trade-only-note";
 import { count, dateLabel, money, pct } from "@/lib/format";
 import { areaNames, getSnapshot } from "@/lib/snapshot";
+import { isTradeTarget } from "@/lib/targets";
 import { getWorkspace } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Market & competitors" };
@@ -25,6 +27,7 @@ export default function MarketPage() {
 
 async function Market() {
   const [snap, ws] = await Promise.all([getSnapshot(), getWorkspace()]);
+  if (!isTradeTarget(ws.target)) return <TradeOnlyNote target={ws.target} snap={snap} />;
   const names = areaNames(snap);
   const comp = snap.competitors[ws.trade];
   const label = snap.trades[ws.trade].label;

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { PageHeader, StatCard, Trend } from "@/components/bits";
 import { LeadList } from "@/components/lead-list";
+import { TargetDashboard } from "@/components/dashboard/target-dashboard";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +11,8 @@ import { count, money } from "@/lib/format";
 import { buildInsights, type Insight } from "@/lib/insights";
 import { getCloseRates } from "@/lib/outcomes";
 import { areaNames, areaSignal, expectedValue, getSnapshot, leadsForWorkspace, TIER_ORDER } from "@/lib/snapshot";
-import { getStatuses, getWorkspace, isOpenLead } from "@/lib/workspace";
+import { isTradeTarget } from "@/lib/targets";
+import { getStatuses, getWorkspace, isOpenLead, type Workspace } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
@@ -22,12 +24,12 @@ export default function DashboardPage() {
 }
 
 async function Dashboard() {
-  const [snap, ws, statuses, rates] = await Promise.all([
-    getSnapshot(),
-    getWorkspace(),
-    getStatuses(),
-    getCloseRates(),
-  ]);
+  const ws = await getWorkspace();
+  return isTradeTarget(ws.target) ? <TradeDashboard ws={ws} /> : <TargetDashboard ws={ws} />;
+}
+
+async function TradeDashboard({ ws }: { ws: Workspace }) {
+  const [snap, statuses, rates] = await Promise.all([getSnapshot(), getStatuses(), getCloseRates()]);
   const names = areaNames(snap);
   const tradeLabel = snap.trades[ws.trade].label;
   const leads = leadsForWorkspace(snap, ws.trade, ws.areas);
@@ -81,8 +83,9 @@ async function Dashboard() {
           <CardHeader>
             <CardTitle>Tell us what you do and where</CardTitle>
             <CardDescription>
-              Pick your trade and the neighborhoods you work in, and add the phone and mailing address that go on your
-              letters. Until then you&apos;re seeing citywide porch leads.
+              Pick what you&apos;re looking for (a trade, events or a commercial list) and the neighborhoods you work in,
+              and add the phone and mailing address that go on your letters. Until then you&apos;re seeing citywide porch
+              leads.
             </CardDescription>
           </CardHeader>
           <CardContent>

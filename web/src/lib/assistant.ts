@@ -5,6 +5,7 @@ import type { OutreachStatusResult } from "@/lib/assistant-outreach";
 import { runTool, TOOL_DEFS, type ToolContext } from "@/lib/assistant-tools";
 import { count, dateLabel, exactMoney, money } from "@/lib/format";
 import { MIN_DECIDED } from "@/lib/outcomes";
+import { isTradeTarget, type ListTargetKey, targetLabel } from "@/lib/targets";
 import { LEAD_FOLLOW_UP_DAYS, workspaceLabel } from "@/lib/workspace";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
@@ -25,10 +26,40 @@ type Block =
   | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
   | { type: string; [k: string]: unknown };
 
-function systemPrompt(ctx: ToolContext): string {
+/** What each non-trade target means for the tools: which ones describe its list and which ones still describe the old trade. */
+const TARGET_TOOL_GUIDE: Record<ListTargetKey, string> = {
+  events:
+    "For event leads there is no events tool: point the founder to /leads (the upcoming events list) and to his deals (call deals_status), and never invent events, organizers, dates or counts.",
+  new_business:
+    "For the new-business list call commercial_opportunities with list='new_business'; the full list is on /leads and /commercial.",
+  restaurant_spaces:
+    "For the build-out permits call commercial_opportunities with list='new_business'. There is no tool for the closed restaurant spaces unless the workspace's last trade is general (search_leads with kind='closed_restaurant'): point the founder to /leads, and never invent addresses or counts.",
+  commercial_subs:
+    "For the subcontractor list call commercial_opportunities with list='open_trades'; the full list is on /leads and /commercial.",
+  pest_control:
+    "For pest control there is no pest tool: point the founder to /leads (the pest list) and never invent restaurants, findings or counts.",
+};
+
+function targetLines(ctx: ToolContext): string[] {
   const { snap, ws } = ctx;
+  const label = targetLabel(ws.target, snap.trades);
+  const who = workspaceLabel(ws);
+  if (isTradeTarget(ws.target)) {
+    return [
+      `You are Brickline's sales advisor for ${who}, a Chicago ${snap.trades[ws.trade].label.toLowerCase()} business working ${ws.areas.length === 0 ? "citywide" : `${ws.areas.length} neighborhoods`}.`,
+      `Current target: ${label} (${ws.target}).`,
+    ];
+  }
   return [
-    `You are Brickline's sales advisor for ${workspaceLabel(ws)}, a Chicago ${snap.trades[ws.trade].label.toLowerCase()} business working ${ws.areas.length === 0 ? "citywide" : `${ws.areas.length} neighborhoods`}.`,
+    `You are Brickline's sales advisor for ${who}, a Chicago business that is looking for ${label.toLowerCase()}.`,
+    `Current target: ${label} (${ws.target}). It is not a trade, so the trade lead tools (search_leads, get_lead, neighborhood_stats, competitors, pipeline, my_results, suggested_moves, commercial_projects) describe trade leads for the workspace's last trade (${snap.trades[ws.trade].label.toLowerCase()}), not the current target: say so when you use them and never present them as the current target's leads. ${TARGET_TOOL_GUIDE[ws.target]}`,
+  ];
+}
+
+function systemPrompt(ctx: ToolContext): string {
+  const { snap } = ctx;
+  return [
+    ...targetLines(ctx),
     `Data is current through ${snap.meta.dataAsOf.violations} (property sales through ${snap.meta.dataAsOf.sales}; the county publishes sales late).`,
     "",
     "Rules:",
@@ -163,8 +194,14 @@ function dealsAnswer(r: DealsStatusResult | { error: string }): string {
   ].join("\n");
 }
 
+/** Quick answers that describe trade leads, neighborhoods or competitors: they say nothing about events or commercial lists. */
+const TRADE_ONLY_QUICK: readonly QuickKey[] = ["best_leads", "hot_areas", "competitors"];
+
 /** Deterministic answers built straight from the tools; work without an AI key. */
 export async function quickAnswer(key: QuickKey, ctx: ToolContext): Promise<string> {
+  if (!isTradeTarget(ctx.ws.target) && TRADE_ONLY_QUICK.includes(key)) {
+    return `You're looking for ${targetLabel(ctx.ws.target, ctx.snap.trades)}, not a trade, so this answer about trade leads doesn't apply. Your list is on [Leads](/leads)${ctx.ws.target === "events" ? ", and your deals are on [Deals](/deals)" : ""}.`;
+  }
   switch (key) {
     case "best_leads": {
       const r = (await runTool("search_leads", { status: "open", sort: "priority", limit: 6 }, ctx)) as {

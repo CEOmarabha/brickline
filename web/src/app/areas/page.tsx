@@ -5,8 +5,10 @@ import { PageHeader, Trend } from "@/components/bits";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TradeOnlyNote } from "@/components/trade-only-note";
 import { count, dateLabel, money, pct } from "@/lib/format";
 import { areaNames, areaSignal, getSnapshot, leadsForWorkspace, type Snapshot } from "@/lib/snapshot";
+import { isTradeTarget } from "@/lib/targets";
 import { getStatuses, getWorkspace, isOpenLead } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +42,7 @@ async function Areas({ searchParams }: { searchParams: PageProps<"/areas">["sear
   const sort = (Object.keys(SORTS).includes(String(sp.sort)) ? sp.sort : "leads") as SortKey;
   const mineOnly = sp.scope === "mine";
   const [snap, ws, statuses] = await Promise.all([getSnapshot(), getWorkspace(), getStatuses()]);
+  if (!isTradeTarget(ws.target)) return <TradeOnlyNote target={ws.target} snap={snap} />;
   const trade = ws.trade;
   const open = leadsForWorkspace(snap, trade, []).filter((l) => isOpenLead(statuses, l.id));
   const signalLabel = trade === "general" ? "Major projects" : "Violations";

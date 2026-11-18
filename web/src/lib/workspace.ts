@@ -6,6 +6,7 @@ import { cache } from "react";
 import { UserError } from "@/lib/action-result";
 import { sql } from "@/lib/db";
 import type { TradeKey } from "@/lib/snapshot";
+import { DEFAULT_TARGET, resolveTarget, type TargetKey } from "@/lib/targets";
 import { getIdentity } from "../../cursor/identity";
 
 /**
@@ -30,7 +31,10 @@ export interface Workspace {
   id: string;
   name: string;
   businessName: string;
+  /** The trade the lead scoring uses. A non-trade target leaves it at the last trade the workspace worked in. */
   trade: TradeKey;
+  /** What the workspace is looking for: its trade, or one of the event and commercial lists. */
+  target: TargetKey;
   areas: number[];
   phone: string;
   mailingAddress: string;
@@ -72,6 +76,8 @@ interface WorkspaceRow {
   name: string;
   business_name: string;
   trade: TradeKey;
+  /** Empty for workspaces that never picked a target: they use their trade. */
+  target: string | null;
   areas: number[];
   phone: string;
   mailing_address: string;
@@ -116,6 +122,7 @@ export const getWorkspace = cache(async (): Promise<Workspace> => {
     name: "",
     businessName: "",
     trade: "porch",
+    target: DEFAULT_TARGET,
     areas: [],
     phone: "",
     mailingAddress: "",
@@ -131,6 +138,7 @@ export const getWorkspace = cache(async (): Promise<Workspace> => {
     name: r.name,
     businessName: r.business_name,
     trade: r.trade,
+    target: resolveTarget(r.target, r.trade),
     areas: r.areas ?? [],
     phone: r.phone,
     mailingAddress: r.mailing_address,

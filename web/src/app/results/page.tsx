@@ -4,9 +4,12 @@ import { Suspense } from "react";
 import { EmptyState, PageHeader, StatCard } from "@/components/bits";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TradeOnlyNote } from "@/components/trade-only-note";
 import { count, exactMoney, money, pct } from "@/lib/format";
 import { getOutcomes, MIN_DECIDED, MIN_VALUED_WON } from "@/lib/outcomes";
 import { getSnapshot } from "@/lib/snapshot";
+import { isTradeTarget } from "@/lib/targets";
+import { getWorkspace } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Results" };
 
@@ -25,10 +28,12 @@ export default function ResultsPage() {
 }
 
 async function Results() {
-  const [{ rows, rates, ownerTotals, revenue, permitJobValue, tradeLabel }, snap] = await Promise.all([
+  const [{ rows, rates, ownerTotals, revenue, permitJobValue, tradeLabel }, snap, ws] = await Promise.all([
     getOutcomes(),
     getSnapshot(),
+    getWorkspace(),
   ]);
+  const tradeTarget = isTradeTarget(ws.target);
   const wonRows = rows.filter((r) => r.won > 0);
   const totals = rows.reduce(
     (t, r) => ({ worked: t.worked + r.worked, meetings: t.meetings + r.meetings, won: t.won + r.won, lost: t.lost + r.lost }),
@@ -38,6 +43,13 @@ async function Results() {
 
   return (
     <div className="space-y-6">
+      {!tradeTarget && (
+        <TradeOnlyNote
+          target={ws.target}
+          snap={snap}
+          detail="The outcomes below are the leads this workspace already worked; the expected-value assumptions and job values apply to trade leads."
+        />
+      )}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Leads worked" value={count(totals.worked)} hint="Contacted, meeting, won or lost" />
         <StatCard
@@ -131,11 +143,13 @@ async function Results() {
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground">
-            Expected value uses the permit-based typical {tradeLabel.toLowerCase()} job ({money(permitJobValue)}). Once a
-            signal has {MIN_VALUED_WON} or more won jobs with a value, it uses the median job value you entered for that
-            signal instead; the table shows which one each signal uses.
-          </p>
+          {tradeTarget && (
+            <p className="text-xs text-muted-foreground">
+              Expected value uses the permit-based typical {tradeLabel.toLowerCase()} job ({money(permitJobValue)}). Once a
+              signal has {MIN_VALUED_WON} or more won jobs with a value, it uses the median job value you entered for that
+              signal instead; the table shows which one each signal uses.
+            </p>
+          )}
         </CardContent>
       </Card>
 

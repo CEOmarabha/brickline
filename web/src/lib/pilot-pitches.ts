@@ -406,7 +406,7 @@ export function buildEventsCard(events: EventsFile | null): EventsPilotCard {
       ...base,
       summary: "The events list has not been generated yet. Run uv run python -m engine.leads.events, then reload.",
       stats: [],
-      links: [{ href: "/pilots/events", label: "See the list" }],
+      links: [{ href: "/events", label: "See the list" }],
       emails: [],
     };
   }
@@ -453,7 +453,7 @@ export function buildEventsCard(events: EventsFile | null): EventsPilotCard {
       { label: "Block parties on file", value: count(c.blockParties), hint: "resident-filed; flyers only" },
     ],
     links: [
-      { href: "/pilots/events", label: "See the list" },
+      { href: "/events", label: "See the list" },
       { href: "/export/events?group=organizations", label: "Organizations CSV", csv: true },
       { href: "/export/events?group=recurring", label: "Recurring CSV", csv: true },
     ],
