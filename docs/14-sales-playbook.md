@@ -107,6 +107,19 @@ These are for buyers outside the porch/masonry track. Both are pilots: say plain
 - **New business coming (`/commercial`, CSV `/export/new-business`).** Build-out permits at commercial, mixed-use and larger apartment buildings that have no business license yet. Use the computed rates on the page: about one in seven gets a new business license within a year (more for commercial/industrial buildings), typically 3 to 8 months after the permit, about ten times the rate at comparable addresses. Pitch it to sign shops, POS/payments sellers, insurance brokers, commercial cleaners, security installers, furniture dealers and brokers. It is a targeting list: the permit names the GC and applicant, not the future tenant.
 - **Trades still open after big permits (`/commercial`).** For elevator, electrical, fire-alarm and sign contractors: after a $1M+ permit, these follow-on jobs usually go to a contractor who was not on the big permit. The table shows each trade's rate and timing, and the recent big permits show which trades have already appeared. Don't pitch it to plumbers, HVAC or roofers: about half of those jobs go to contractors already on the permit.
 
+## 5e. Event services and brokered deals (`/deals`)
+
+**Finding events (by hand):**
+- City data: `/pilots/events` lists organization events in the next 120 days (festivals typically 2 months ahead), recurring series to contact the season before, and block parties (resident-filed: flyers or door hangers on the block a few weeks before, never personal contact).
+- Social media: search public posts and local groups yourself (hashtags, neighborhood and school groups, "looking for a DJ/tent/caterer" requests). Paste the post link into **Quick add** on `/deals`. No bots, no scraping tools, no bulk follows or DMs: platforms ban accounts for that, and unsolicited mass messages hurt the brand. Reply to explicit requests where group rules allow.
+- Venues and planners: ask banquet halls, churches and park fieldhouses whether they refer customers who need rentals or coordination.
+
+**Contacting people:** one message per person, written for them, using the drafts on the deal page (DM, email, follow-up, quote note). Say who you are, what you offer and how to say no; never imply you're with the City or the platform; never claim "cheaper than the market" (say "one point of contact" and "a transparent flat planning fee"). If they say no or stop, mark **Opted out**: the app then refuses drafts and follow-ups for that contact.
+
+**Doing the deal:** sign partner vendors first (`/deals/partners`: services, area, fee terms, agreement signed). The customer pays vendors directly; you charge a disclosed planning or referral fee. Record quote, fee and "fee collected" on the deal. Get a short written agreement for the planning fee and cancellations; consider event-planner liability insurance before taking on event-day responsibility.
+
+**Measuring:** `/deals` shows contacted → replied → booked rates by source and fees collected. After 30 days, keep the sources that book and drop the rest.
+
 ## 6. Weekly pilot operations (about 2–3 hours per pilot per week at the start) [E]
 
 1. **Refresh the data:** `scripts/refresh-data.sh` (about 5 minutes, mostly downloads). Commit `web/data/snapshot.json`, `web/data/pest.json`, `web/data/prospects.json` and `web/data/contacts.json`, republish. The agent's weekly timer (HANDOFF next tasks) does this on Monday mornings; run it by hand if the timer isn't active.

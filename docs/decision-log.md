@@ -119,3 +119,9 @@
 - **Evidence:** Leads take weeks to close, so short trials can't show value; job-value and deal-value tracking now make per-won-job pricing measurable.
 - **Reverse if:** Buyers consistently prefer a flat subscription, or attribution of won jobs proves unreliable.
 
+### D-022 — Test event services and brokered referrals; social media by hand only
+- **Status:** Accepted 2026-11-18 (founder decision, revising D-020 for brokerage).
+- **Decision:** Run two brokerage tests tracked in `/deals`: event planning/coordination with partner vendors (customers pay vendors directly; disclosed planning fee) and porch referrals (own-brand letters, partner contractors, fee per appointment or job). Social media is a manual source: find public announcements and requests and message people one at a time, with opt-outs honored; no scraping tools, bulk follows or bulk DMs. City event data covers organization events (2 months' notice for festivals), recurring series and block parties (flyers only).
+- **Evidence:** Round 6 (new events surface weeks ahead; recurring series predictable; organizations named on 43% of festivals); `/deals` makes cost and conversion per source measurable within 30 days.
+- **Reverse if:** After 30 days a source books nothing for its effort, a platform objects, or event-day liability outweighs fees (then stop coordination and keep referrals).
+
