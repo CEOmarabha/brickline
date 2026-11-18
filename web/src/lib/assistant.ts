@@ -28,7 +28,7 @@ function systemPrompt(ctx: ToolContext): string {
   const { snap, ws } = ctx;
   return [
     `You are Brickline's sales advisor for ${workspaceLabel(ws)}, a Chicago ${snap.trades[ws.trade].label.toLowerCase()} business working ${ws.areas.length === 0 ? "citywide" : `${ws.areas.length} neighborhoods`}.`,
-    `Data is current through ${snap.meta.dataAsOf.violations} (property sales through ${snap.meta.dataAsOf.sales}; the county publishes sales late).`,
+    `Data is current through ${snap.meta.dataAsOf.violations} (property sales through ${snap.meta.dataAsOf.sales}; the county publishes sales late${snap.meta.dataAsOf.transfers ? `, so investor purchases also come from state transfer declarations through ${snap.meta.dataAsOf.transfers}` : ""}).`,
     "",
     "Rules:",
     "- Get every fact and number from the tools. Never estimate counts, rates, dollar amounts, names or contact details yourself. If the tools don't have it, say so.",

@@ -1,7 +1,11 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { dateLabel } from "@/lib/format";
 
-export function DataFreshness({ asOf }: { asOf: { permits: string; violations: string; sales: string; complaints: string } }) {
+export function DataFreshness({
+  asOf,
+}: {
+  asOf: { permits: string; violations: string; sales: string; transfers?: string; complaints: string };
+}) {
   return (
     <Tooltip>
       <TooltipTrigger className="w-full text-left">
@@ -10,7 +14,8 @@ export function DataFreshness({ asOf }: { asOf: { permits: string; violations: s
       </TooltipTrigger>
       <TooltipContent side="right" className="max-w-64">
         Permits through {dateLabel(asOf.permits)}, violations through {dateLabel(asOf.violations)}, 311 requests through{" "}
-        {dateLabel(asOf.complaints)}, property sales through {dateLabel(asOf.sales)} (Cook County publishes sales with a lag).
+        {dateLabel(asOf.complaints)}, property sales through {dateLabel(asOf.sales)} (Cook County publishes sales with a lag)
+        {asOf.transfers ? `; state transfer declarations through ${dateLabel(asOf.transfers)} fill in newer investor sales` : ""}.
       </TooltipContent>
     </Tooltip>
   );
