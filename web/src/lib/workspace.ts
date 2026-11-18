@@ -36,6 +36,8 @@ export interface Workspace {
   mailingAddress: string;
   /** Percent of letter leads kept unmailed to measure lift (docs/19 experiment 1); 0 = off. */
   holdoutPct: number;
+  /** City of Chicago contractor license number, printed on letters (Municipal Code 4-6-280). */
+  licenseNo: string;
   configured: boolean;
   signedIn: boolean;
 }
@@ -78,6 +80,7 @@ interface WorkspaceRow {
   phone: string;
   mailing_address: string;
   holdout_pct?: number;
+  license_no?: string;
 }
 
 export function workspaceLabel(r: { name: string; business_name?: string; businessName?: string }): string {
@@ -123,6 +126,7 @@ export const getWorkspace = cache(async (): Promise<Workspace> => {
     phone: "",
     mailingAddress: "",
     holdoutPct: 0,
+    licenseNo: "",
     configured: false,
     signedIn: owner !== null,
   };
@@ -139,6 +143,7 @@ export const getWorkspace = cache(async (): Promise<Workspace> => {
     phone: r.phone,
     mailingAddress: r.mailing_address,
     holdoutPct: Number(r.holdout_pct ?? 0),
+    licenseNo: r.license_no ?? "",
     configured: true,
     signedIn: true,
   };

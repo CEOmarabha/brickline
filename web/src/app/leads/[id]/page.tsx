@@ -300,13 +300,29 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                 <CardTitle>{draft.channel === "letter" ? "Letter draft" : "Email draft"}</CardTitle>
                 <CardDescription>Review and edit before sending. Nothing is sent automatically.</CardDescription>
               </div>
-              <CopyButton text={draft.subject ? `Subject: ${draft.subject}\n\n${draft.body}` : draft.body} />
+              <CopyButton
+                text={
+                  draft.subject
+                    ? `Subject: ${draft.subject}\n\n${draft.body}`
+                    : draft.disclosure
+                      ? `${draft.disclosure}\n\n${draft.body}`
+                      : draft.body
+                }
+              />
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {draft.subject && (
               <div className="text-sm">
                 <span className="text-muted-foreground">Subject:</span> {draft.subject}
+              </div>
+            )}
+            {draft.disclosure && (
+              <div className="border-2 border-black p-3 text-sm font-bold">
+                {draft.disclosure}
+                <div className="mt-1 text-xs font-normal text-muted-foreground">
+                  Required at the top of the letter in 14-point bold type inside a black outlined box (815 ILCS 505/2PP).
+                </div>
               </div>
             )}
             <pre className="rounded-md border bg-muted/40 p-4 font-sans text-sm leading-relaxed whitespace-pre-wrap">

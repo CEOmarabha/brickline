@@ -30,3 +30,7 @@ create index if not exists lead_reply_lead on lead_reply (workspace_id, lead_id)
 alter table workspace
   add column if not exists holdout_pct integer not null default 0
     constraint workspace_holdout_pct_range check (holdout_pct between 0 and 30);
+
+-- Chicago Municipal Code 4-6-280(2): a home repair contractor's license number must appear in any advertisement
+-- placed by or on its behalf, so letters print it (docs/18).
+alter table workspace add column if not exists license_no text not null default '';

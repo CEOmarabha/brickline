@@ -44,6 +44,7 @@ async function Settings() {
               phone: ws.phone,
               mailingAddress: ws.mailingAddress,
               holdoutPct: ws.holdoutPct,
+              licenseNo: ws.licenseNo,
             }}
             trades={trades}
             areas={areas}

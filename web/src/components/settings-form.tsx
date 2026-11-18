@@ -17,6 +17,7 @@ interface Props {
     phone: string;
     mailingAddress: string;
     holdoutPct: number;
+    licenseNo: string;
   };
   trades: Record<string, string>;
   areas: { id: number; name: string; leads: number }[];
@@ -108,6 +109,13 @@ export function SettingsForm({ initial, trades, areas }: Props) {
             maxLength={200}
           />
           <p className="text-xs text-muted-foreground">Required by law on marketing emails (CAN-SPAM).</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="licenseNo">Chicago contractor license number</Label>
+          <Input id="licenseNo" name="licenseNo" defaultValue={initial.licenseNo} placeholder="TGC123456" maxLength={40} />
+          <p className="text-xs text-muted-foreground">
+            The City requires it on any advertisement by a home repair contractor, so letters print it.
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="holdoutPct">Measure what the letters add</Label>

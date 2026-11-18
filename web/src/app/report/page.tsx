@@ -87,6 +87,9 @@ async function Report({ searchParams }: { searchParams: PageProps<"/report">["se
                 key={l.id}
                 className="mx-auto max-w-[8.5in] break-after-page rounded-lg border bg-white p-12 text-[11pt] leading-relaxed text-black shadow-sm print:max-w-none print:rounded-none print:border-0 print:p-[0.9in] print:shadow-none"
               >
+                {draft.disclosure && (
+                  <div className="mb-8 border-2 border-black p-3 text-[14pt] leading-snug font-bold">{draft.disclosure}</div>
+                )}
                 <div className="mb-10 text-sm">
                   <div className="font-semibold">{ws.businessName || "[Your company]"}</div>
                   <div>{ws.mailingAddress || "[your mailing address]"}</div>

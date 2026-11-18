@@ -33,16 +33,17 @@ export async function saveWorkspace(formData: FormData): Promise<ActionResult> {
     const businessName = singleLine(formData.get("businessName"), 120, "Company name");
     const phone = singleLine(formData.get("phone"), 40, "Phone");
     const mailingAddress = singleLine(formData.get("mailingAddress"), 200, "Mailing address");
+    const licenseNo = singleLine(formData.get("licenseNo"), 40, "License number");
     const holdout = Number(formData.get("holdoutPct") ?? 0);
     if (!HOLDOUT_CHOICES.includes(holdout as (typeof HOLDOUT_CHOICES)[number])) throw new UserError("Unknown holdout share");
     await sql(
       `insert into workspace (id, owner_id, name, business_name, trade, areas, phone, mailing_address, holdout_pct,
-         updated_at)
-       values ($1, $2, $3, $3, $4, $5, $6, $7, $8, now())
+         license_no, updated_at)
+       values ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, now())
        on conflict (id) do update set name = $3, business_name = $3, trade = $4, areas = $5, phone = $6,
-         mailing_address = $7, holdout_pct = $8, updated_at = now()
+         mailing_address = $7, holdout_pct = $8, license_no = $9, updated_at = now()
        where workspace.owner_id = $2`,
-      [wsId, owner, businessName, trade, [...areas].sort((a, b) => a - b), phone, mailingAddress, holdout],
+      [wsId, owner, businessName, trade, [...areas].sort((a, b) => a - b), phone, mailingAddress, holdout, licenseNo],
     );
     refresh();
   });
