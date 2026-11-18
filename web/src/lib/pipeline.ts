@@ -106,7 +106,7 @@ export function summarizeDeals(
 
 const LIMITS = { contactName: 120, email: 200, phone: 40, website: 200, notes: 4000 } as const;
 
-const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
+export const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
 const DANGEROUS_SCHEME = /^\s*(javascript|data|vbscript|file|blob|about):/i;
 const EXPLICIT_SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
 
@@ -126,7 +126,7 @@ export function addDays(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function isValidDate(value: string): boolean {
+export function isValidDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const d = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
@@ -137,7 +137,7 @@ export function isDue(row: { status: ProspectStatus; nextFollowUp: string | null
 }
 
 /** Normalizes a website to an http(s) URL, or throws. Bare domains get https://. */
-function cleanWebsite(value: unknown): string {
+export function cleanWebsite(value: unknown): string {
   const raw = singleLine(value, LIMITS.website, "Website");
   if (raw === "") return "";
   if (DANGEROUS_SCHEME.test(raw)) throw new UserError("Website must be an http or https link");
