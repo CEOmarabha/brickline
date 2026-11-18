@@ -4016,6 +4016,89 @@ def h41_commercial_cleaning(con) -> dict:
     )
 
 
+def h42_scofflaw(con) -> dict:
+    """Building Code Scofflaw List (docs/17 §4.4): does a listed building get permitted work more often?"""
+    end = one(con, "SELECT max(issue_date) - INTERVAL 365 DAY AS d FROM permits")["d"]
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE h42_sig AS
+        SELECT address_key AS k, min(building_listed) AS d FROM scofflaws
+        WHERE address_key IS NOT NULL AND building_listed IS NOT NULL GROUP BY 1
+        HAVING min(building_listed) <= DATE '{end}'
+    """)
+    # Controls: addresses cited for a building violation in a month with a listing, never on the list.
+    con.execute("""
+        CREATE OR REPLACE TEMP TABLE h42_ctl AS
+        SELECT v.address_key AS k, min(v.violation_date) AS d
+        FROM violations v
+        JOIN (SELECT DISTINCT date_trunc('month', d) AS mo FROM h42_sig) m
+          ON date_trunc('month', v.violation_date) = m.mo
+        WHERE v.address_key IS NOT NULL
+          AND v.address_key NOT IN (SELECT address_key FROM scofflaws WHERE address_key IS NOT NULL)
+        GROUP BY v.address_key, m.mo
+    """)
+
+    def rates(table: str, flag: str | None) -> dict:
+        cond = f"AND p.t_{flag}" if flag else ""
+        return one(
+            con,
+            f"""
+            SELECT count(*) AS n,
+              avg((EXISTS (SELECT 1 FROM p WHERE p.address_key = x.k {cond}
+                           AND p.issue_date > x.d AND p.issue_date <= x.d + INTERVAL 365 DAY))::INT) AS conversion,
+              avg((EXISTS (SELECT 1 FROM p WHERE p.address_key = x.k {cond}
+                           AND p.issue_date > x.d - INTERVAL 365 DAY AND p.issue_date <= x.d))::INT) AS before
+            FROM {table} x
+        """,
+        )
+
+    sig, ctl = rates("h42_sig", None), rates("h42_ctl", None)
+    by_trade = []
+    for t in ("porch", "masonry", "roofing"):
+        a, b = rates("h42_sig", t), rates("h42_ctl", t)
+        by_trade.append(
+            {
+                "trade": t,
+                "conversion": a["conversion"],
+                "control": b["conversion"],
+                "lift": a["conversion"] / b["conversion"] if b["conversion"] else None,
+            }
+        )
+    span = one(
+        con,
+        f"""SELECT min(d) AS first, max(d) AS last,
+              count(*) FILTER (WHERE d > DATE '{end}' - INTERVAL 365 DAY) / 52.0 AS per_week FROM h42_sig""",
+    )
+    m = _round(
+        {
+            "signals": sig["n"],
+            "conversion": sig["conversion"],
+            "baseline": ctl["conversion"],
+            "lift": sig["conversion"] / ctl["conversion"] if ctl["conversion"] else None,
+            "own_year_before": sig["before"],
+            "controls": ctl["n"],
+            "control_year_before": ctl["before"],
+            "signals_per_week": span["per_week"],
+            "first_listing": str(span["first"]),
+            "last_listing_tested": str(span["last"]),
+        }
+    )
+    m["by_trade"] = _round_deep(by_trade)
+    return result(
+        "H42",
+        "Building Code Scofflaw List → permitted work",
+        who="Porch, masonry and general repair contractors (a priority flag on violation and investor leads)",
+        data="Building Code Scofflaw List (current list only), building violations, permits",
+        signal="Address placed on the City's Building Code Scofflaw List (building list date)",
+        target="Any permit at the address within 365 days; control = addresses cited in the same month, never listed",
+        metrics=m,
+        notes=(
+            "The open data holds only the CURRENT list. Buildings removed after fixing their violations (often with "
+            "a permit) are missing, so conversion is biased downward; treat the lift as a floor and the sample as "
+            "small. Do not rank leads on it unless the lift is clearly above 1."
+        ),
+    )
+
+
 HYPOTHESES: dict[str, Callable] = {
     "H01": h01_solar_neighbors,
     "H02": h02_reroof_then_solar,
@@ -4058,6 +4141,7 @@ HYPOTHESES: dict[str, Callable] = {
     "H39": h39_event_lead_time,
     "H40": h40_dumpsters,
     "H41": h41_commercial_cleaning,
+    "H42": h42_scofflaw,
 }
 
 
@@ -4065,6 +4149,7 @@ HYPOTHESES: dict[str, Callable] = {
 ROUND4 = ("H29", "H30", "H31", "H32", "H33")
 ROUND5 = ("H34", "H35", "H36", "H37")
 ROUND6 = ("H38", "H39", "H40", "H41")
+ROUND7 = ("H42",)
 
 
 def fmt(x, pct=False) -> str:
@@ -4191,7 +4276,7 @@ def render(results: list[dict], generated: str) -> str:
                         )
                         + " |"
                     )
-        if r["id"] in ROUND4 + ROUND5 + ROUND6:
+        if r["id"] in ROUND4 + ROUND5 + ROUND6 + ROUND7:
             scalars = [
                 f"{k} = {fmt(v)}"
                 for k, v in m.items()
