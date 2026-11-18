@@ -27,10 +27,12 @@ done
 # (the collectors refetch the current and previous year, the unfinished month, and a newer release themselves);
 # hmda (yearly files, kept once published); clerk (list pages are refetched on every sync); web_contacts (30-day
 # cache by design); hfsrb (written only by the optional engine.collect.hfsrb run).
-rm -rf data/raw/permits data/raw/violations data/raw/sales data/raw/food_licenses data/raw/parcel_addresses \
+rm -rf data/raw/permits data/raw/violations data/raw/sales data/raw/ptax_transfers data/raw/food_licenses data/raw/parcel_addresses \
   data/raw/sr311 data/raw/benchmarking data/raw/res_chars data/raw/food_inspections \
   data/raw/biz_licenses data/raw/biz_owners data/raw/biz_license_history data/raw/adu_preapprovals \
-  data/raw/zoning_districts data/raw/park_events data/raw/cdot_dumpsters data/raw/cdot_events
+  data/raw/zoning_districts data/raw/park_events data/raw/cdot_dumpsters data/raw/cdot_events \
+  data/raw/foreclosed_rentals data/raw/cdb_vendors data/raw/idph_lead_contractors data/raw/idph_asbestos_contractors \
+  data/raw/scofflaws
 
 uv run python -m engine.warehouse sync
 uv run python -m engine.warehouse build

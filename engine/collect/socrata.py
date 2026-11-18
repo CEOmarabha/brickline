@@ -19,6 +19,7 @@ def export_csv(
     out_dir: Path,
     page_size: int = 200_000,
     log=print,
+    prefix: str = "page-",
 ) -> list[Path]:
     """Download every row matching `where` as CSV pages ordered by the internal row id.
 
@@ -28,7 +29,7 @@ def export_csv(
     pages: list[Path] = []
     offset = 0
     while True:
-        path = out_dir / f"page-{offset // page_size:04d}.csv"
+        path = out_dir / f"{prefix}{offset // page_size:04d}.csv"
         if not path.exists():
             params = {"$select": select, "$order": ":id", "$limit": str(page_size), "$offset": str(offset)}
             if where:

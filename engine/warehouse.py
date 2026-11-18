@@ -14,11 +14,12 @@ import argparse
 import shutil
 import sys
 from dataclasses import dataclass
+from datetime import date
 
 import duckdb
 
 from engine.classify.trades import PERMIT_TRADES, VIOLATION_TRADES, sql_flags
-from engine.collect import clerk, hmda, noaa, overture, swdi
+from engine.collect import clerk, hmda, noaa, overture, ptax, swdi
 from engine.collect.socrata import export_csv
 from engine.db import DATA, RAW, WAREHOUSE
 
@@ -36,6 +37,10 @@ class Dataset:
     dataset_id: str
     select: str
     where: str | None = None
+    # Export one calendar year at a time on this date column, starting at `split_from`: Socrata answers deep
+    # offsets very slowly on large filtered datasets (311 pages past row 800,000 took over ten minutes).
+    split_on: str | None = None
+    split_from: int | None = None
 
 
 CONTACT_COLS = ",".join(f"contact_{i}_type,contact_{i}_name" for i in range(1, 16))
@@ -80,6 +85,8 @@ DATASETS = [
         "sale_filter_deed_type",
         "year >= 2010 AND township_code in(" + ",".join(f"'{t}'" for t in CHICAGO_TOWNSHIPS) + ")",
     ),
+    # State transfer declarations: sales weeks before the Assessor publishes them (engine/collect/ptax.py).
+    Dataset("ptax_transfers", ptax.DOMAIN, ptax.DATASET_ID, ptax.SELECT, ptax.WHERE),
     Dataset(
         "food_licenses",
         CHICAGO,
@@ -111,7 +118,8 @@ DATASETS = [
         COOK,
         "3723-97qp",
         "pin,pin10,year,prop_address_full,prop_address_zipcode_1,owner_address_name,owner_address_full,"
-        "owner_address_city_name,owner_address_state,owner_address_zipcode_1",
+        "owner_address_city_name,owner_address_state,owner_address_zipcode_1,mail_address_name,mail_address_full,"
+        "mail_address_city_name,mail_address_state,mail_address_zipcode_1",
         "year = 2026 AND prop_address_city_name = 'CHICAGO'",
     ),
     Dataset(
@@ -187,6 +195,8 @@ DATASETS = [
             )
         )
         + ")",
+        split_on="created_date",
+        split_from=2015,
     ),
     Dataset(
         "benchmarking",
@@ -202,6 +212,45 @@ DATASETS = [
         "pin,class,char_yrblt,char_bldg_sf,char_type_resd,char_ext_wall,char_roof_cnst,char_air,char_heat,char_bsmt,"
         "char_repair_cnd,char_porch,char_use,char_apts",
         "year = 2026 AND township_code in(" + ",".join(f"'{t}'" for t in CHICAGO_TOWNSHIPS) + ")",
+    ),
+]
+
+# Contact registries (docs/17 §4.3) and the Building Code Scofflaw List (§4.4). Foreclosed-rental notice
+# agents are often private individuals: their phones and emails stay in the warehouse and only company agents
+# are shipped as suggestions (engine/enrich/contacts.py).
+ILLINOIS = "illinois-edp.data.socrata.com"
+DATASETS += [
+    Dataset(
+        "foreclosed_rentals",
+        CHICAGO,
+        "yhcw-iu53",
+        "id,property_address,submission_date,owner_name,owner_management_agent_name,owner_notices_agent_name,"
+        "owner_notices_agent_phone,owner_notices_agent_email",
+    ),
+    Dataset(
+        "cdb_vendors",
+        ILLINOIS,
+        "3dh9-yktq",
+        "vendor_id,vendor_name,expiration_date,city,state,zip_code,phone_number,trades",
+    ),
+    Dataset(
+        "idph_lead_contractors",
+        ILLINOIS,
+        "vpwp-h7xr",
+        "contractoridno,contractorname,city,state,phone,cepxiredate",
+    ),
+    Dataset(
+        "idph_asbestos_contractors",
+        ILLINOIS,
+        "kt5u-9dcu",
+        "contractor_id_numb,contractor_name,city,state,zip,phone,email,cert_expiration_date",
+    ),
+    Dataset(
+        "scofflaws",
+        CHICAGO,
+        "crg5-4zyp",
+        "record_id,defendant_owner,address,secondary_address,tertiary_address,circuit_court_case_number,"
+        "building_list_date,owner_list_date,community_area_number",
     ),
 ]
 
@@ -317,7 +366,14 @@ def sync(names: list[str] | None = None) -> None:
         if names and ds.name not in names:
             continue
         print(f"sync {ds.name} ({ds.domain}/{ds.dataset_id})")
-        export_csv(ds.domain, ds.dataset_id, ds.select, ds.where, RAW / ds.name)
+        if ds.split_on and ds.split_from:
+            for year in range(ds.split_from, date.today().year + 1):
+                col = ds.split_on
+                span = f"{col} >= '{year}-01-01T00:00:00' AND {col} < '{year + 1}-01-01T00:00:00'"
+                where = f"({ds.where}) AND {span}" if ds.where else span
+                export_csv(ds.domain, ds.dataset_id, ds.select, where, RAW / ds.name, prefix=f"page-{year}-")
+        else:
+            export_csv(ds.domain, ds.dataset_id, ds.select, ds.where, RAW / ds.name)
     if not names or "clerk" in names:
         print("sync City Clerk zoning reclassification ordinances")
         clerk.sync(RAW / "clerk")
@@ -465,6 +521,7 @@ def build() -> None:
             class,
             left(class, 1) AS major_class,
             deed_type,
+            nullif(trim(doc_no), '') AS doc_no,
             buyer_name,
             seller_name,
             is_multisale = 'true' AS is_multisale,
@@ -472,6 +529,9 @@ def build() -> None:
                 OR sale_filter_deed_type = 'true') AS filtered_out
         FROM {_csv("sales")}
     """)
+
+    print("build ptax_transfers")
+    con.execute(ptax.build_sql(f"{RAW / 'ptax_transfers'}/page-*.csv"))
 
     print("build food_licenses")
     con.execute(f"""
@@ -544,6 +604,11 @@ def build() -> None:
             arg_max(owner_address_full || ', ' || coalesce(owner_address_city_name, '') || ' '
                     || coalesce(owner_address_state, '') || ' ' || coalesce(owner_address_zipcode_1, ''), pin)
                 AS owner_mailing,
+            -- Tax-bill name and address; often a manager or agent of the owner.
+            arg_max(mail_address_name, pin) AS mail_name,
+            arg_max(mail_address_full || ', ' || coalesce(mail_address_city_name, '') || ' '
+                    || coalesce(mail_address_state, '') || ' ' || coalesce(mail_address_zipcode_1, ''), pin)
+                AS mail_mailing,
             count(*) AS units
         FROM {_csv("parcel_addresses")}
         WHERE pin10 IS NOT NULL
@@ -654,8 +719,8 @@ def build() -> None:
     chi_lat0, chi_lat1, chi_lon0, chi_lon1 = overture.CHICAGO_BBOX
     con.execute(f"""
         CREATE TABLE places AS
-        SELECT id, name, category, categories, phones, websites, emails, address, locality, postcode, region,
-            confidence, status, lat, lon,
+        SELECT id, name, category, categories, phones, websites, emails, socials, address, locality, postcode,
+            region, confidence, status, lat, lon,
             lat BETWEEN {chi_lat0} AND {chi_lat1} AND lon BETWEEN {chi_lon0} AND {chi_lon1}
                 AND (upper(locality) = 'CHICAGO' OR (locality IS NULL AND postcode LIKE '606%'))
                 AS in_chicago,
@@ -824,11 +889,57 @@ def build() -> None:
         FROM {_csv("biz_owners")}
     """)
 
+    print("build contact registries and scofflaws")
+    con.execute(f"""
+        CREATE TABLE foreclosed_rentals AS
+        SELECT id AS registration_id, property_address, {address_key_sql("property_address")} AS address_key,
+            try_cast(submission_date AS TIMESTAMP)::DATE AS submitted_date, owner_name,
+            nullif(trim(owner_management_agent_name), '') AS manager_name,
+            nullif(trim(owner_notices_agent_name), '') AS agent_name,
+            nullif(trim(owner_notices_agent_phone), '') AS agent_phone,
+            nullif(lower(trim(owner_notices_agent_email)), '') AS agent_email
+        FROM {_csv("foreclosed_rentals")}
+    """)
+    con.execute(f"""
+        CREATE TABLE contractor_registry AS
+        SELECT 'cdb_vendors' AS registry, vendor_id AS registry_id, vendor_name AS name, city, state,
+            left(zip_code, 5) AS zip, nullif(trim(phone_number), '') AS phone, NULL AS email,
+            try_cast(expiration_date AS TIMESTAMP)::DATE AS expires, trades AS detail
+        FROM {_csv("cdb_vendors")}
+        UNION ALL
+        SELECT 'idph_lead_contractors', contractoridno, contractorname, city, state, NULL,
+            nullif(trim(phone), ''), NULL, try_cast(cepxiredate AS TIMESTAMP)::DATE, NULL
+        FROM {_csv("idph_lead_contractors")}
+        UNION ALL
+        SELECT 'idph_asbestos_contractors', contractor_id_numb, contractor_name, city, state, left(zip, 5),
+            nullif(trim(phone), ''), nullif(lower(trim(email)), ''),
+            try_cast(cert_expiration_date AS TIMESTAMP)::DATE, NULL
+        FROM {_csv("idph_asbestos_contractors")}
+    """)
+    con.execute(f"""
+        CREATE TABLE scofflaws AS
+        WITH src AS (SELECT * FROM {_csv("scofflaws")})
+        SELECT record_id, defendant_owner, case_no, building_listed, owner_listed, community_area,
+            {address_key_sql("addr")} AS address_key, addr AS address
+        FROM (
+            SELECT record_id, defendant_owner, circuit_court_case_number AS case_no,
+                try_cast(building_list_date AS TIMESTAMP)::DATE AS building_listed,
+                try_cast(owner_list_date AS TIMESTAMP)::DATE AS owner_listed,
+                try_cast(community_area_number AS INTEGER) AS community_area,
+                unnest([address, secondary_address, tertiary_address]) AS addr
+            FROM src
+        ) WHERE nullif(trim(addr), '') IS NOT NULL
+    """)
+
     for t in (
+        "foreclosed_rentals",
+        "contractor_registry",
+        "scofflaws",
         "permits",
         "permit_parties",
         "violations",
         "sales",
+        "ptax_transfers",
         "food_licenses",
         "biz_license_history",
         "food_inspections",

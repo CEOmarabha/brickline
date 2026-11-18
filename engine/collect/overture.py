@@ -27,7 +27,7 @@ CHICAGO_BBOX = (41.64, 42.03, -87.95, -87.52)  # lat min, lat max, lon min, lon 
 METRO_BBOX = (41.45, 42.30, -88.45, -87.45)
 
 COLUMNS = (
-    "id, name, category, categories, phones, websites, emails, address, locality, postcode, region, "
+    "id, name, category, categories, phones, websites, emails, socials, address, locality, postcode, region, "
     "confidence, status, lat, lon, release"
 )
 
@@ -57,7 +57,9 @@ def sync(out_dir: Path, log=print) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     release = latest_release()
     out = out_dir / f"places-{release}.parquet"
-    if out.exists():
+    if out.exists() and "socials" in {
+        r[0] for r in duckdb.connect().execute(f"DESCRIBE SELECT * FROM read_parquet('{out}')").fetchall()
+    }:
         log(f"  overture {release}: already downloaded ({out.stat().st_size / 1e6:.0f} MB)")
         return out
     src = f"s3://{BUCKET}/release/{release}/theme=places/type=place/*"
@@ -70,7 +72,7 @@ def sync(out_dir: Path, log=print) -> Path:
     con.execute(f"""
         COPY (
             SELECT id, names.primary AS name, {primary} AS category, {alternates} AS categories,
-                phones, websites, emails,
+                phones, websites, emails, socials,
                 addresses[1].freeform AS address, addresses[1].locality AS locality,
                 addresses[1].postcode AS postcode, addresses[1].region AS region,
                 confidence, operating_status AS status,
