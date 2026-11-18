@@ -4,11 +4,15 @@
     uv run python -m engine.enrich.contacts --no-web       # skip website crawling (use cached results only)
 
 Inputs: web/data/prospects.json, web/data/snapshot.json, and the warehouse tables `places` (Overture Maps),
-`biz_licenses` and `biz_owners` (City of Chicago). Outputs: web/data/contacts.json (the app's suggestions),
+`biz_licenses` and `biz_owners` (City of Chicago), `contractor_registry` (Illinois CDB vendors, IDPH lead and
+asbestos contractors) and `foreclosed_rentals` (City of Chicago registry). Outputs: web/data/contacts.json (the app's suggestions),
 data/contacts-<date>.csv (inspection) and research/findings/contact-enrichment-<date>.md (match rates).
 
 Everything is a suggestion with its source, a match confidence and a retrieval date. Nothing is guessed: no
-email patterns, no personal social profiles. A match is kept only at medium or high confidence.
+email patterns, no personal social profiles. A match is kept only at medium or high confidence. Social links are
+the business pages Overture lists for a matched business, never a person's profile. Lead-level suggestions
+(by property or mailing address) are kept only for company owners and company agents: contacts.json ships with
+the app, so it must not carry a private person's phone or email.
 """
 
 from __future__ import annotations
@@ -29,7 +33,9 @@ from engine import db
 from engine.db import RAW
 from engine.enrich import web
 from engine.enrich.names import distinctive, normalize, token_set_ratio
+from engine.score.signals import INVESTOR_RE
 from engine.text import title
+from engine.warehouse import address_key_sql
 
 PROSPECTS = Path("web/data/prospects.json")
 SNAPSHOT = Path("web/data/snapshot.json")
@@ -40,11 +46,42 @@ FINDINGS = Path("research/findings")
 OVERTURE = "overture"
 LICENSES = "chicago_business_licenses"
 WEBSITE = "company_website"
+CDB = "cdb_vendors"
+IDPH_LEAD = "idph_lead_contractors"
+IDPH_ASBESTOS = "idph_asbestos_contractors"
+FORECLOSED = "foreclosed_rental_registry"
+AT_MAILING = "overture_at_mailing_address"
+REGISTRIES = (CDB, IDPH_LEAD, IDPH_ASBESTOS)
 SOURCE_LABELS = {
     OVERTURE: "Overture Maps",
     LICENSES: "Chicago business licenses",
     WEBSITE: "Company website",
+    CDB: "Illinois Capital Development Board vendors",
+    IDPH_LEAD: "IDPH lead contractor registry",
+    IDPH_ASBESTOS: "IDPH asbestos contractor registry",
+    FORECLOSED: "Chicago foreclosed rental registry",
+    AT_MAILING: "Overture Maps listing at this mailing address",
 }
+SOURCE_URLS = {
+    CDB: "https://illinois-edp.data.socrata.com/d/3dh9-yktq",
+    IDPH_LEAD: "https://illinois-edp.data.socrata.com/d/vpwp-h7xr",
+    IDPH_ASBESTOS: "https://illinois-edp.data.socrata.com/d/kt5u-9dcu",
+    FORECLOSED: "https://data.cityofchicago.org/d/yhcw-iu53",
+}
+SOURCE_ORDER = [OVERTURE, LICENSES, CDB, IDPH_LEAD, IDPH_ASBESTOS, FORECLOSED, AT_MAILING, WEBSITE]
+COMPANY_RE = re.compile(INVESTOR_RE)
+# Business pages only: personal-profile URL shapes are dropped even when a business listing carries them.
+PERSONAL_SOCIAL = re.compile(r"linkedin\.com/in/|facebook\.com/(people|profile\.php)|/groups/", re.I)
+SOCIAL_HOSTS = (
+    "facebook.com",
+    "instagram.com",
+    "linkedin.com",
+    "twitter.com",
+    "x.com",
+    "youtube.com",
+    "tiktok.com",
+)
+FORECLOSED_MAX_AGE_DAYS = 3 * 365
 RANK = {"high": 2, "medium": 1, "low": 0}
 FUZZY_MIN = 0.9
 TRUNCATED_LEN = 29  # permit party names are cut at 30 characters
@@ -242,9 +279,9 @@ class PlaceIndex:
 
 
 def load_places(con) -> list[dict]:
-    cur = con.execute("""
-        SELECT id, name, category, categories, phones, websites, emails, address, locality, postcode, region,
-            confidence, status, lat, lon, in_chicago, release
+    cur = con.execute(f"""
+        SELECT id, name, category, categories, phones, websites, emails, socials, address, locality, postcode,
+            region, confidence, status, lat, lon, in_chicago, release, {address_key_sql("address")} AS address_key
         FROM places WHERE status IS DISTINCT FROM 'permanently_closed' ORDER BY id
     """)
     cols = [c[0] for c in cur.description]
@@ -423,8 +460,152 @@ def plain_email_ok(email: str) -> bool:
 
 
 def order_values(items: list[dict]) -> list[dict]:
-    src = {OVERTURE: 0, LICENSES: 1, WEBSITE: 2}
-    return sorted(items, key=lambda f: (-RANK[f["confidence"]], src[f["source"]], f["value"]))
+    return sorted(items, key=lambda f: (-RANK[f["confidence"]], SOURCE_ORDER.index(f["source"]), f["value"]))
+
+
+def business_social(url: str | None) -> str | None:
+    """A social-media link that is a business page (as listed by Overture for a business), else None."""
+    if not url:
+        return None
+    url = url.strip()
+    host = web.base_host(web.host_of(url))
+    if not any(host == h or host.endswith("." + h) for h in SOCIAL_HOSTS) or PERSONAL_SOCIAL.search(url):
+        return None
+    return url
+
+
+# ----------------------------------------------------------------------------------------------------------
+# Contractor registries (prospects) and address-based suggestions (leads)
+# ----------------------------------------------------------------------------------------------------------
+class RegistryIndex:
+    """State contractor registries by exact normalized name. A name listed with different phones is dropped."""
+
+    def __init__(self, con) -> None:
+        cur = con.execute("""
+            SELECT registry, registry_id, name, city, state, phone, email, expires FROM contractor_registry
+            WHERE phone IS NOT NULL OR email IS NOT NULL ORDER BY registry, name, registry_id
+        """)
+        cols = [c[0] for c in cur.description]
+        self.by_key: dict[str, list[dict]] = defaultdict(list)
+        self.rows = 0
+        for row in cur.fetchall():
+            r = dict(zip(cols, row, strict=True))
+            self.rows += 1
+            k = normalize(r["name"])
+            if k:
+                self.by_key[k].append(r)
+
+    def match(self, e: Entity, drops: Counter) -> list[dict]:
+        if len(e.key.split()) < 2:
+            return []
+        rows = self.by_key.get(e.key, [])
+        phones = {web.normalize_us_phone(r["phone"] or "") for r in rows} - {None}
+        if len(phones) > 1:
+            drops["registries: ambiguous (one name, several phones)"] += 1
+            return []
+        return rows
+
+
+def lead_suggestions(con, snap: dict, places: list[dict], stamps: dict[str, str], drops: Counter) -> dict:
+    """Per-lead suggestions found by address, for company owners only.
+
+    - Foreclosed rental registry: the notices agent of a registration at the lead's property, when the agent is
+      a company (registered within FORECLOSED_MAX_AGE_DAYS of the newest registration).
+    - Overture at the mailing address: the one business Overture lists at a company owner's mailing address
+      (dropped when several businesses share the building). The business there may not be the owner.
+    """
+    rows = [
+        (lead["id"], lead["address"], (lead["owner"] or {}).get("mailing"))
+        for lead in snap["leads"]
+        if (lead["owner"] or {}).get("type") == "company"
+    ]
+    con.execute("CREATE OR REPLACE TEMP TABLE lead_addr (id VARCHAR, address VARCHAR, mailing VARCHAR)")
+    con.executemany("INSERT INTO lead_addr VALUES (?, ?, ?)", rows)
+    keyed = con.execute(f"""
+        SELECT id, {address_key_sql("address")} AS prop_key,
+            CASE WHEN mailing IS NOT NULL THEN {address_key_sql("mailing")} END AS mail_key
+        FROM lead_addr ORDER BY id
+    """).fetchall()
+    cur = con.execute("""
+        SELECT registration_id, address_key, submitted_date, agent_name, manager_name, agent_phone, agent_email
+        FROM foreclosed_rentals
+        WHERE submitted_date >= (SELECT max(submitted_date) FROM foreclosed_rentals) - INTERVAL 1095 DAY
+        ORDER BY address_key, submitted_date DESC, registration_id
+    """)
+    cols = [c[0] for c in cur.description]
+    foreclosed: dict[str, dict] = {}
+    for row in cur.fetchall():
+        r = dict(zip(cols, row, strict=True))
+        foreclosed.setdefault(r["address_key"], r)
+    at_addr: dict[str, list[dict]] = defaultdict(list)
+    for p in places:
+        if p["address_key"] and p["in_chicago"] is not None:
+            at_addr[p["address_key"]].append(p)
+
+    out: dict[str, dict] = {}
+    for lead_id, prop_key, mail_key in keyed:
+        phones: list[dict] = []
+        emails: list[dict] = []
+        name = None
+        matches = []
+        website = None
+        socials: list[dict] = []
+        reg = foreclosed.get(prop_key)
+        if reg:
+            agent = reg["agent_name"] or ""
+            if not COMPANY_RE.search(agent.upper()):
+                drops["foreclosed registry: agent is not a company (not shipped)"] += 1
+            else:
+                when = reg["submitted_date"].isoformat()
+                url = (
+                    f"{SOURCE_URLS[FORECLOSED].replace('/d/', '/resource/')}.json?id={reg['registration_id']}"
+                )
+                n = web.normalize_us_phone(reg["agent_phone"] or "")
+                if n:
+                    phones.append(field_value(n, FORECLOSED, "high", when, url=url))
+                if reg["agent_email"] and plain_email_ok(reg["agent_email"]):
+                    emails.append(field_value(reg["agent_email"], FORECLOSED, "high", when, url=url))
+                if phones or emails:
+                    name = title(agent)
+                    matches.append({"source": FORECLOSED, "method": "property_address", "confidence": "high"})
+        listed = at_addr.get(mail_key) if mail_key and mail_key != prop_key else None
+        if listed:
+            if len({place_identity(p) for p in listed}) > 1:
+                drops["mailing address: several businesses listed there"] += 1
+            else:
+                when = stamps[OVERTURE]
+                p = listed[0]
+                for ph in p["phones"] or []:
+                    if n := web.normalize_us_phone(ph):
+                        phones.append(field_value(n, AT_MAILING, "medium", when, listing=p["name"]))
+                for em in p["emails"] or []:
+                    if plain_email_ok(em := em.strip().lower()):
+                        emails.append(field_value(em, AT_MAILING, "medium", when, listing=p["name"]))
+                for w in p["websites"] or []:
+                    if (site := web.clean_website(w)) and website is None:
+                        website = field_value(site, AT_MAILING, "medium", when, url=site, listing=p["name"])
+                for u in p["socials"] or []:
+                    if link := business_social(u):
+                        socials.append(
+                            field_value(link, AT_MAILING, "medium", when, url=link, listing=p["name"])
+                        )
+                if phones or emails or website:
+                    name = name or p["name"]
+                    matches.append(
+                        {"source": AT_MAILING, "method": "mailing_address", "confidence": "medium"}
+                    )
+        if matches:
+            out[lead_id] = {
+                "name": name,
+                "website": website,
+                "phones": merge_values(phones),
+                "emails": merge_values(emails),
+                "socials": merge_values(socials),
+                "contactName": None,
+                "address": None,
+                "matches": matches,
+            }
+    return out
 
 
 def merge_values(items: list[dict]) -> list[dict]:
@@ -449,10 +630,12 @@ def assemble(
     lm: LicenseMatch | None,
     crawl: dict | None,
     stamps: dict[str, str],
+    registry_rows: list[dict] | None = None,
 ) -> dict | None:
     website = None
     phones: list[dict] = []
     emails: list[dict] = []
+    socials: list[dict] = []
     contact = None
     address = None
     matches = []
@@ -472,6 +655,9 @@ def assemble(
                 em = em.strip().lower()
                 if plain_email_ok(em):
                     emails.append(field_value(em, OVERTURE, pm.confidence, when))
+            for u in p["socials"] or []:
+                if link := business_social(u):
+                    socials.append(field_value(link, OVERTURE, pm.confidence, when, url=link))
         best = pm.places[0]
         if best["address"]:
             parts = [
@@ -494,6 +680,18 @@ def assemble(
             contact = field_value(
                 person_name(owner), LICENSES, lm.confidence, when, url=url, title=title(owner["title"] or "")
             )
+    for r in registry_rows or []:
+        src = r["registry"]
+        url = SOURCE_URLS[src]
+        when = stamps[src]
+        if n := web.normalize_us_phone(r["phone"] or ""):
+            phones.append(field_value(n, src, "medium", when, url=url))
+        if r["email"] and plain_email_ok(r["email"]):
+            emails.append(field_value(r["email"], src, "medium", when, url=url))
+    if registry_rows:
+        matches.append(
+            {"source": registry_rows[0]["registry"], "method": "exact_name", "confidence": "medium"}
+        )
     if crawl and website and crawl["status"] == "ok":
         site_conf = website["confidence"]
         for em in crawl["emails"]:
@@ -507,11 +705,12 @@ def assemble(
         "website": website,
         "phones": merge_values(phones),
         "emails": merge_values(emails),
+        "socials": merge_values(socials),
         "contactName": contact,
         "address": address,
         "matches": matches,
     }
-    has_contact = website or out["phones"] or out["emails"] or contact
+    has_contact = website or out["phones"] or out["emails"] or contact or out["socials"]
     return out if has_contact else None
 
 
@@ -541,6 +740,14 @@ def rates(entities: list[Entity], results: dict[str, dict | None]) -> dict:
         "high_email": share(lambda r: high(r["emails"])),
         "overture_email": share(lambda r: any(f["source"] == OVERTURE for f in r["emails"])),
         "web_email": share(lambda r: any(f["source"] == WEBSITE for f in r["emails"])),
+        "social": share(lambda r: r.get("socials")),
+        "registry_phone": share(lambda r: any(f["source"] in REGISTRIES for f in r["phones"])),
+        "registry_only_phone_or_email": share(
+            lambda r: (
+                (r["phones"] or r["emails"])
+                and all(f["source"] in REGISTRIES for f in r["phones"] + r["emails"])
+            )
+        ),
     }
 
 
@@ -555,6 +762,7 @@ def render_report(
     meta: dict,
     drops: Counter,
     examples: list[tuple[Entity, dict]],
+    lead_stats: dict,
 ) -> str:
     def row(label: str, r: dict) -> str:
         return (
@@ -598,6 +806,25 @@ def render_report(
             )
         ],
         "",
+        "## New sources (2026-11-18 plan, docs/17 §4.3)",
+        "",
+        "| Group | Business social page | Phone from a state registry | Phone or email only from a registry |",
+        "| --- | ---: | ---: | ---: |",
+        *[
+            f"| {label} | {pct(r['social'])} | {pct(r['registry_phone'])} | {pct(r['registry_only_phone_or_email'])} |"
+            for label, r in (
+                ("All prospects", stats["all"]),
+                ("Best-fit prospects", stats["best"]),
+                ("Company owners", stats["owners"]),
+            )
+        ],
+        "",
+        f"Leads with an address-based suggestion (company owners only): {lead_stats['leads']:,} of "
+        f"{lead_stats['company_leads']:,} company-owned leads; foreclosed rental registry agent "
+        f"{lead_stats[FORECLOSED]:,}, Overture listing at the mailing address {lead_stats[AT_MAILING]:,}. Leads with a "
+        f"phone or email from any source (owner name or address): {lead_stats['phone_or_email_any']:,} of "
+        f"{lead_stats['all_leads']:,} leads.",
+        "",
         "## Website crawl",
         "",
         f"- Sites with a matched website: {web_stats['sites']:,}.",
@@ -615,6 +842,16 @@ def render_report(
         f"{meta['open_places']:,} not permanently closed). CDLA-Permissive-2.0. Attribution: "
         "(c) Overture Maps Foundation; place data sourced from Meta and others.",
         f"- City of Chicago Business Licenses, current active (uupf-x98q): {meta['licenses']:,} licenses.",
+        *[
+            f"- {SOURCE_LABELS[k]} ({SOURCE_URLS[k]}): {meta['registries'].get(k, 0):,} rows; matched to prospects by "
+            "exact normalized name (medium confidence; a name listed with different phones is dropped)."
+            for k in REGISTRIES
+        ],
+        f"- {SOURCE_LABELS[FORECLOSED]} ({SOURCE_URLS[FORECLOSED]}): {meta['foreclosed']:,} registrations; the "
+        "notices agent of a registration at the lead's property in the last three years, only when the agent is a "
+        "company (individual agents' phones and emails are never shipped).",
+        "- Overture listing at a company owner's mailing address: only when exactly one business is listed at that "
+        "address (medium confidence; the business there may be a manager or agent, not the owner).",
         f"- City of Chicago Business Owners (ezma-pppn): {meta['owners']:,} owner rows. Used only as a contact-name "
         "suggestion for the matched business (titles preferred: owner, sole proprietor, president, CEO, managing "
         "member, manager, member, partner).",
@@ -675,23 +912,33 @@ def main() -> int:
     stamps = {
         OVERTURE: re.match(r"\d{4}-\d{2}-\d{2}", release).group(0) if re.match(r"\d{4}-", release) else day,
         LICENSES: retrieved(RAW / "biz_licenses" / "page-0000.csv", day),
+        CDB: retrieved(RAW / "cdb_vendors" / "page-0000.csv", day),
+        IDPH_LEAD: retrieved(RAW / "idph_lead_contractors" / "page-0000.csv", day),
+        IDPH_ASBESTOS: retrieved(RAW / "idph_asbestos_contractors" / "page-0000.csv", day),
     }
     print(f"{len(prospects)} prospects, {len(owners)} company owners/buyers, {len(rows):,} open places")
     idx = PlaceIndex(rows)
     lic = LicenseIndex(con)
+    reg = RegistryIndex(con)
+    drops: Counter = Counter()
+    by_lead = lead_suggestions(con, json.loads(SNAPSHOT.read_text()), rows, stamps, drops)
     meta = {
         "release": release,
         "places": con.execute("SELECT count(*) FROM places").fetchone()[0],
         "open_places": len(rows),
         "licenses": con.execute("SELECT count(*) FROM biz_licenses").fetchone()[0],
         "owners": con.execute("SELECT count(*) FROM biz_owners").fetchone()[0],
+        "registries": dict(
+            con.execute("SELECT registry, count(*) FROM contractor_registry GROUP BY 1 ORDER BY 1").fetchall()
+        ),
+        "foreclosed": con.execute("SELECT count(*) FROM foreclosed_rentals").fetchone()[0],
     }
     con.close()
 
-    drops: Counter = Counter()
     entities = [*prospects, *owners]
     pmatch = {f"{e.kind}:{e.id}": match_place(e, idx, drops) for e in entities}
     lmatch = {f"{e.kind}:{e.id}": lic.match(e, drops) for e in entities}
+    rmatch = {e.id: reg.match(e, drops) for e in prospects}
     print(
         f"matched: places {sum(1 for v in pmatch.values() if v):,}, licenses {sum(1 for v in lmatch.values() if v):,}"
     )
@@ -741,7 +988,9 @@ def main() -> int:
                 if site:
                     crawl = crawls.get(web.host_of(site))
                     break
-        results[f"{e.kind}:{e.id}"] = assemble(e, pm, lm, crawl, stamps)
+        results[f"{e.kind}:{e.id}"] = assemble(
+            e, pm, lm, crawl, stamps, rmatch.get(e.id) if e.kind == "prospect" else None
+        )
     for e in entities:
         if results[f"{e.kind}:{e.id}"] is None:
             drops["no usable contact field"] += 1
@@ -769,16 +1018,26 @@ def main() -> int:
                 "url": "https://data.cityofchicago.org/Community-Economic-Development/Business-Licenses-Current-Active/uupf-x98q",
             },
             WEBSITE: {"label": SOURCE_LABELS[WEBSITE]},
+            **{k: {"label": SOURCE_LABELS[k], "url": SOURCE_URLS[k]} for k in (*REGISTRIES, FORECLOSED)},
+            AT_MAILING: {
+                "label": SOURCE_LABELS[AT_MAILING],
+                "release": release,
+                "license": "CDLA-Permissive-2.0",
+                "attribution": "Places data (c) Overture Maps Foundation",
+                "url": "https://overturemaps.org",
+            },
         },
         "prospects": {k: v for k, v in sorted(by_prospect.items()) if v},
         "owners": {k: v for k, v in sorted(by_owner.items()) if v},
         "leadOwners": dict(sorted(lead_owner.items())),
+        "leads": dict(sorted(by_lead.items())),
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, separators=(",", ":"), ensure_ascii=False) + "\n")
     print(
         f"wrote {args.out}: {len(payload['prospects'])} prospects, {len(payload['owners'])} owners, "
-        f"{len(payload['leadOwners'])} leads ({args.out.stat().st_size / 1024:.0f} KB)"
+        f"{len(payload['leadOwners'])} leads by owner name, {len(by_lead)} leads by address "
+        f"({args.out.stat().st_size / 1024:.0f} KB)"
     )
 
     csv_path = Path(f"data/contacts-{day}.csv")
@@ -827,6 +1086,23 @@ def main() -> int:
         "with_email": sum(1 for r in hosts if r["emails"]),
         "with_phone": sum(1 for r in hosts if r["phones"]),
     }
+    snap_leads = json.loads(SNAPSHOT.read_text())["leads"]
+    lead_stats = {
+        "all_leads": len(snap_leads),
+        "company_leads": sum(1 for x in snap_leads if (x["owner"] or {}).get("type") == "company"),
+        "leads": len(by_lead),
+        FORECLOSED: sum(1 for v in by_lead.values() if any(m["source"] == FORECLOSED for m in v["matches"])),
+        AT_MAILING: sum(1 for v in by_lead.values() if any(m["source"] == AT_MAILING for m in v["matches"])),
+        "phone_or_email_any": sum(
+            1
+            for x in snap_leads
+            if any(
+                (c := src.get(key)) and (c["phones"] or c["emails"])
+                for src, key in ((by_lead, x["id"]), (by_owner, lead_owner.get(x["id"])))
+            )
+        ),
+    }
+    print(f"leads: {lead_stats}")
     examples = [
         (e, r)
         for e in prospects
@@ -842,7 +1118,7 @@ def main() -> int:
     if not args.no_report:
         FINDINGS.mkdir(parents=True, exist_ok=True)
         path = FINDINGS / f"contact-enrichment-{day}.md"
-        path.write_text(render_report(day, stats, web_stats, meta, drops, examples))
+        path.write_text(render_report(day, stats, web_stats, meta, drops, examples, lead_stats))
         print(f"wrote {path}")
     print(f"web sites: {len(sites)} ({fetched} fetched this run)")
     print(f"done in {time.monotonic() - started:.0f} s")
