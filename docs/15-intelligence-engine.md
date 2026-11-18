@@ -86,6 +86,16 @@ H29 is the working version of "one event → many suppliers": after a $1M+ permi
 4. Record the verdict (lab cut-offs: ≥3× and ≥5/week Strong, ≥1.8× Useful, ≥1.25× Weak) in `13-signal-lab.md`, including failures.
 5. If it wins: move the definition into `engine/score/<topic>.py`, reproduce the lab exactly, add a backtest with a fixed period and an out-of-time split, then a snapshot list or lead kind. Pilot with a paying buyer before calling it production.
 
+## 6b. Sales feed: PTAX-203 vs the Assessor (reconciled 2026-11-18)
+
+The Assessor's parcel sales (`wvhk-k5uv`) are built from the state's PTAX-203 transfer declarations (`illinois-edp` `it54-y4c6`, public domain). Measured on the warehouse:
+
+- **Same records.** On every one of 78,366 sales matched by recorder document number, the Assessor's `sale_date` is the declaration's instrument (deed) date. In 2024–2025 the Assessor holds 63,237 of 69,486 non-exempt Chicago-township declarations (91%), and almost none of the exempt ones (2 of 32,763 with code E; none with L, F, C, D or I). Its deed filter drops only quit-claim and executor deeds.
+- **Not just late: gappy.** The Assessor loads declarations in batches by recording week and skips whole weeks. Coverage of non-exempt declarations by recording week was about 97% through 2026-06-07, then 57% (week of June 8), 0% (June 15 and 22), 98% (July 6), 0% (July 20 to August 2, August 17 to 30, and everything from September 21). So sales signed months ago can still be missing. The newest Assessor sale is 2026-09-15; the newest declaration was recorded 2026-11-13.
+- **How the snapshot uses it.** Investor leads read the Assessor sales plus every declaration whose document number the Assessor lacks, with the Assessor's filters (under $10,000, quit-claim or executor deed, same parcel and price within 365 days), exempt declarations and suburban townships dropped, and the parcel's Assessor class (or the form's line 8 use when the parcel has none; condo units excluded). Lead ids stay parcel + date, so a lead keeps its status when the Assessor catches up. Every model stays on the Assessor history; on the same warehouse, all models and all non-investor leads are byte-identical with and without PTAX.
+- **Result.** Investor leads per week by sale week: 75 from the Assessor alone vs 83 combined in March 23–April 27 (the extra deeds were recorded in the Assessor's skipped weeks); 22 vs 74 in June–September; 42–80 a week from PTAX alone since mid-September (the last weeks are lower because deeds are recorded a median 14 days, 90th percentile 54 days, after signing). The newest investor lead is 11 days old instead of 67.
+- **Not in the form:** no buyer phone, email or mailing address (only the buyer's agent address, on about 7%). Line 10l means the buyer is a **real estate investment trust**, not "an investor" (2 of 8,507 declarations; the 2026-11-18 probe labelled it wrongly).
+
 ## 7. Roadmap (next, in order)
 
 1. **Sell the two new pilot lists** (E7 "New business coming" and E8 "Trades still open"): a sign shop, an elevator or fire-alarm contractor, and a commercial cleaner/insurance broker are the natural first buyers. They need no new code; outcomes go in lead statuses or the CSV.

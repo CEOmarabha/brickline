@@ -1,6 +1,6 @@
 # 17 — Contact coverage, conversion, and the vendor-paid introduction model
 
-*v1, 2026-11-18. Written at the end of a research session. Everything marked [V] was measured against live public data by `research/probes/contact_sources_probe.py` (aggregate output in `research/findings/contact-sources-2026-11-18.md`). Everything marked [H] is a hypothesis for the next agent to test or research. Rates for permit/license outcomes are historical proxies, not sales; no lead has been sold or won yet.*
+*v1, 2026-11-18; status added the same day after the build (section 4a). Written at the end of a research session. Everything marked [V] was measured against live public data by `research/probes/contact_sources_probe.py` (aggregate output in `research/findings/contact-sources-2026-11-18.md`). Everything marked [H] is a hypothesis for the next agent to test or research. Rates for permit/license outcomes are historical proxies, not sales; no lead has been sold or won yet.*
 
 ## 1. The problem in numbers
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | Cook County Assessor parcel addresses (`3723-97qp`, current roll year) matched to the investor buyer's exact name | Mailing address, portfolio size | **580 of 1,636** investor leads without a mailing address have a buyer already on the roll (487 names; 44 are the purchased property itself; 131 buyers own 3+ parcels). Exact-name match, so a floor. The warehouse already has `parcels`; use it instead of live queries |
 | Overture places matched by that mailing address | Phone, email, website at the address | 61 of 487 addresses have a listing; 59 with phone, 38 with email. A suggestion only: the business at the address may not be the buyer |
-| Illinois PTAX-203 transfer declarations (`illinois-edp.data.socrata.com/resource/it54-y4c6`, 2014-) | **Fresher sales**, buyer company name, PIN, buyer's agent in 7% | Newest record 2026-11-13 vs Assessor 2026-09-15. 8,507 Chicago transfers since 2026-09-16, 3,760 with a company buyer (before our filters). **No phone or email columns.** The "buyer is a real-estate investor" checkbox is ticked on 2 of 8,507. Preparers are closers/title/clerking firms (2,218 distinct; top 12 hold 19%): not a route to the buyer |
+| Illinois PTAX-203 transfer declarations (`illinois-edp.data.socrata.com/resource/it54-y4c6`, 2014-) | **Fresher sales**, buyer company name, PIN, buyer's agent in 7% | Newest record 2026-11-13 vs Assessor 2026-09-15. 8,507 Chicago transfers since 2026-09-16, 3,760 with a company buyer (before our filters). **No phone or email columns.** Line 10l ("buyer is a real estate investment trust", not "an investor"; corrected 2026-11-18) is ticked on 2 of 8,507. Preparers are closers/title/clerking firms (2,218 distinct; top 12 hold 19%): not a route to the buyer |
 | Chicago Foreclosed Rental Property registry (`yhcw-iu53`) | Notice agent phone and email | 22 leads that had neither (mostly investor purchases and violations); 586 rows, 99 registered in the last 12 months. Only 5 of 19 agents look like companies: treat individuals' numbers under the playbook rules |
 | Illinois contractor registries: CDB vendors (`3dh9-yktq`, phone on all 2,885), IDPH Lead Contractor Registration (`vpwp-h7xr`), IDPH Asbestos Contractors (`kt5u-9dcu`, phone and email) | Contractor phones | **23 of 1,343 prospects newly reachable** (19 CDB, 4 lead; asbestos 0) |
 | Chicago Building Code Scofflaw List (`crg5-4zyp`) | No contact; a priority flag | **23 leads** sit on it (9 violation, 8 investor, 4 complaint, 2 vacant). Not backtested; do not rank on it before a test |
@@ -40,6 +40,17 @@ Each item: what, where, how to know it is done. Commit each separately; run the 
 6. **Deep research (§5)** produces `docs/18-contact-research.md` before more code is written for social or email extraction.
 7. **Conversion experiments (§7)**, designed first, run with the first panel contractors.
 8. **Founder actions** (not code): sign the panel (3 masonry, 2 porch, 1-2 GCs for investor leads), one-page vendor agreement reviewed by a lawyer, the 111 company-owned porch/masonry citations (act-now and this week) and 20 first-time investor buyers worked by hand, outcomes recorded on the leads. Also still open from HANDOFF: confirm the publish, re-create the weekly timer.
+
+## 4a. Status after the 2026-11-18 build (measured on data through 2026-11-17)
+
+1. **Done.** `engine/collect/ptax.py` → `ptax_transfers`; investor leads read Assessor sales plus the declarations it lacks. Newest investor lead 11 days old (was 67); 2,424 investor leads, 1,302 from PTAX; models unchanged (byte-identical). The plan's "~27/week" was wrong: the Assessor history implies about 75 company purchases a week in fully loaded weeks (83 combined); June–September now 74 a week instead of 22. Reconciliation: `docs/15` §6b. The Assessor does not just lag: it skips whole recording weeks.
+2. **Done.** 1,102 of 2,424 investor leads have a mailing address (was 64 of 1,700): 91 where the roll already shows the buyer, 1,011 from the tax roll under the buyer's exact name (owner or tax-bill name). Lead page labels the source; `buyer.parcelsOnRoll` holds the count.
+3. **Done.** Registries add a phone to 34 prospects (22 only through a registry); foreclosed-rental registry 15 leads matched, 1 shipped (company agent; 6 private agents not shipped); Overture at the mailing address 131 company-owned leads; business pages for 84 prospects and 27 company owners. 239 of 7,528 leads have a phone or email (was 106 of 6,768). Findings: `research/findings/contact-enrichment-2026-11-17.md`.
+4. **Done, no signal.** 30 leads at listed addresses carry the scofflaw evidence; H42 lift 0.92× (`docs/13` round 7). Not used for ranking (D-024).
+5. **Done (founder-logged replies).** Migration `006_lead_replies.sql`: reference codes on every draft, `/leads/replies`, ways to reach on `/leads`, holdout and license-number settings. A public reply page was not built because the published app is private (owners cannot sign in); see `docs/19` §0.
+6. **Done.** `docs/18-contact-research.md`. It found two rules our letters broke, now fixed: the 815 ILCS 505/2PP not-a-bill box at the top and the Chicago license number (4-6-280).
+7. **Designed.** `docs/19-conversion-experiments.md` (E1 holdout built as a setting; E2–E4 need the first mailing clients).
+8. Founder actions unchanged (below).
 
 ## 5. Deep research agenda (for the next agent; write `docs/18-contact-research.md`)
 

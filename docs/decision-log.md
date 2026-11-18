@@ -119,3 +119,26 @@
 - **Evidence:** Leads take weeks to close, so short trials can't show value; job-value and deal-value tracking now make per-won-job pricing measurable.
 - **Reverse if:** Buyers consistently prefer a flat subscription, or attribution of won jobs proves unreliable.
 
+### D-022 — Investor leads use state transfer declarations; models stay on the Assessor history
+- **Status:** Accepted 2026-11-18.
+- **Decision:** Investor-purchase leads read the Cook County Assessor's sales plus the Illinois PTAX-203 declarations the Assessor has not loaded (matched by recorder document number, with the Assessor's own filters). Probabilities and every model keep using the Assessor history only.
+- **Evidence:** `docs/15` §6b: identical sale dates on 78,366 matched sales; the Assessor skips whole recording weeks; newest lead 11 days old instead of 67; models byte-identical.
+- **Reverse if:** The two feeds stop agreeing on overlapping months, or the Assessor starts publishing without gaps (then PTAX adds nothing).
+
+### D-023 — Letters carry the not-a-bill box, the license number and a reply code; owners reach us, we never skip-trace them
+- **Status:** Accepted 2026-11-18 (have a lawyer confirm the template).
+- **Decision:** Every letter draft opens with the 815 ILCS 505/2PP disclosure (14-point bold, outlined box) and prints the contractor's Chicago license number; every draft carries a reference code, and owner replies are logged by code. Individual owners are reached only by mail and their own reply: no skip tracing, homeowner calls, texts or ad-audience matching. Business pages from Overture are stored as links for manual messages only.
+- **Evidence:** `docs/18` (statute and code text read 2026-11-18; provider and platform terms).
+- **Reverse if:** Counsel advises different wording, or the founder decides to research a paid, compliant provider (then measure it on the unmatched best-fit prospects first).
+
+### D-024 — The scofflaw list is evidence, not a ranking signal
+- **Status:** Accepted 2026-11-18.
+- **Decision:** Show the Building Code Scofflaw List on leads at listed addresses; do not rank or score on it.
+- **Evidence:** H42: 0.92× any-permit rate vs same-month cited addresses (387 listed addresses).
+- **Reverse if:** A history of the list (archived snapshots) shows a clear lift for newly listed buildings.
+
+### D-025 — Experiments run on hash-assigned arms; holdouts are opt-in per workspace
+- **Status:** Accepted 2026-11-18.
+- **Decision:** Every conversion experiment assigns arms by a hash of the experiment name and lead id (`docs/19`), so assignment is reproducible offline and nobody overrides it. The letter holdout is a per-workspace setting (default off), measured by permits at the address within 365 days.
+- **Evidence:** Historical rates cannot show what a letter adds; sample sizes in `docs/19` (about 3,200 leads to see +5 points).
+- **Reverse if:** Volume stays too low to read a result within a year (then drop the holdout and rely on reply rates).

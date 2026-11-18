@@ -100,7 +100,7 @@ def ptax(snap: dict) -> dict:
         "chicagoTransfersSince": total,
         "buyerOrganization": count(present("step_4_buyer_organization")),
         "buyerAgentAddress": count(present("step_4_buyer_s_agent_s_address")),
-        "investorCheckbox10l": count(" AND line_10l_buyer_is_a_real = true"),
+        "buyerIsReit10l": count(" AND line_10l_buyer_is_a_real = true"),
         "bankReo10h": count(" AND line_10h_bank_reo = true"),
         "top12PreparerShare": round(sum(int(x["n"]) for x in top) / total, 3) if total else None,
     }
