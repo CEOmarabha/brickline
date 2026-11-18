@@ -3,7 +3,14 @@ import Link from "next/link";
 import { ProbabilityBar, StatusBadge, TierBadge } from "@/components/bits";
 import { ago, money, pct } from "@/lib/format";
 import { type CloseRates, expectedValue, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
+import type { Way } from "@/lib/reach";
 import { type LeadStatusRow, STATUS_LABEL } from "@/lib/workspace";
+
+const WAY_TEXT: Record<Way, string> = { mail: "mail", email: "email", phone: "phone" };
+
+function reachText(ways: Way[]): string {
+  return ways.length ? `Reach by ${ways.map((w) => WAY_TEXT[w]).join(", ")}` : "No mailing address or contact yet";
+}
 
 const KIND_ICON = {
   violation: Hammer,
@@ -39,8 +46,10 @@ export function LeadList({
   statuses,
   areaNames,
   rates,
+  ways,
 }: {
   rates?: CloseRates;
+  ways?: Map<string, Way[]>;
   leads: Lead[];
   snap: Snapshot;
   trade: TradeKey;
@@ -73,6 +82,7 @@ export function LeadList({
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
                   {lead.communityArea ? areaNames.get(lead.communityArea) : "Area unknown"} · {ago(lead.ageDays)}
+                  {ways && ` · ${reachText(ways.get(lead.id) ?? [])}`}
                 </div>
               </div>
               <div className="col-start-2 sm:col-start-auto">

@@ -10,13 +10,28 @@ import { saveWorkspace } from "@/lib/actions";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  initial: { businessName: string; trade: string; areas: number[]; phone: string; mailingAddress: string };
+  initial: {
+    businessName: string;
+    trade: string;
+    areas: number[];
+    phone: string;
+    mailingAddress: string;
+    holdoutPct: number;
+  };
   trades: Record<string, string>;
   areas: { id: number; name: string; leads: number }[];
 }
 
+const HOLDOUT_ITEMS: Record<string, string> = {
+  "0": "Off: mail every letter lead",
+  "10": "Keep 10% unmailed",
+  "15": "Keep 15% unmailed",
+  "20": "Keep 20% unmailed",
+};
+
 export function SettingsForm({ initial, trades, areas }: Props) {
   const [trade, setTrade] = useState(initial.trade);
+  const [holdout, setHoldout] = useState(String(initial.holdoutPct));
   const [selected, setSelected] = useState<Set<number>>(new Set(initial.areas));
   const [filter, setFilter] = useState("");
   const [pending, startTransition] = useTransition();
@@ -39,6 +54,7 @@ export function SettingsForm({ initial, trades, areas }: Props) {
       className="space-y-8"
       action={(fd) => {
         fd.set("trade", trade);
+        fd.set("holdoutPct", holdout);
         fd.delete("areas");
         for (const id of selected) fd.append("areas", String(id));
         startTransition(async () => {
@@ -92,6 +108,25 @@ export function SettingsForm({ initial, trades, areas }: Props) {
             maxLength={200}
           />
           <p className="text-xs text-muted-foreground">Required by law on marketing emails (CAN-SPAM).</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="holdoutPct">Measure what the letters add</Label>
+          <Select items={HOLDOUT_ITEMS} value={holdout} onValueChange={(v) => setHoldout(String(v))}>
+            <SelectTrigger id="holdoutPct" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(HOLDOUT_ITEMS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            A random share of letter leads is left out of printed letters and the mail-merge file, so their repair rate
+            can be compared with mailed leads. The same leads are held out every week.
+          </p>
         </div>
       </section>
 

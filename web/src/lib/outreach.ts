@@ -1,6 +1,7 @@
 import { dateLabel } from "@/lib/format";
 import { tradeNoun } from "@/lib/insights";
 import type { Lead, Snapshot, TradeKey } from "@/lib/snapshot";
+import { replyCode } from "@/lib/reply-code";
 import type { Workspace } from "@/lib/workspace";
 
 export interface EmailDraft {
@@ -13,6 +14,8 @@ export interface Draft {
   subject?: string;
   body: string;
   compliance: string[];
+  /** Printed on the draft; an owner who quotes it can be matched to this lead (see `/leads/replies`). */
+  replyCode: string;
 }
 
 interface LetterContext {
@@ -48,8 +51,23 @@ function ownerLetterBody(kind: "complaint" | "porch_request" | "vacant", c: Lett
   ];
 }
 
-/** A first-touch draft for a human to review and send. Never auto-sent. */
+/** A first-touch draft for a human to review and send. Never auto-sent. Carries the lead's reply code. */
 export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaName: string | null): Draft {
+  const draft = firstTouch(lead, ws, snap, areaName);
+  const code = replyCode(ws.id, lead.id);
+  const lines = draft.body.split("\n");
+  const business = ws.businessName || "[Your company]";
+  const sincerely = lines.indexOf("Sincerely,");
+  const at = sincerely >= 0 ? sincerely : lines.lastIndexOf(business);
+  const ref =
+    draft.channel === "letter"
+      ? `Reference code ${code}: please mention it when you call or write, so we know which property you mean.`
+      : `Reference code ${code} (quote it in a reply so we can find this property).`;
+  lines.splice(at < 0 ? lines.length : at, 0, ref, "");
+  return { ...draft, body: lines.join("\n"), replyCode: code };
+}
+
+function firstTouch(lead: Lead, ws: Workspace, snap: Snapshot, areaName: string | null): Omit<Draft, "replyCode"> {
   const business = ws.businessName || "[Your company]";
   const phone = ws.phone || "[phone]";
   const address = ws.mailingAddress || "[your mailing address]";

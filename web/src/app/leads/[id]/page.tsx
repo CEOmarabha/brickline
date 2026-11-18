@@ -10,10 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContactValue, SourceLine } from "@/components/contact-bits";
-import { getLeadContacts } from "@/lib/contacts";
+import { type ContactSuggestions, getLeadContacts } from "@/lib/contacts";
 import { ago, count, dateLabel, dateTimeLabel, exactMoney, liftLabel, money, pct } from "@/lib/format";
 import { isHttpUrl } from "@/lib/links";
+import { isHoldout } from "@/lib/experiments";
 import { draftOutreach } from "@/lib/outreach";
+import { getReplies, REPLY_CHANNEL_LABEL } from "@/lib/replies";
 import { getCloseRates, MIN_DECIDED, MIN_VALUED_WON } from "@/lib/outcomes";
 import { areaNames, closeRateFor, expectedValue, getSnapshot, jobValueFor, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
 import { cn } from "@/lib/utils";
@@ -72,14 +74,16 @@ export default function LeadPage({ params }: PageProps<"/leads/[id]">) {
 async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params"] }) {
   const { id } = await params;
   const leadId = decodeURIComponent(id);
-  const [snap, ws, statuses, history, rates, suggestions] = await Promise.all([
+  const [snap, ws, statuses, history, rates, suggestions, allReplies] = await Promise.all([
     getSnapshot(),
     getWorkspace(),
     getStatuses(),
     getLeadHistory(leadId),
     getCloseRates(),
     getLeadContacts(leadId),
+    getReplies(),
   ]);
+  const replies = allReplies.filter((r) => r.leadId === leadId);
   const lead = snap.leads.find((l) => l.id === leadId);
   if (!lead) notFound();
 
@@ -279,6 +283,16 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
           </CardContent>
         </Card>
 
+        {isHoldout(lead, ws.holdoutPct) && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="font-medium">Holdout lead: please don&apos;t contact this owner</div>
+            <p className="mt-1">
+              This workspace keeps {ws.holdoutPct}% of letter leads unmailed so we can measure what the letters add
+              (see Settings). It is left out of printed letters and the mail-merge file.
+            </p>
+          </div>
+        )}
+
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between gap-3">
@@ -303,6 +317,31 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                 <li key={c}>{c}</li>
               ))}
             </ul>
+            <p className="text-xs text-muted-foreground">
+              Reference code <span className="font-mono text-foreground">{draft.replyCode}</span>. When the owner quotes
+              it, record the reply on{" "}
+              <Link href="/leads/replies" className="underline">
+                Owner replies
+              </Link>
+              .
+            </p>
+            {replies.length > 0 && (
+              <div className="rounded-md border p-3 text-sm">
+                <div className="mb-1 text-xs font-medium">Replies from the owner</div>
+                <ul className="space-y-2">
+                  {replies.map((r) => (
+                    <li key={r.id}>
+                      <div className="text-xs text-muted-foreground">
+                        {REPLY_CHANNEL_LABEL[r.channel]} · {dateLabel(r.receivedOn)}
+                        {r.contactPhone && ` · ${r.contactPhone}`}
+                        {r.contactEmail && ` · ${r.contactEmail}`}
+                      </div>
+                      {r.message && <div className="whitespace-pre-line">{r.message}</div>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {!ws.configured && (
               <p className="text-xs text-muted-foreground">
                 Add your company name, phone and mailing address in{" "}
@@ -352,7 +391,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                 <div>
                   <div className="text-xs font-medium">Suggested from public sources</div>
                   <p className="text-xs text-muted-foreground">
-                    Matched by name to {suggestions.name}. Verify before outreach; business contacts only.
+                    {matchedHow(suggestions)} Verify before outreach; business contacts only.
                   </p>
                 </div>
                 {suggestions.contactName && (
@@ -376,6 +415,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                   <div key={`p-${f.value}`}>
                     <div className="text-xs text-muted-foreground">Phone</div>
                     <ContactValue field={f} kind="text" />
+                    {f.listing && <span className="ml-1.5 text-xs text-muted-foreground">(listed for {f.listing})</span>}
                     <SourceLine field={f} />
                   </div>
                 ))}
@@ -383,6 +423,14 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                   <div key={`e-${f.value}`}>
                     <div className="text-xs text-muted-foreground">Email</div>
                     <ContactValue field={f} kind="text" />
+                    {f.listing && <span className="ml-1.5 text-xs text-muted-foreground">(listed for {f.listing})</span>}
+                    <SourceLine field={f} />
+                  </div>
+                ))}
+                {(suggestions.socials ?? []).map((f) => (
+                  <div key={`s-${f.value}`}>
+                    <div className="text-xs text-muted-foreground">Business page (message by hand only)</div>
+                    <ContactValue field={f} kind="website" />
                     <SourceLine field={f} />
                   </div>
                 ))}
@@ -481,6 +529,18 @@ function ClosedRestaurantBasis({ snap }: { snap: Snapshot }) {
       </CardContent>
     </Card>
   );
+}
+
+function matchedHow(c: ContactSuggestions): string {
+  const byName = c.matches.some((m) => m.method !== "property_address" && m.method !== "mailing_address");
+  const byProperty = c.matches.some((m) => m.method === "property_address");
+  const byMailing = c.matches.some((m) => m.method === "mailing_address");
+  const parts = [
+    byName && `matched by name to ${c.name}`,
+    byProperty && "registered for this property",
+    byMailing && "a business listed at the owner's mailing address (it may be a manager or agent, not the owner)",
+  ].filter(Boolean);
+  return parts.length ? `${capitalize(parts.join("; "))}.` : "";
 }
 
 function capitalize(s: string): string {

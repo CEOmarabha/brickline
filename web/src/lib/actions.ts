@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { type ActionResult, runAction, UserError } from "@/lib/action-result";
 import { multiLine, singleLine } from "@/lib/clean-text";
 import { sql } from "@/lib/db";
+import { HOLDOUT_CHOICES } from "@/lib/experiments";
 import { MAX_JOB_VALUE, parseMoney } from "@/lib/money-input";
 import { getSnapshot, TRADE_KEYS, type TradeKey } from "@/lib/snapshot";
 import {
@@ -32,13 +33,16 @@ export async function saveWorkspace(formData: FormData): Promise<ActionResult> {
     const businessName = singleLine(formData.get("businessName"), 120, "Company name");
     const phone = singleLine(formData.get("phone"), 40, "Phone");
     const mailingAddress = singleLine(formData.get("mailingAddress"), 200, "Mailing address");
+    const holdout = Number(formData.get("holdoutPct") ?? 0);
+    if (!HOLDOUT_CHOICES.includes(holdout as (typeof HOLDOUT_CHOICES)[number])) throw new UserError("Unknown holdout share");
     await sql(
-      `insert into workspace (id, owner_id, name, business_name, trade, areas, phone, mailing_address, updated_at)
-       values ($1, $2, $3, $3, $4, $5, $6, $7, now())
+      `insert into workspace (id, owner_id, name, business_name, trade, areas, phone, mailing_address, holdout_pct,
+         updated_at)
+       values ($1, $2, $3, $3, $4, $5, $6, $7, $8, now())
        on conflict (id) do update set name = $3, business_name = $3, trade = $4, areas = $5, phone = $6,
-         mailing_address = $7, updated_at = now()
+         mailing_address = $7, holdout_pct = $8, updated_at = now()
        where workspace.owner_id = $2`,
-      [wsId, owner, businessName, trade, [...areas].sort((a, b) => a - b), phone, mailingAddress],
+      [wsId, owner, businessName, trade, [...areas].sort((a, b) => a - b), phone, mailingAddress, holdout],
     );
     refresh();
   });

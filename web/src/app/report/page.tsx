@@ -8,7 +8,9 @@ import { count, dateLabel, money, pct } from "@/lib/format";
 import { buildInsights } from "@/lib/insights";
 import { queryLeads, DEFAULT_FILTERS } from "@/lib/lead-query";
 import { getCloseRates } from "@/lib/outcomes";
+import { isHoldout } from "@/lib/experiments";
 import { draftOutreach } from "@/lib/outreach";
+import { chicagoDate, getReplies, REPLY_CHANNEL_LABEL } from "@/lib/replies";
 import { areaNames, areaSignal, expectedValue, getSnapshot, tradeProbability } from "@/lib/snapshot";
 import { getStatuses, getWorkspace, workspaceLabel } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
@@ -29,7 +31,13 @@ export default function ReportPage({ searchParams }: PageProps<"/report">) {
 async function Report({ searchParams }: { searchParams: PageProps<"/report">["searchParams"] }) {
   const sp = await searchParams;
   const view = sp.view === "letters" ? "letters" : "summary";
-  const [snap, ws, statuses, rates] = await Promise.all([getSnapshot(), getWorkspace(), getStatuses(), getCloseRates()]);
+  const [snap, ws, statuses, rates, replies] = await Promise.all([
+    getSnapshot(),
+    getWorkspace(),
+    getStatuses(),
+    getCloseRates(),
+    getReplies(),
+  ]);
   const names = areaNames(snap);
   const label = workspaceLabel(ws);
   const tradeLabel = snap.trades[ws.trade].label;
@@ -54,7 +62,7 @@ async function Report({ searchParams }: { searchParams: PageProps<"/report">["se
 
   if (view === "letters") {
     const letters = open
-      .filter((l) => l.kind !== "investor_purchase" && l.owner.mailing && l.tier !== "monitor")
+      .filter((l) => l.kind !== "investor_purchase" && l.owner.mailing && l.tier !== "monitor" && !isHoldout(l, ws.holdoutPct))
       .slice(0, MAX_LETTERS);
     return (
       <>
@@ -107,6 +115,9 @@ async function Report({ searchParams }: { searchParams: PageProps<"/report">["se
     .sort((x, y) => y.leads - x.leads)
     .slice(0, 6);
   const competitors = snap.competitors[ws.trade].contractors.slice(0, 5);
+  const weekAgo = chicagoDate(7);
+  const recentReplies = replies.filter((r) => r.receivedOn >= weekAgo);
+  const leadsById = new Map(snap.leads.map((l) => [l.id, l]));
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 print:max-w-none print:text-[10pt]">
@@ -131,6 +142,20 @@ async function Report({ searchParams }: { searchParams: PageProps<"/report">["se
           value={money(actNow.reduce((s, l) => s + expectedValue(l, ws.trade, snap, rates), 0))}
         />
       </section>
+
+      {recentReplies.length > 0 && (
+        <section>
+          <h2 className="mb-2 font-semibold">Owner replies in the last 7 days ({count(recentReplies.length)})</h2>
+          <ul className="list-disc space-y-1 pl-5 text-sm">
+            {recentReplies.map((r) => (
+              <li key={r.id}>
+                {leadsById.get(r.leadId)?.address ?? `Code ${r.code}`} · {REPLY_CHANNEL_LABEL[r.channel]} ·{" "}
+                {dateLabel(r.receivedOn)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {insights.length > 0 && (
         <section>

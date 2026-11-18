@@ -34,6 +34,8 @@ export interface Workspace {
   areas: number[];
   phone: string;
   mailingAddress: string;
+  /** Percent of letter leads kept unmailed to measure lift (docs/19 experiment 1); 0 = off. */
+  holdoutPct: number;
   configured: boolean;
   signedIn: boolean;
 }
@@ -75,6 +77,7 @@ interface WorkspaceRow {
   areas: number[];
   phone: string;
   mailing_address: string;
+  holdout_pct?: number;
 }
 
 export function workspaceLabel(r: { name: string; business_name?: string; businessName?: string }): string {
@@ -119,6 +122,7 @@ export const getWorkspace = cache(async (): Promise<Workspace> => {
     areas: [],
     phone: "",
     mailingAddress: "",
+    holdoutPct: 0,
     configured: false,
     signedIn: owner !== null,
   };
@@ -134,6 +138,7 @@ export const getWorkspace = cache(async (): Promise<Workspace> => {
     areas: r.areas ?? [],
     phone: r.phone,
     mailingAddress: r.mailing_address,
+    holdoutPct: Number(r.holdout_pct ?? 0),
     configured: true,
     signedIn: true,
   };
