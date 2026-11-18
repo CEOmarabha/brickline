@@ -39,7 +39,7 @@ export function ReplyForm({ today, initialCode = "" }: { today: string; initialC
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="code">Reply code</Label>
-          <Input id="code" name="code" placeholder="ABCD-2346" defaultValue={initialCode} required autoComplete="off" />
+          <Input id="code" name="code" placeholder="ABCD-234X" defaultValue={initialCode} required autoComplete="off" />
         </div>
         <div className="space-y-1.5">
           <Label>How they replied</Label>

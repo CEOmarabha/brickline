@@ -20,7 +20,7 @@ export async function recordReply(formData: FormData): Promise<RecordReplyResult
     const owner = await requireOwner();
     const wsId = await currentWorkspaceId(owner);
     const code = normalizeReplyCode(String(formData.get("code") ?? ""));
-    if (!code) throw new UserError("A reply code has 8 letters and digits, like ABCD-2346");
+    if (!code) throw new UserError("That code doesn't check out. Ask the owner to read it again (8 letters and digits, like ABCD-234X)");
     const channel = String(formData.get("channel") ?? "");
     if (!REPLY_CHANNELS.includes(channel as ReplyChannel)) throw new UserError("Pick how the owner replied");
     const receivedOn = String(formData.get("receivedOn") ?? "");
