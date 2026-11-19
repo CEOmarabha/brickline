@@ -108,9 +108,8 @@ CONTACT_NOTE = (
 )
 BLOCK_PARTY_NOTE = (
     "Block parties are filed by residents. This list shows only the block and date; the host's name and mailing "
-    "address are in the private list (`uv run python -m engine.leads.hosts`, data/private/). Send a letter or door "
-    "hanger a few weeks before the date; call or text only a skip-traced number that passed a Do Not Call scrub "
-    "(D-027)."
+    "address are on the Event board (/event-board). Send a letter or door hanger a few weeks before the date; call or "
+    "text only a skip-traced number that passed a Do Not Call scrub (D-027)."
 )
 PRIVACY_NOTE = (
     "Applicants who are individuals are never stored or shown. An organizer name appears only when it looks like an "

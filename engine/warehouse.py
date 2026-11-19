@@ -182,6 +182,8 @@ DATASETS = [
         "applicationtype = 'DOT_SE' AND worktype = 'BlockParty' "
         "AND applicationstartdate >= '2021-01-01T00:00:00'",
     ),
+    # Aldermen's ward offices: public office phone, email and website (block parties need the alderman's OK).
+    Dataset("ward_offices", CHICAGO, "htai-wnw4", "ward,alderman,address,zipcode,ward_phone,email,website"),
     Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community,the_geom"),
     Dataset("tracts_2010", CHICAGO, "74p9-q2aq", "geoid10,commarea,the_geom"),
     Dataset("tracts_2020", CHICAGO, "7qjk-677h", "tract_fips,tract_ce,commarea,the_geom"),
@@ -921,6 +923,14 @@ def build() -> None:
         WHERE try_cast(applicationstartdate AS TIMESTAMP) IS NOT NULL
     """)
 
+    print("build ward_offices")
+    con.execute(f"""
+        CREATE TABLE ward_offices AS
+        SELECT try_cast(ward AS INTEGER) AS ward, alderman, address, zipcode, ward_phone AS phone,
+            lower(email) AS email, website
+        FROM {_csv("ward_offices")}
+    """)
+
     print("build biz_owners")
     con.execute(f"""
         CREATE TABLE biz_owners AS
@@ -1004,6 +1014,7 @@ def build() -> None:
         "dumpster_permits",
         "street_events",
         "block_party_hosts",
+        "ward_offices",
         *(["zoning_changes"] if zoning_json else []),
     ):
         n = con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]

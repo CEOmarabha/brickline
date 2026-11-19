@@ -30,7 +30,8 @@ export interface Lifecycle {
   reach: string;
   appLink: string | null;
   tags: string[];
-  stages: { name: string; when: string; services: LifecycleService[] }[];
+  /** `offsetDays`: stage window in days relative to the event date (negative = before); events only. */
+  stages: { name: string; when: string; offsetDays: [number, number] | null; services: LifecycleService[] }[];
 }
 
 export interface LifecyclesFile {

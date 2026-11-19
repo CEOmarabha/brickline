@@ -871,6 +871,27 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
     ),
 )
 
+# Stage timing in days relative to the event or trigger date (negative = before), for dated timelines on the
+# event board. Event lifecycles only; [H] industry rules of thumb, not measured.
+STAGE_OFFSETS: dict[tuple[str, str], tuple[int, int]] = {
+    ("block_party", "Planning"): (-42, -28),
+    ("block_party", "Rentals and food"): (-14, -7),
+    ("block_party", "Day of"): (0, 0),
+    ("block_party", "After"): (1, 1),
+    ("street_festival", "Production"): (-90, -30),
+    ("street_festival", "Site services"): (-7, 0),
+    ("street_festival", "After"): (1, 2),
+    ("park_wedding", "Planning"): (-270, -90),
+    ("park_wedding", "Day of"): (0, 0),
+    ("park_wedding", "After"): (1, 1),
+    ("org_special_event", "Planning"): (-60, -30),
+    ("org_special_event", "Day of"): (0, 0),
+    ("org_special_event", "After"): (1, 1),
+    ("grand_opening", "Pre-opening"): (-150, -30),
+    ("grand_opening", "Opening event"): (-7, 0),
+    ("grand_opening", "Running"): (30, 90),
+}
+
 # Volumes: how often each trigger happened in the 365 days before its source's newest record.
 VOLUME_SQL: dict[str, str] = {
     "block_party": """SELECT count(*) FROM street_events WHERE worktype = 'BlockParty'
@@ -1014,6 +1035,9 @@ def build(con, snap: dict | None) -> dict:
                     {
                         "name": st.name,
                         "when": st.when,
+                        "offsetDays": list(STAGE_OFFSETS[(lc.id, st.name)])
+                        if (lc.id, st.name) in STAGE_OFFSETS
+                        else None,
                         "services": [
                             {
                                 "name": sv.name,
