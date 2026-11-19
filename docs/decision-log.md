@@ -155,3 +155,8 @@
 - **Evidence:** `docs/18` §5 (TCPA $500-$1,500 per call or text; provider terms); block-party backtest: 77.8% of blocks with a party in all three prior summers held one again (`research/findings/private-lists-2026-11-17.md`).
 - **Reverse if:** A complaint, carrier block or legal advice shows a channel is costing more than it earns.
 
+### D-028 — No names, mailing addresses or notes in AI tool results
+- **Status:** Accepted 2026-11-18 (fixes the publish security review's privacy note).
+- **Decision:** The assistant's tools send Anthropic yes/no flags and links instead of property owners', buyers' and sellers' names, owners' mailing addresses and the founder's lead notes (phones, emails and prospect notes were already excluded). Lead letter drafts and call briefs carry `[owner name]`, `[buyer company]` and `[owner company]` placeholders; the lead page shows the real values. Business names of contractors, competitors and prospects (the companies we sell to or partner with) still go through.
+- **Evidence:** Cursor's security review of the brickline-83d7 publish (low severity): tool results included public-record owner and buyer names. A run of every lead tool on all six lead kinds found no owner, buyer or seller name and no note text in the output.
+- **Reverse if:** The founder moves AI calls to a provider and terms he approves for personal data, or a feature needs a name the model cannot work without (then send it only for company owners).

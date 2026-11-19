@@ -16,7 +16,9 @@ Our move depends on who already has the job:
 - **A named company already has it:** pitch the next stage's vendors, or offer to match or beat the incumbent.
 - **The buyer is a private person:** mail or door hanger first, then a hand-dialed call or text after a skip trace and a Do Not Call scrub.
 
-The catalog lives in code (`engine/leads/lifecycles.py`, 17 lifecycles, 132 service slots). The app shows it at **/opportunities** (sidebar: Opportunity map), filtered by family. The weekly refresh rebuilds it.
+The catalog lives in code (`engine/leads/lifecycles.py`, 17 lifecycles, 133 service slots). The app shows it at **/opportunities** (sidebar: Opportunity map), filtered by family. The weekly refresh rebuilds it.
+
+**Applied to every lead, event and linked deal (2026-11-18).** Each lead page opens with a "Possible jobs" panel: the lifecycle its kind starts (violations, 311 complaints and porch requests → owner ordered to make repairs; investor purchases → investor rehab; vacant buildings → vacant building to sale; closed restaurants → restaurant closes, space re-tenants), with stage windows counted from the lead's signal date, the stage open now, each job's Chicago vendor count and incumbent share, the measured chance of a permit for trade jobs (from the lead's own trade rates; violations and porch requests measure only their own trade) and, on investor buys, the contractors the buyer used before. Every event has its own page (`/event-board/<id>`, linked from the event board and from `/events` rows) that leads with its dated jobs and partner examples. A deal whose link is a lead or event id shows the same panel. The lead-kind mapping (`lead_kinds`), the trade each job is measured by (`trades`) and the stage offsets (`STAGE_OFFSETS`, [H] rules of thumb read off each stage's timing) live in `lifecycles.py`. Investor rehab gained a "Porch, masonry or roofing contractor" job, which the snapshot already measures for investor buys.
 
 ## 2. What we can see, measured
 
@@ -125,7 +127,7 @@ The app's **Event board** (`/event-board`) shows every upcoming event (block par
 
 - the host type (private person, ward office, organization), with public contacts;
 - the alderman's office for the ward;
-- the jobs on a dated timeline (stage windows counted back from the event date);
+- the jobs on a dated timeline (stage windows counted back from the event date), with a link to the event's own page, which opens with them;
 - partner companies per job;
 - a skip-trace panel: cost, expected numbers found and numbers left after the Do Not Call scrub, for the hosts on the current filter.
 
