@@ -32,7 +32,7 @@ rm -rf data/raw/permits data/raw/violations data/raw/sales data/raw/ptax_transfe
   data/raw/biz_licenses data/raw/biz_owners data/raw/biz_license_history data/raw/adu_preapprovals \
   data/raw/zoning_districts data/raw/park_events data/raw/cdot_dumpsters data/raw/cdot_events \
   data/raw/foreclosed_rentals data/raw/cdb_vendors data/raw/idph_lead_contractors data/raw/idph_asbestos_contractors \
-  data/raw/scofflaws
+  data/raw/scofflaws data/raw/block_party_hosts
 
 uv run python -m engine.warehouse sync
 uv run python -m engine.warehouse build
@@ -49,6 +49,9 @@ uv run python -m engine.leads.prospects --trades porch masonry roofing
 # Free contact suggestions (Overture, Chicago business licenses, company websites). Safe to rerun: website
 # results are cached in data/raw/web_contacts for 30 days, so only new or stale sites are fetched (~1.5 min cold).
 uv run python -m engine.enrich.contacts
+# Opportunity map (reads snapshot.json) and the private outreach lists (data/private/, never committed).
+uv run python -m engine.leads.lifecycles
+uv run python -m engine.leads.hosts
 
 if [[ $backtest -eq 1 ]]; then
   uv run python research/signal_lab/lab.py

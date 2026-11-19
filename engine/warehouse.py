@@ -169,6 +169,19 @@ DATASETS = [
     # not selected; `primarycontactfirst` only tells a person (private) from a company (`primarycontactlast`).
     Dataset("cdot_dumpsters", CHICAGO, "pubx-yq2d", CDOT_COLS + ",comments", CDOT_DUMPSTER_WHERE),
     Dataset("cdot_events", CHICAGO, "pubx-yq2d", CDOT_COLS, CDOT_EVENT_WHERE),
+    # Block-party hosts (D-027): the applicant's name and mailing address, for mail and door hangers. Private
+    # persons, so the table feeds only data/private/ exports and never web/data or git.
+    Dataset(
+        "block_party_hosts",
+        CHICAGO,
+        "pubx-yq2d",
+        "uniquekey,applicationnumber,applicationstatus,applicationstartdate,applicationenddate,"
+        "applicationprocesseddate,applicationissueddate,applicationname,primarycontactfirst,primarycontactlast,"
+        "primarycontactstreet,primarycontactstreet2,primarycontactcity,primarycontactstate,primarycontactzip,"
+        "streetnumberfrom,streetnumberto,direction,streetname,suffix,ward,latitude,longitude",
+        "applicationtype = 'DOT_SE' AND worktype = 'BlockParty' "
+        "AND applicationstartdate >= '2021-01-01T00:00:00'",
+    ),
     Dataset("community_areas", CHICAGO, "igwz-8jzy", "area_numbe,community,the_geom"),
     Dataset("tracts_2010", CHICAGO, "74p9-q2aq", "geoid10,commarea,the_geom"),
     Dataset("tracts_2020", CHICAGO, "7qjk-677h", "tract_fips,tract_ce,commarea,the_geom"),
@@ -878,6 +891,36 @@ def build() -> None:
         WHERE try_cast(applicationstartdate AS TIMESTAMP) IS NOT NULL
     """)
 
+    print("build block_party_hosts")
+    con.execute(f"""
+        CREATE TABLE block_party_hosts AS
+        SELECT applicationnumber AS permit_no, applicationstatus AS status,
+            try_cast(applicationstartdate AS TIMESTAMP)::DATE AS start_date,
+            try_cast(applicationenddate AS TIMESTAMP)::DATE AS end_date,
+            try_cast(applicationprocesseddate AS TIMESTAMP)::DATE AS processed_date,
+            try_cast(applicationissueddate AS TIMESTAMP)::DATE AS issue_date,
+            applicationname AS event_name,
+            nullif(trim(coalesce(primarycontactfirst, '') || ' ' || coalesce(primarycontactlast, '')), '')
+                AS host_name,
+            nullif(trim(coalesce(primarycontactstreet, '') || ' ' || coalesce(primarycontactstreet2, '')), '')
+                AS host_street,
+            primarycontactcity AS host_city, primarycontactstate AS host_state,
+            left(primarycontactzip, 5) AS host_zip,
+            {
+        address_key_sql(
+            "coalesce(streetnumberfrom, '') || ' ' || coalesce(direction, '') || ' ' || "
+            "coalesce(streetname, '') || ' ' || coalesce(suffix, '')"
+        )
+    } AS block_key,
+            trim(coalesce(streetnumberfrom, '') || '-' || coalesce(streetnumberto, '') || ' '
+                || coalesce(direction, '') || ' ' || coalesce(streetname, '') || ' ' || coalesce(suffix, ''))
+                AS block,
+            try_cast(ward AS INTEGER) AS ward,
+            try_cast(latitude AS DOUBLE) AS lat, try_cast(longitude AS DOUBLE) AS lon
+        FROM {_csv("block_party_hosts")}
+        WHERE try_cast(applicationstartdate AS TIMESTAMP) IS NOT NULL
+    """)
+
     print("build biz_owners")
     con.execute(f"""
         CREATE TABLE biz_owners AS
@@ -960,6 +1003,7 @@ def build() -> None:
         "park_events",
         "dumpster_permits",
         "street_events",
+        "block_party_hosts",
         *(["zoning_changes"] if zoning_json else []),
     ):
         n = con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
