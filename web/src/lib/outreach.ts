@@ -114,7 +114,7 @@ function firstTouch(lead: Lead, ws: Workspace, snap: Snapshot, areaName: string 
         `${business} is a private contractor and is not affiliated with the City of Chicago. To stop receiving mail from us, call ${phone}.`,
       ].join("\n"),
       compliance: [
-        "Mail only for individual owners; don't cold-call or text personal numbers.",
+        "Individual owners: mail first. Call or text only a number from a marketing-permitted provider that passed a Do Not Call scrub, by hand, 9:00-20:00; no autodialer or recorded voice.",
         "Keep the not-a-bill box at the top (14-point bold, outlined), the license number, the not-affiliated line and the opt-out.",
       ],
     };
@@ -142,8 +142,8 @@ function firstTouch(lead: Lead, ws: Workspace, snap: Snapshot, areaName: string 
       ].join("\n"),
       compliance: [
         company
-          ? "Company-owned: business-to-business mail or email to a business contact is fine; call a business line, not a personal cell."
-          : "Mail only for individual owners; don't cold-call or text personal numbers.",
+          ? "Company-owned: business-to-business mail or email to a business contact is fine; call the business line by hand."
+          : "Individual owners: mail first. Call or text only a number from a marketing-permitted provider that passed a Do Not Call scrub, by hand, 9:00-20:00; no autodialer or recorded voice.",
         "Keep the not-a-bill box at the top (14-point bold, outlined), the license number, the not-affiliated line and the opt-out.",
         "Don't mention the restaurant, its closing or any inspection or public record; the letter stands on its own offer to prepare the space.",
         "Pilot list: the contractor audience is unproven, so record outcomes for every lead you work.",
@@ -169,7 +169,7 @@ function firstTouch(lead: Lead, ws: Workspace, snap: Snapshot, areaName: string 
         `${business} is a private contractor and is not affiliated with the City of Chicago. To stop receiving mail from us, call ${phone}.`,
       ].join("\n"),
       compliance: [
-        "Mail only for individual owners; don't cold-call or text personal numbers.",
+        "Individual owners: mail first. Call or text only a number from a marketing-permitted provider that passed a Do Not Call scrub, by hand, 9:00-20:00; no autodialer or recorded voice.",
         "Keep the not-a-bill box at the top (14-point bold, outlined), the license number, the not-affiliated line and the opt-out.",
         "Don't mention the 311 report or the property's records; the letter stands on its own offer.",
       ],

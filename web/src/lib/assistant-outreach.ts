@@ -597,15 +597,7 @@ async function leadCallBrief(ctx: ToolContext, leadId: string) {
   const lead = snap.leads.find((l) => l.id === leadId);
   if (!lead) return { error: "No lead with that id in this week's data" };
   const link = leadLink(lead.id);
-  if (lead.owner.type !== "company") {
-    return {
-      refused: true,
-      reason:
-        "This property belongs to an individual owner. Individual homeowners get mail only: no cold calls and no texts. Use draft_email with this lead_id for the letter instead.",
-      alternative: "draft_email",
-      for: { lead_id: lead.id, link, owner_type: lead.owner.type },
-    };
-  }
+  const individual = lead.owner.type !== "company";
 
   const contacts = await getLeadContacts(lead.id);
   const business = ws.businessName || "[Your company]";
@@ -617,7 +609,7 @@ async function leadCallBrief(ctx: ToolContext, leadId: string) {
   const phoneOnFile = Boolean(contacts?.phones.length);
 
   return {
-    for: { lead_id: lead.id, address: lead.address, link, owner_type: "company", company },
+    for: { lead_id: lead.id, address: lead.address, link, owner_type: lead.owner.type, company },
     facts: {
       address: lead.address,
       neighborhood: area,
@@ -632,17 +624,27 @@ async function leadCallBrief(ctx: ToolContext, leadId: string) {
     contact: {
       phone_on_file: phoneOnFile,
       email_on_file: Boolean(contacts?.emails.length),
-      note: "Flags mean a suggestion from public sources exists. Find and verify the company's published business line on the lead page; never call a personal cell.",
+      note: individual
+        ? "Individual owner: public records carry no phone. Use a number from a skip-trace provider whose terms allow marketing, scrubbed against the National Do Not Call Registry and our opt-out list within the last 31 days (docs/14 section 8)."
+        : "Flags mean a suggestion from public sources exists. Find and verify the company's published business line on the lead page.",
       see_contact_details_at: link,
     },
-    before_you_dial: [
+    before_you_dial: individual
+      ? [
+          "Only call a number that came from a provider whose terms allow marketing and passed a Do Not Call scrub in the last 31 days; skip any number on our opt-out list.",
+          "Dial by hand between 9:00 and 20:00 Chicago time. No autodialer, no recorded or AI voice; texts the same way, one at a time.",
+          "Open with your name, company and why you are calling, then ask if they want to continue (Illinois Telephone Solicitations Act). Stop and add them to the opt-out list if they say no.",
+        ]
+      : [
       phoneOnFile
         ? `A public-source phone suggestion is on the lead page (${link}). Verify it is the company's business line (website or Google profile) first.`
         : `No phone suggestion exists. Find the company's published business line (website, Google Business Profile or the state registry), or send mail instead.`,
       company ? `Ask for someone who handles properties at ${company}.` : "The owner's name isn't in the records: ask for whoever handles the property.",
-    ],
+        ],
     must_not_mention: [...pitch.mustNotMention, "any City affiliation"],
-    opening_statement: `Hi, ${company ? `is this someone at ${company}?` : `I'm looking for whoever handles ${lead.address}.`} This is [Your name] with ${business}, a Chicago ${snap.trades[ws.trade].label.toLowerCase()} contractor. Do you have a minute?`,
+    opening_statement: individual
+      ? `Hi, this is [Your name] with ${business}, a Chicago ${snap.trades[ws.trade].label.toLowerCase()} contractor. I'm calling about ${lead.address} to offer a written estimate. Is it OK if I take a minute?`
+      : `Hi, ${company ? `is this someone at ${company}?` : `I'm looking for whoever handles ${lead.address}.`} This is [Your name] with ${business}, a Chicago ${snap.trades[ws.trade].label.toLowerCase()} contractor. Do you have a minute?`,
     reason_for_calling: pitch.reason,
     discovery_questions: [
       `Who makes the decisions about repairs and contractors for ${lead.address}?`,
@@ -680,7 +682,7 @@ async function leadCallBrief(ctx: ToolContext, leadId: string) {
       "The goal is a yes to a free walk-through or a written estimate, not a sale. Propose a day to look at the property. Afterward set the lead's status (Contacted, Meeting booked, Lost or Not relevant) and a note on the lead page.",
     compliance_reminders: [
       ...CALL_RULES,
-      "Company-owned properties only: individual homeowners get mail only, never a cold call or text.",
+      "Individual owners: only a skip-traced number from a provider that allows marketing, scrubbed against Do Not Call within 31 days and not on our opt-out list; hand-dialed, 9:00-20:00.",
       "Only promise what the business can deliver, such as an inspection date or a quote turnaround.",
     ],
     requires_human_dial: true,

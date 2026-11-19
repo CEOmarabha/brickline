@@ -139,7 +139,7 @@ export const TOOL_DEFS = [
   {
     name: "call_brief",
     description:
-      "Preparation for a call the founder dials himself to a published business line: opening statement, reason for calling grounded in the data, discovery questions, likely objections with honest answers, suggested next step and compliance reminders. Pass prospect_id (a contractor he pitches) or lead_id (company-owned properties only). Refuses for individual homeowners (mail only) and for prospects marked Not interested. The assistant never places calls.",
+      "Preparation for a call the founder dials himself to a published business line: opening statement, reason for calling grounded in the data, discovery questions, likely objections with honest answers, suggested next step and compliance reminders. Pass prospect_id (a contractor he pitches) or lead_id. For individual homeowners the brief requires a skip-traced number that passed a Do Not Call scrub, hand-dialed. Refuses for prospects marked Not interested. The assistant never places calls.",
     input_schema: {
       type: "object",
       properties: {

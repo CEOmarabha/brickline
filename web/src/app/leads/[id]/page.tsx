@@ -463,7 +463,10 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
               </div>
             )}
             {lead.owner.type === "individual" && (
-              <p className="text-xs text-muted-foreground">Individual owner: reach out by mail.</p>
+              <p className="text-xs text-muted-foreground">
+                Individual owner: mail first. Phone or text only with a skip-traced number that passed a Do Not Call
+                scrub, dialed by hand.
+              </p>
             )}
             {companyName && (
               <a

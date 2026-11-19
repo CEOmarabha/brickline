@@ -74,14 +74,25 @@ Goal: the strongest compliant contact on as many leads as possible. Question eve
 
 **D. Compliance spine.** Re-read `docs/14` §8 and write the exact rules for each channel we will use (letter, email, manual call to a business line, social message by hand), plus what the vendor agreement must say about contacting owners, honoring opt-outs and the Home Repair and Remodeling Act. Flag every place where the rules disagree with what is technically possible, and what is out of bounds (§6).
 
-## 6. Rules that do not bend (carry these into every plan)
+## 6. Rules (revised 2026-11-18 by the founder, D-027: full pursuit, down to the legal floor)
 
-- Numbers come from data, never guesses; confirmed vs inferred stays explicit; every suggestion shows its source and date.
-- Humans approve all outreach. No autodialed, prerecorded or AI calls or texts; manual calls to business lines only; letters never imitate the City; no owner names in prospecting material.
-- No pattern-guessed emails, no personal social-media profile collection, no purchased or harvested lists, no scraping against a site's terms or robots.txt, no work around a 403 (note it and retry from the founder's network).
-- Do not store personal phones/emails in shipped files; the app's data files can be served publicly until client logins land (HANDOFF task 5). Probe outputs hold aggregate counts only.
-- The founder decided: free contact data only for now. Paid providers may be researched and recommended, not bought.
-- Keep every lead rate labelled a historical proxy until pilots measure wins.
+The founder removed every self-imposed limit on whom we contact and how. What remains is the law and data security; each item says why, because breaking it costs more than it earns.
+
+**Allowed now (were self-imposed limits):**
+- Individual owners and private event hosts (block-party hosts included) are leads like any other: letters, door hangers, and hand-dialed calls or one-to-one texts.
+- Paid data: skip tracing and contact providers may be bought, from providers whose terms allow marketing use (e.g. BatchData, PropStream; not TLOxp or IDI, whose terms bar marketing; `docs/18` §5).
+- Block-party applicants' names and mailing addresses are collected (`block_party_hosts`, private lists in `data/private/`).
+- Social media: a human may message individuals who posted publicly about their event, one at a time (D-022).
+- Business emails built from a company's pattern may be used once a hosted verifier confirms them, sent by hand.
+
+**The legal floor (kept):**
+- No autodialed, prerecorded or AI-voice calls and no automated or bulk texts to cell phones without prior express written consent (TCPA: $500–$1,500 per call or text, class actions).
+- Every number is scrubbed against the National Do Not Call Registry (within 31 days) and our opt-out list before a sales call or text; calls 9:00–20:00 (law: 8–21); the caller gives name, company and purpose and asks to continue (Illinois Telephone Solicitations Act); stop on request.
+- Every opt-out on any channel is honored within 10 business days (same day in practice) and kept forever.
+- Letters: the 815 ILCS 505/2PP not-a-bill box, the contractor's license number, no City look. Emails: CAN-SPAM.
+- No scraping against a site's terms or robots.txt and no working around a block (CFAA; Illinois computer tampering, 720 ILCS 5/16D).
+- Private persons' names, addresses and phones stay out of git and the app's shipped data files (served publicly until HANDOFF task 5): `data/private/` or the app's database only. Probe outputs hold counts only.
+- Numbers come from data; confirmed vs inferred stays explicit; humans approve every send; lead rates stay labelled historical proxies.
 
 ## 7. Conversion levers to test (design first, then run) [H]
 

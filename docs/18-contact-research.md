@@ -1,6 +1,6 @@
 # 18 — Contact research: which channels reach our leads, and which are allowed
 
-*v1, 2026-11-18. Answers the research agenda in `docs/17` §5. Labels: **[V]** measured by us on our own leads or read by us from the primary text today; **[V3]** read today from a third-party or vendor page (URL in the notes); **[H]** inference or recommendation. This is desk research, not legal advice: have an Illinois lawyer read one letter template and the vendor agreement before the first paid send (`docs/17` §4.8).*
+*v1, 2026-11-18; the individual-owner verdicts were revised the same evening by the founder (D-027: skip tracing and hand-dialed calls/texts allowed above the legal floor). Answers the research agenda in `docs/17` §5. Labels: **[V]** measured by us on our own leads or read by us from the primary text today; **[V3]** read today from a third-party or vendor page (URL in the notes); **[H]** inference or recommendation. This is desk research, not legal advice: have an Illinois lawyer read one letter template and the vendor agreement before the first paid send (`docs/17` §4.8).*
 
 The full source notes (quotes, URLs, pages that could not be read) are kept in the agent's research notes and summarized here with their key quotes. Every number about our leads comes from `research/findings/contact-enrichment-2026-11-17.md`, `web/data/snapshot.json` (data through 2026-11-17) or a query recorded below.
 
@@ -16,8 +16,8 @@ The full source notes (quotes, URLs, pages that could not be read) are kept in t
 | Business page link (Overture `socials`) | Contractors, company owners | 84 prospects (6.2%), 27 company owners | Storing the URL: yes; a human messaging a business page by hand: likely yes | **Use by hand only** |
 | Illinois SOS bulk LLC/corporation files | Company owners (managers, agents, addresses; no phone/email) | Not tested: entity search returns 403 from the cloud VM | Open data by statute; website forbids automated queries | **Use**: founder downloads by hand monthly |
 | Board of Review appeal attorneys (`7pny-nedm`) | — | 792 of 2,353 investor-lead parcels had an appeal since tax year 2023, but the appellant is the new buyer on 1 | — | **Dead end** (appeals are filed by the previous owner) |
-| Paid providers (Apollo, Snov, Hunter, Google Places, Yelp) | Contractors | Not tested (founder decision: free data only) | Apollo/Snov/Places/Yelp forbid storing or passing data on | **Do not use**; Hunter "Found" only: research more |
-| Skip tracing, homeowner calls, texts, emails | Individual owners | No homeowner phone/email exists in open data | Marketing barred by GLBA/DPPA-sourced data; TCPA/ITSA risk | **Do not use** |
+| Paid providers (Apollo, Snov, Hunter, Google Places, Yelp) | Contractors | Not tested | Apollo/Snov/Places/Yelp forbid storing or passing data on | **Do not use** those four; Hunter "Found" only: allowed since D-027, test on unmatched best-fit prospects |
+| Skip tracing, then hand-dialed calls or one-to-one texts | Individual owners and event hosts | No homeowner phone/email exists in open data | **Revised 2026-11-18 (D-027):** allowed with providers whose terms permit marketing (BatchData, PropStream; not TLOxp/IDI), after a Do Not Call scrub; no autodialer, recorded voice or bulk texts | **Use**, under `docs/14` §8 |
 | Scraping social platforms | — | — | Forbidden by terms; case law contested | **Do not use** |
 | Ad audiences from our owner lists (Meta, Google Customer Match) | Owners | — | Not first-party data | **Do not use** |
 | Hosted email verification | Published business emails only | — | Low risk via a hosted service; never for guessed addresses | **Use by hand only** |

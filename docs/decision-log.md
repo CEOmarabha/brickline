@@ -148,3 +148,10 @@
 - **Decision:** Every conversion experiment assigns arms by a hash of the experiment name and lead id (`docs/19`), so assignment is reproducible offline and nobody overrides it. The letter holdout is a per-workspace setting (default off), measured by permits at the address within 365 days.
 - **Evidence:** Historical rates cannot show what a letter adds; sample sizes in `docs/19` (about 3,200 leads to see +5 points).
 - **Reverse if:** Volume stays too low to read a result within a year (then drop the holdout and rely on reply rates).
+
+### D-027 — Full pursuit down to the legal floor (supersedes the "free data only" decision and the owner-contact parts of D-024)
+- **Status:** Accepted 2026-11-18 (founder decision).
+- **Decision:** Every lead is pursued, including individual owners and private event hosts: letters, door hangers, hand-dialed calls and one-to-one texts; paid skip tracing and contact data from providers whose terms allow marketing; block-party applicants' names and mailing addresses are collected into private lists. Only legal and security limits remain: no autodialed, prerecorded or AI calls or bulk texts without written consent; Do Not Call scrub and opt-outs honored; 2PP box and license number on letters; CAN-SPAM; no scraping against terms or working around blocks; private persons' data kept out of git and shipped files.
+- **Evidence:** `docs/18` §5 (TCPA $500-$1,500 per call or text; provider terms); block-party backtest: 77.8% of blocks with a party in all three prior summers held one again (`research/findings/private-lists-2026-11-17.md`).
+- **Reverse if:** A complaint, carrier block or legal advice shows a channel is costing more than it earns.
+
