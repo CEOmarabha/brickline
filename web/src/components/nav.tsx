@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Bot, Briefcase, Building2, FileText, Handshake, LayoutDashboard, ListChecks, Map, MenuIcon, Network, PartyPopper, Settings, Target, Trophy } from "lucide-react";
+import { BarChart3, Bot, Briefcase, Building2, CalendarDays, FileText, Handshake, LayoutDashboard, ListChecks, Map, MenuIcon, Network, PartyPopper, Settings, Target, Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, Suspense, useState } from "react";
@@ -12,6 +12,7 @@ const ITEMS: { href: string; label: string; icon: typeof Map; section?: string }
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: ListChecks },
   { href: "/events", label: "Events", icon: PartyPopper },
+  { href: "/event-board", label: "Event board", icon: CalendarDays },
   { href: "/assistant", label: "Assistant", icon: Bot },
   { href: "/areas", label: "Neighborhoods", icon: Map },
   { href: "/market", label: "Market & competitors", icon: Trophy },

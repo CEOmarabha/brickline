@@ -25,7 +25,7 @@ The catalog lives in code (`engine/leads/lifecycles.py`, 17 lifecycles, 132 serv
 | Block party | 4,786 | Median 32 days ahead; repeat blocks a year ahead |
 | Street festival, parade or race | 2,265 | Festivals a median 59 days ahead; recurring series a season ahead |
 | Wedding or party at a Park District venue | 388 | Late in open data; venues know months ahead |
-| Organization event with a food or liquor license | 620 | Median 6 days; repeat holders a year ahead |
+| Fair or fundraiser with one-day food and drink licenses | 620 | Median 6 days; repeat vendors a year ahead |
 | Grand opening of a new business | 342 open spaces now | Median 157 days from build-out permit to license |
 | New building, zoning to move-in | 1,559 new-construction permits | Zoning ~10 months before the permit |
 | Investor buys, rehabs, resells or rents | 2,424 open leads | Days after recording |
@@ -71,7 +71,10 @@ Each storyline is a lifecycle in the code. "Where we come in" is the entry point
 - *Where we come in:* partner with the venues (543 venues in Chicago); they know dates months ahead.
 - *Who pays:* florists (646), linen and laundry services (177), photographers (679), bakeries (631).
 
-**Organization fair or fundraiser with a one-day food or liquor license.** Churches, schools, chambers and clubs. The license appears days ahead, but **393 organizations** held one in at least two of the last three years, each with a usual month. Contact them a month or two before that month (list in `data/private/`).
+**Fair or fundraiser with one-day food and drink licenses.** The license appears only days ahead, and most holders are vendors, not hosts.
+- Of **393** that held one in at least two of the last three years: 291 are restaurants, 44 food trucks, 35 bars or breweries, and only 23 are organizers.
+- They are vendors to recruit: they want to know about events, so they can buy the event calendar or take bookings through us.
+- 142 of the 393 have a public phone, website or email (Overture).
 
 **Grand opening.** A build-out permit predicts a new business about 5 months later (H33). Before opening: signs, post-construction cleaning, internet, furniture, insurance, alarm. At opening: balloons, flowers, catering, photos. After: janitorial and pest-control contracts.
 
@@ -116,13 +119,23 @@ Each storyline is a lifecycle in the code. "Where we come in" is the entry point
 - **Property:** solar installs (neighbors of past solar permits, H01), roof replacement cycles, porch and deck inspections (311), tuckpointing on pre-1910 masonry (H13), tree work after storms, fencing after sales, ADU builds (preapprovals, retest 2027), condo-association projects (big permits on condo parcels).
 - **Business:** new-business insurance, POS and payments, uniforms, office furniture, signage (H33 buyers), fire-extinguisher and alarm inspections for new licenses, waste hauling contracts for new restaurants, commercial brokers for closures.
 
-## 7. How to work the private lists (D-027)
+## 7. The Event board and the private lists (D-027)
+
+The app's **Event board** (`/event-board`) shows every upcoming event (block parties with host name and mailing address, festivals, parades, races, markets, Park District events, park weddings and private parties) and the 2,919 likely 2027 block parties ranked by repeat chance. For each event it shows:
+
+- the host type (private person, ward office, organization), with public contacts;
+- the alderman's office for the ward;
+- the jobs on a dated timeline (stage windows counted back from the event date);
+- partner companies per job;
+- a skip-trace panel: cost, expected numbers found and numbers left after the Do Not Call scrub, for the hosts on the current filter.
+
+The CSV lists below stay in `data/private/` for offline work.
 
 `uv run python -m engine.leads.hosts` writes three files to `data/private/` (never committed or shipped):
 
 - `block-party-upcoming-<date>.csv`: parties in the next 90 days, with host name, mailing address, block, ward, the services that event buys, and the channel.
 - `block-party-likely-<season>-<date>.csv`: blocks likely to host next season. The `past_seasons` column (2 or 3) ranks them: 3 means about a 78% repeat rate, 2 about 47%.
-- `repeat-event-organizations-<date>.csv`: organizations with one-day food or liquor licenses in 2+ of the last 3 years, with their usual month.
+- `repeat-event-vendors-<date>.csv`: restaurants, trucks and bars (and 23 organizers) with one-day food or liquor licenses in 2+ of the last 3 years, with their usual month.
 
 Sequence for a host [H]:
 1. A letter or door hanger in April–May, with the not-a-bill box and a reference code, offering a block-party package from a named partner.

@@ -272,16 +272,18 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
     Lifecycle(
         "org_special_event",
         "events",
-        "Organization event with a food or liquor license",
-        "Churches, chambers, schools and clubs take a one-day Special Event Food or Liquor license for their fairs "
-        "and fundraisers. The license itself shows up only days ahead, but about half the holders do it again the "
-        "next year, so their usual month is predictable and the organization is named.",
+        "Fair or fundraiser with one-day food and drink licenses",
+        "Fairs, church festivals and fundraisers bring in vendors who each take a one-day Special Event Food or "
+        "Liquor license. The license shows up only days ahead, and most holders are the vendors themselves: of 393 "
+        "that held one in 2+ of the last 3 years, 291 are restaurants, 44 food trucks and 35 bars or breweries; 23 "
+        "are organizers. So this list is mostly partners to recruit (they want the event calendar), and the events "
+        "themselves come from the festival permits.",
         "City Special Event Food and Special Event Liquor licenses",
         "Chicago business licenses r5kz-chrr",
         "special_event",
-        "License a median 6 days ahead; repeat holders known a year ahead",
-        "The organization named on the license",
-        "Business phone, email or website (organizations)",
+        "License a median 6 days ahead; repeat vendors known a year ahead",
+        "The vendor (restaurant, truck, bar) and the event organizer",
+        "Business phone, email or website",
         (
             Stage(
                 "Planning",
@@ -869,6 +871,27 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
     ),
 )
 
+# Stage timing in days relative to the event or trigger date (negative = before), for dated timelines on the
+# event board. Event lifecycles only; [H] industry rules of thumb, not measured.
+STAGE_OFFSETS: dict[tuple[str, str], tuple[int, int]] = {
+    ("block_party", "Planning"): (-42, -28),
+    ("block_party", "Rentals and food"): (-14, -7),
+    ("block_party", "Day of"): (0, 0),
+    ("block_party", "After"): (1, 1),
+    ("street_festival", "Production"): (-90, -30),
+    ("street_festival", "Site services"): (-7, 0),
+    ("street_festival", "After"): (1, 2),
+    ("park_wedding", "Planning"): (-270, -90),
+    ("park_wedding", "Day of"): (0, 0),
+    ("park_wedding", "After"): (1, 1),
+    ("org_special_event", "Planning"): (-60, -30),
+    ("org_special_event", "Day of"): (0, 0),
+    ("org_special_event", "After"): (1, 1),
+    ("grand_opening", "Pre-opening"): (-150, -30),
+    ("grand_opening", "Opening event"): (-7, 0),
+    ("grand_opening", "Running"): (30, 90),
+}
+
 # Volumes: how often each trigger happened in the 365 days before its source's newest record.
 VOLUME_SQL: dict[str, str] = {
     "block_party": """SELECT count(*) FROM street_events WHERE worktype = 'BlockParty'
@@ -1012,6 +1035,9 @@ def build(con, snap: dict | None) -> dict:
                     {
                         "name": st.name,
                         "when": st.when,
+                        "offsetDays": list(STAGE_OFFSETS[(lc.id, st.name)])
+                        if (lc.id, st.name) in STAGE_OFFSETS
+                        else None,
                         "services": [
                             {
                                 "name": sv.name,

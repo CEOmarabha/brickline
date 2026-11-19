@@ -107,9 +107,9 @@ CONTACT_NOTE = (
     "contacts."
 )
 BLOCK_PARTY_NOTE = (
-    "Block parties are filed by residents, so the permit data names no business to contact and this list keeps no "
-    "applicant data. Reach them with door hangers or flyers on the block a few weeks before the date, not by "
-    "personal contact."
+    "Block parties are filed by residents. This list shows only the block and date; the host's name and mailing "
+    "address are on the Event board (/event-board). Send a letter or door hanger a few weeks before the date; call or "
+    "text only a skip-traced number that passed a Do Not Call scrub (D-027)."
 )
 PRIVACY_NOTE = (
     "Applicants who are individuals are never stored or shown. An organizer name appears only when it looks like an "

@@ -1,4 +1,4 @@
-"""Private outreach lists: block-party hosts and repeat event organizations (D-027).
+"""Private outreach lists: block-party hosts and repeat event food and drink vendors (D-027).
 
     uv run python -m engine.leads.hosts
 
@@ -8,8 +8,9 @@ app) and the findings file holds counts. Two lists:
   * block-party hosts: parties starting in the next 90 days (host name and mailing address from the CDOT
     application), and blocks likely to hold one next season (a party in at least 2 of the last 3 seasons and no
     permit yet), with the month of their last party. The rule is backtested on the season before.
-  * repeat event organizations: holders of Special Event Food/Liquor licenses in at least 2 of the last 3 years,
-    with their usual month and the license address.
+  * repeat event vendors: holders of Special Event Food/Liquor licenses in at least 2 of the last 3 years, with
+    their usual month and the license address. On the 2026-11-17 data 370 of 393 are restaurants, food trucks and
+    bars that sell at fairs (vendors to recruit and sell the event calendar to); 23 are organizers.
 
 Every row carries the services that event usually buys (engine/leads/lifecycles.py) and the allowed channel: mail
 or door hanger to anyone; a manual call or text only to a number from a provider whose terms allow marketing,
@@ -141,10 +142,10 @@ def main() -> int:
     write_csv(PRIVATE / f"block-party-upcoming-{as_of}.csv", upcoming, block_extra)
     write_csv(PRIVATE / f"block-party-likely-{target}-{as_of}.csv", likely, block_extra)
     write_csv(
-        PRIVATE / f"repeat-event-organizations-{as_of}.csv",
+        PRIVATE / f"repeat-event-vendors-{as_of}.csv",
         orgs,
         {
-            "services": services_for("org_special_event"),
+            "services": "Sells food or drink at events: offer the event calendar and bookings",
             "channel": "Business phone, email or website; letter",
         },
     )
@@ -158,7 +159,8 @@ def main() -> int:
         f"on {sum(1 for r in upcoming if r['host_street']):,}).",
         f"- Blocks likely to hold a party in {target} (parties in at least 2 of {past[0]}-{past[-1]}, no permit yet): "
         f"{len(likely):,}.",
-        f"- Repeat event organizations (Special Event Food/Liquor licenses in 2+ of the last 3 years): {len(orgs):,}.",
+        f"- Repeat event food and drink vendors (Special Event Food/Liquor licenses in 2+ of the last 3 years): "
+        f"{len(orgs):,} (most are restaurants, food trucks and bars).",
         "",
         f"## Backtest: share of blocks holding a party in {target - 1}, by how many of {target - 4}-{target - 2} "
         "they held one",
