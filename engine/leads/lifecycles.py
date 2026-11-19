@@ -8,8 +8,9 @@ lifecycle this module measures, from the warehouse, how often the trigger happen
 service, how many Chicago businesses Overture lists in matching categories (the companies to connect or sell to)
 and, where public data shows it, how often the job is already covered by a named company (the incumbent).
 
-Writes web/data/lifecycles.json (the app's /opportunities page; counts and descriptions only, no names) and
-research/findings/lifecycles-<as-of>.md. Read-only on the warehouse; deterministic. docs/20 tells the stories.
+Writes web/data/lifecycles.json (the app's /opportunities page and the "Possible jobs" panel on every lead, event
+and linked deal; counts and descriptions only, no names) and research/findings/lifecycles-<as-of>.md. Read-only on
+the warehouse; deterministic. docs/20 tells the stories.
 """
 
 from __future__ import annotations
@@ -112,6 +113,7 @@ class Service:
     vendor: str  # key in VENDORS
     incumbent: str = "Not visible in public data: ask, or offer to match the current provider."
     metric: str | None = None  # key in measured incumbent metrics
+    trades: tuple[str, ...] = ()  # snapshot trade keys whose chance of work on a lead measures this job
 
 
 @dataclass(frozen=True)
@@ -136,6 +138,7 @@ class Lifecycle:
     stages: tuple[Stage, ...]
     app_link: str | None = None
     tags: tuple[str, ...] = field(default_factory=tuple)
+    lead_kinds: tuple[str, ...] = ()  # snapshot lead kinds that start it; the app shows it on those leads
 
 
 S = Service
@@ -473,8 +476,22 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
                         "gc",
                         "Named on the permit; 31% of buyers name a GC they used before.",
                         "renovation:gc",
+                        trades=("general",),
                     ),
-                    S("Electrical, plumbing, HVAC", "electrical", NAMED_ON_PERMIT, "renovation:electrical"),
+                    S(
+                        "Electrical, plumbing, HVAC",
+                        "electrical",
+                        NAMED_ON_PERMIT,
+                        "renovation:electrical",
+                        trades=("electrical", "plumbing"),
+                    ),
+                    S(
+                        "Porch, masonry or roofing contractor",
+                        "masonry",
+                        NAMED_ON_PERMIT,
+                        "renovation:masonry",
+                        trades=("porch", "masonry", "roofing"),
+                    ),
                     S("Paint and flooring", "finishes"),
                     S(
                         "Dumpster",
@@ -497,6 +514,7 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
         ),
         app_link="/leads",
         tags=("organization", "proven signal"),
+        lead_kinds=("investor_purchase",),
     ),
     Lifecycle(
         "code_repair",
@@ -534,8 +552,9 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
                         "masonry",
                         NAMED_ON_PERMIT,
                         "renovation:masonry",
+                        trades=("porch", "masonry", "roofing"),
                     ),
-                    S("General contractor", "gc", NAMED_ON_PERMIT, "renovation:gc"),
+                    S("General contractor", "gc", NAMED_ON_PERMIT, "renovation:gc", trades=("general",)),
                     S("Dumpster", "junk_dumpster"),
                 ),
             ),
@@ -543,6 +562,7 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
         ),
         app_link="/leads",
         tags=("private host", "proven signal"),
+        lead_kinds=("violation", "complaint", "porch_request"),
     ),
     Lifecycle(
         "vacant_building",
@@ -571,6 +591,7 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
         ),
         app_link="/leads",
         tags=("proven signal",),
+        lead_kinds=("vacant",),
     ),
     Lifecycle(
         "home_sale",
@@ -684,13 +705,14 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
                 "Next tenant",
                 "months 1-12",
                 (
-                    S("Build-out GC", "gc", NAMED_ON_PERMIT, "renovation:gc"),
+                    S("Build-out GC", "gc", NAMED_ON_PERMIT, "renovation:gc", trades=("general",)),
                     S("Kitchen equipment", "kitchen_equipment"),
                 ),
             ),
         ),
         app_link="/commercial",
         tags=("proven signal",),
+        lead_kinds=("closed_restaurant",),
     ),
     Lifecycle(
         "business_move",
@@ -871,8 +893,9 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
     ),
 )
 
-# Stage timing in days relative to the event or trigger date (negative = before), for dated timelines on the
-# event board. Event lifecycles only; [H] industry rules of thumb, not measured.
+# Stage timing in days relative to the event date (event lifecycles, negative = before) or the trigger date
+# (lifecycles that leads start: the lead's signal date), for dated timelines on the event board and lead pages.
+# [H] industry rules of thumb read off each stage's `when`, not measured.
 STAGE_OFFSETS: dict[tuple[str, str], tuple[int, int]] = {
     ("block_party", "Planning"): (-42, -28),
     ("block_party", "Rentals and food"): (-14, -7),
@@ -890,6 +913,16 @@ STAGE_OFFSETS: dict[tuple[str, str], tuple[int, int]] = {
     ("grand_opening", "Pre-opening"): (-150, -30),
     ("grand_opening", "Opening event"): (-7, 0),
     ("grand_opening", "Running"): (30, 90),
+    ("investor_rehab", "Takeover"): (0, 28),
+    ("investor_rehab", "Rehab"): (30, 180),
+    ("investor_rehab", "Exit"): (120, 270),
+    ("code_repair", "Diagnosis"): (0, 28),
+    ("code_repair", "Repair"): (30, 180),
+    ("code_repair", "After"): (180, 240),
+    ("vacant_building", "Securing"): (0, 56),
+    ("vacant_building", "Sale"): (60, 365),
+    ("restaurant_closure", "Turnover"): (0, 56),
+    ("restaurant_closure", "Next tenant"): (30, 365),
 }
 
 # Volumes: how often each trigger happened in the 365 days before its source's newest record.
@@ -1010,6 +1043,9 @@ def measure_volumes(con, snap: dict | None) -> dict[str, int | None]:
 
 
 def build(con, snap: dict | None) -> dict:
+    kinds = [k for lc in LIFECYCLES for k in lc.lead_kinds]
+    if len(kinds) != len(set(kinds)):
+        raise ValueError("each lead kind may start only one lifecycle")
     vendors = measure_vendors(con)
     incumbents = measure_incumbents(con)
     volumes = measure_volumes(con, snap)
@@ -1031,6 +1067,7 @@ def build(con, snap: dict | None) -> dict:
                 "reach": lc.reach,
                 "appLink": lc.app_link,
                 "tags": list(lc.tags),
+                "leadKinds": list(lc.lead_kinds),
                 "stages": [
                     {
                         "name": st.name,
@@ -1044,6 +1081,7 @@ def build(con, snap: dict | None) -> dict:
                                 "vendor": sv.vendor,
                                 "incumbent": sv.incumbent,
                                 "incumbentShare": incumbents.get(sv.metric) if sv.metric else None,
+                                "trades": list(sv.trades),
                             }
                             for sv in st.services
                         ],

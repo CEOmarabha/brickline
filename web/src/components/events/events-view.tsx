@@ -13,6 +13,7 @@ import {
   withOrganizer,
   withoutOrganizer,
 } from "@/lib/events";
+import { getEventBoard } from "@/lib/event-board";
 import { count, dateLabel, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { viewerId } from "@/lib/workspace";
@@ -51,7 +52,8 @@ export async function EventsView({
   const narrow = (Array.isArray(sp.notice) ? sp.notice[0] : sp.notice) === "2-8";
   const viewParam = Array.isArray(sp.view) ? sp.view[0] : sp.view;
   const view: RecurringView = viewParam === "next120" || viewParam === "all" ? viewParam : "organizations";
-  const [owner, file] = await Promise.all([viewerId(), getEvents()]);
+  const [owner, file, board] = await Promise.all([viewerId(), getEvents(), getEventBoard()]);
+  const boardIds = new Set(board.events.map((e) => e.id));
 
   if (!file) {
     return (
@@ -122,9 +124,9 @@ export async function EventsView({
           ))}
         </div>
 
-        {tab === "organizations" && <OrganizationsTab file={file} narrow={narrow} basePath={basePath} />}
+        {tab === "organizations" && <OrganizationsTab file={file} narrow={narrow} basePath={basePath} boardIds={boardIds} />}
         {tab === "recurring" && <RecurringTab file={file} view={view} basePath={basePath} />}
-        {tab === "blockparties" && <BlockPartiesTab file={file} />}
+        {tab === "blockparties" && <BlockPartiesTab file={file} boardIds={boardIds} />}
       </section>
 
       <HowToUse file={file} />
@@ -333,7 +335,17 @@ function MonthTable({ title, months }: { title: string; months: EventsFile["cont
   );
 }
 
-function OrganizationsTab({ file, narrow, basePath }: { file: EventsFile; narrow: boolean; basePath: string }) {
+function OrganizationsTab({
+  file,
+  narrow,
+  basePath,
+  boardIds,
+}: {
+  file: EventsFile;
+  narrow: boolean;
+  basePath: string;
+  boardIds: ReadonlySet<string>;
+}) {
   const all = withOrganizer(file);
   const rows = narrow ? all.filter((e) => inNoticeWindow(e.daysUntil)) : all;
   const rest = withoutOrganizer(file);
@@ -354,7 +366,7 @@ function OrganizationsTab({ file, narrow, basePath }: { file: EventsFile; narrow
         Organizations running events in the next {file.windowDays} days{" "}
         <span className="text-sm font-normal text-muted-foreground">({count(rows.length)} events)</span>
       </h2>
-      <UpcomingTable rows={rows} />
+      <UpcomingTable rows={rows} boardIds={boardIds} />
       <p className="text-xs text-muted-foreground">
         Contact suggestions: {count(stats.withSuggestion)} of {count(stats.organizations)} distinct organizations here have a
         public listing match ({count(stats.withPhoneWebsiteOrEmail)} with a phone, website or generic email). {file.contactMatch.note}
@@ -369,7 +381,7 @@ function OrganizationsTab({ file, narrow, basePath }: { file: EventsFile; narrow
               Filed by an individual, with an ambiguous name, or from the Park District feed, which does not publish
               organizers. These are shown for context only: there is no one to contact from this data.
             </p>
-            <UpcomingTable rows={rest} />
+            <UpcomingTable rows={rest} boardIds={boardIds} />
           </div>
         </details>
       )}
@@ -444,7 +456,7 @@ function RecurringTab({ file, view, basePath }: { file: EventsFile; view: Recurr
   );
 }
 
-function BlockPartiesTab({ file }: { file: EventsFile }) {
+function BlockPartiesTab({ file, boardIds }: { file: EventsFile; boardIds: ReadonlySet<string> }) {
   const b = file.blockParties;
   const weeks = b.byWeek.filter((w) => w.parties > 0);
   return (
@@ -485,7 +497,7 @@ function BlockPartiesTab({ file }: { file: EventsFile }) {
               </div>
             </div>
           </div>
-          <BlockPartyTable rows={b.items.slice(0, BLOCK_ROWS_SHOWN)} />
+          <BlockPartyTable rows={b.items.slice(0, BLOCK_ROWS_SHOWN)} boardIds={boardIds} />
           {b.items.length > BLOCK_ROWS_SHOWN && (
             <p className="text-xs text-muted-foreground">
               Showing the first {count(BLOCK_ROWS_SHOWN)} by date; the full list is in the block parties CSV.

@@ -14,13 +14,17 @@ import {
   DealStatusSection,
 } from "@/components/deal-panel";
 import { EmptyState, PageHeader } from "@/components/bits";
+import { PossibleJobsCard } from "@/components/possible-jobs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getDeal, getDealHistory, getDeals, getPartners } from "@/lib/deal-store";
 import { BUYER_TYPE_LABEL, DEAL_SOURCE_LABEL, daysUntilLabel, matchesOptedOutContact } from "@/lib/deals";
+import { getEventBoard } from "@/lib/event-board";
 import { dateLabel, dateTimeLabel } from "@/lib/format";
+import { getLifecycles } from "@/lib/lifecycles";
 import { isHttpUrl } from "@/lib/links";
 import { todayChicago } from "@/lib/pipeline";
+import { eventJobs, findBoardEvent, type JobsPlan, leadJobs } from "@/lib/possible-jobs";
 import { getSnapshot } from "@/lib/snapshot";
 import { getWorkspace, viewerId } from "@/lib/workspace";
 
@@ -60,13 +64,15 @@ async function DealDetail({ params }: { params: PageProps<"/deals/[id]">["params
   } catch {
     notFound();
   }
-  const [deal, history, partners, allDeals, ws, snap] = await Promise.all([
+  const [deal, history, partners, allDeals, ws, snap, board, lifecycles] = await Promise.all([
     getDeal(owner, id),
     getDealHistory(owner, id),
     getPartners(owner),
     getDeals(owner),
     getWorkspace(),
     getSnapshot(),
+    getEventBoard(),
+    getLifecycles(),
   ]);
   if (!deal) notFound();
   const matchesOptedOut = matchesOptedOutContact(deal, allDeals);
@@ -96,10 +102,18 @@ async function DealDetail({ params }: { params: PageProps<"/deals/[id]">["params
     nextFollowUp: deal.nextFollowUp,
     notes: deal.notes,
   };
-  const leadLink =
-    deal.sourceRef !== "" && !isHttpUrl(deal.sourceRef) && snap.leads.some((l) => l.id === deal.sourceRef)
-      ? `/leads/${encodeURIComponent(deal.sourceRef)}`
-      : null;
+  const internalRef = deal.sourceRef !== "" && !isHttpUrl(deal.sourceRef) ? deal.sourceRef : null;
+  const refLead = internalRef ? snap.leads.find((l) => l.id === internalRef) : undefined;
+  const refEvent = internalRef && !refLead ? findBoardEvent(board, internalRef) : undefined;
+  let refLink: { href: string; label: string } | null = null;
+  let jobs: JobsPlan | null = null;
+  if (refLead) {
+    refLink = { href: `/leads/${encodeURIComponent(refLead.id)}`, label: "Open this lead in Brickline" };
+    jobs = leadJobs(refLead, snap, lifecycles);
+  } else if (refEvent) {
+    refLink = { href: `/event-board/${encodeURIComponent(refEvent.id)}`, label: "Open this event in Brickline" };
+    jobs = eventJobs(refEvent, board, lifecycles);
+  }
   const partnerName = new Map(partners.map((p) => [p.id, p.name]));
   const attachedNames = deal.partnerIds.map((pid) => partnerName.get(pid)).filter((n): n is string => Boolean(n));
 
@@ -140,6 +154,21 @@ async function DealDetail({ params }: { params: PageProps<"/deals/[id]">["params
         </p>
       </header>
 
+      {jobs && refLink && (
+        <PossibleJobsCard
+          plan={jobs}
+          description={
+            <>
+              {jobs.lifecycleName}, from the {refLead ? "lead" : "event"} this deal links to (
+              <Link href={refLink.href} className="underline">
+                open it
+              </Link>
+              ): the jobs you can place with partners, stage by stage.
+            </>
+          }
+        />
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
           <Card>
@@ -163,7 +192,7 @@ async function DealDetail({ params }: { params: PageProps<"/deals/[id]">["params
               <CardDescription>Contact details are private to you and never sent anywhere.</CardDescription>
             </CardHeader>
             <CardContent>
-              <DealDetailsForm key={detailsKey} deal={view} leadLink={leadLink} />
+              <DealDetailsForm key={detailsKey} deal={view} refLink={refLink} />
             </CardContent>
           </Card>
         </div>
