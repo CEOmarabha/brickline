@@ -46,6 +46,8 @@ async function Settings() {
               areas: ws.areas,
               phone: ws.phone,
               mailingAddress: ws.mailingAddress,
+              holdoutPct: ws.holdoutPct,
+              licenseNo: ws.licenseNo,
             }}
             targets={targetOptions(snap.trades)}
             areas={areas}

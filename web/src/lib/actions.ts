@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { type ActionResult, runAction, UserError } from "@/lib/action-result";
 import { multiLine, singleLine } from "@/lib/clean-text";
 import { sql } from "@/lib/db";
+import { HOLDOUT_CHOICES } from "@/lib/experiments";
 import { MAX_JOB_VALUE, parseMoney } from "@/lib/money-input";
 import { getSnapshot, type TradeKey } from "@/lib/snapshot";
 import { isTargetKey, isTradeTarget, type TargetKey } from "@/lib/targets";
@@ -42,13 +43,29 @@ export async function saveWorkspace(formData: FormData): Promise<ActionResult> {
     const businessName = singleLine(formData.get("businessName"), 120, "Company name");
     const phone = singleLine(formData.get("phone"), 40, "Phone");
     const mailingAddress = singleLine(formData.get("mailingAddress"), 200, "Mailing address");
+    const licenseNo = singleLine(formData.get("licenseNo"), 40, "License number");
+    const holdout = Number(formData.get("holdoutPct") ?? 0);
+    if (!HOLDOUT_CHOICES.includes(holdout as (typeof HOLDOUT_CHOICES)[number])) throw new UserError("Unknown holdout share");
     await sql(
-      `insert into workspace (id, owner_id, name, business_name, trade, target, areas, phone, mailing_address, updated_at)
-       values ($1, $2, $3, $3, coalesce($4::text, 'porch'), $5, $6, $7, $8, now())
+      `insert into workspace (id, owner_id, name, business_name, trade, target, areas, phone, mailing_address,
+         holdout_pct, license_no, updated_at)
+       values ($1, $2, $3, $3, coalesce($4::text, 'porch'), $5, $6, $7, $8, $9, $10, now())
        on conflict (id) do update set name = $3, business_name = $3, trade = coalesce($4::text, workspace.trade),
-         target = $5, areas = $6, phone = $7, mailing_address = $8, updated_at = now()
+         target = $5, areas = $6, phone = $7, mailing_address = $8, holdout_pct = $9, license_no = $10,
+         updated_at = now()
        where workspace.owner_id = $2`,
-      [wsId, owner, businessName, tradeFor(target), target, [...areas].sort((a, b) => a - b), phone, mailingAddress],
+      [
+        wsId,
+        owner,
+        businessName,
+        tradeFor(target),
+        target,
+        [...areas].sort((a, b) => a - b),
+        phone,
+        mailingAddress,
+        holdout,
+        licenseNo,
+      ],
     );
     refresh();
   });

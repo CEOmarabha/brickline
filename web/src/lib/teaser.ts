@@ -77,6 +77,8 @@ function syntheticWorkspace(p: Prospect): Workspace {
     areas: p.areaIds,
     phone: "",
     mailingAddress: "",
+    holdoutPct: 0,
+    licenseNo: "",
     configured: false,
     signedIn: false,
   };

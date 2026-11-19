@@ -125,3 +125,33 @@
 - **Evidence:** Round 6 (new events surface weeks ahead; recurring series predictable; organizations named on 43% of festivals); `/deals` makes cost and conversion per source measurable within 30 days.
 - **Reverse if:** After 30 days a source books nothing for its effort, a platform objects, or event-day liability outweighs fees (then stop coordination and keep referrals).
 
+### D-023 — Investor leads use state transfer declarations; models stay on the Assessor history
+- **Status:** Accepted 2026-11-18.
+- **Decision:** Investor-purchase leads read the Cook County Assessor's sales plus the Illinois PTAX-203 declarations the Assessor has not loaded (matched by recorder document number, with the Assessor's own filters). Probabilities and every model keep using the Assessor history only.
+- **Evidence:** `docs/15` §6b: identical sale dates on 78,366 matched sales; the Assessor skips whole recording weeks; newest lead 11 days old instead of 67; models byte-identical.
+- **Reverse if:** The two feeds stop agreeing on overlapping months, or the Assessor starts publishing without gaps (then PTAX adds nothing).
+
+### D-024 — Letters carry the not-a-bill box, the license number and a reply code; owners reach us, we never skip-trace them
+- **Status:** Accepted 2026-11-18 (have a lawyer confirm the template).
+- **Decision:** Every letter draft opens with the 815 ILCS 505/2PP disclosure (14-point bold, outlined box) and prints the contractor's Chicago license number; every draft carries a reference code, and owner replies are logged by code. Individual owners are reached only by mail and their own reply: no skip tracing, homeowner calls, texts or ad-audience matching. Business pages from Overture are stored as links for manual messages only.
+- **Evidence:** `docs/18` (statute and code text read 2026-11-18; provider and platform terms).
+- **Reverse if:** Counsel advises different wording, or the founder decides to research a paid, compliant provider (then measure it on the unmatched best-fit prospects first).
+
+### D-025 — The scofflaw list is evidence, not a ranking signal
+- **Status:** Accepted 2026-11-18.
+- **Decision:** Show the Building Code Scofflaw List on leads at listed addresses; do not rank or score on it.
+- **Evidence:** H42: 0.92× any-permit rate vs same-month cited addresses (387 listed addresses).
+- **Reverse if:** A history of the list (archived snapshots) shows a clear lift for newly listed buildings.
+
+### D-026 — Experiments run on hash-assigned arms; holdouts are opt-in per workspace
+- **Status:** Accepted 2026-11-18.
+- **Decision:** Every conversion experiment assigns arms by a hash of the experiment name and lead id (`docs/19`), so assignment is reproducible offline and nobody overrides it. The letter holdout is a per-workspace setting (default off), measured by permits at the address within 365 days.
+- **Evidence:** Historical rates cannot show what a letter adds; sample sizes in `docs/19` (about 3,200 leads to see +5 points).
+- **Reverse if:** Volume stays too low to read a result within a year (then drop the holdout and rely on reply rates).
+
+### D-027 — Full pursuit down to the legal floor (supersedes the "free data only" decision and the owner-contact parts of D-024)
+- **Status:** Accepted 2026-11-18 (founder decision).
+- **Decision:** Every lead is pursued, including individual owners and private event hosts: letters, door hangers, hand-dialed calls and one-to-one texts; paid skip tracing and contact data from providers whose terms allow marketing; block-party applicants' names and mailing addresses are collected into private lists. Only legal and security limits remain: no autodialed, prerecorded or AI calls or bulk texts without written consent; Do Not Call scrub and opt-outs honored; 2PP box and license number on letters; CAN-SPAM; no scraping against terms or working around blocks; private persons' data kept out of git and shipped files.
+- **Evidence:** `docs/18` §5 (TCPA $500-$1,500 per call or text; provider terms); block-party backtest: 77.8% of blocks with a party in all three prior summers held one again (`research/findings/private-lists-2026-11-17.md`).
+- **Reverse if:** A complaint, carrier block or legal advice shows a channel is costing more than it earns.
+

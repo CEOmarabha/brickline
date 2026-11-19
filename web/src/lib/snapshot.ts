@@ -19,6 +19,8 @@ export interface Owner {
   mailing: string | null;
   units: number | null;
   note?: string;
+  /** Set when the mailing address is not the property's own tax-roll entry. */
+  mailingSource?: "tax_roll_by_buyer_name";
 }
 
 interface LeadBase {
@@ -40,6 +42,8 @@ interface LeadBase {
   sourceUrl: string;
   /** Chance of work per trade for kinds that cover several trades (already time-adjusted unless noted in the basis). */
   tradeProbabilities?: Partial<Record<TradeKey, number>>;
+  /** On the City's Building Code Scofflaw List. Evidence only: signal lab H42 found no lift, so it does not affect ranking. */
+  scofflaw?: { listedSince: string | null; cases: number };
 }
 
 export interface ViolationLead extends LeadBase {
@@ -96,9 +100,13 @@ export interface InvestorLead extends LeadBase {
     name: string | null;
     purchases24m: number;
     otherProperties: string[];
+    /** Other parcels on the county tax roll under the buyer's exact name. */
+    parcelsOnRoll?: number;
     contractorsUsed: { name: string; jobs: number }[];
   };
   permitsSince: PermitSummary[];
+  /** Where the sale came from: the Assessor's sales, or a state transfer declaration the Assessor has not loaded yet. */
+  saleSource?: "assessor" | "ptax";
 }
 
 export type Lead =
@@ -288,7 +296,16 @@ export interface BigPermit {
 export interface Snapshot {
   meta: {
     generatedAt: string;
-    dataAsOf: { permits: string; violations: string; sales: string; complaints: string; foodInspections: string };
+    dataAsOf: {
+      permits: string;
+      violations: string;
+      sales: string;
+      /** Newest state transfer declaration (PTAX-203); investor leads use these sales before the Assessor has them. */
+      transfers?: string;
+      complaints: string;
+      foodInspections: string;
+    };
+    investorSales?: { newestSale: string; transferRowsAdded: number; transferRowsUsable: number };
     sources: { name: string; url: string }[];
     assumptions: { winRate: { individual: number; company: number }; margin: number };
   };

@@ -18,6 +18,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from engine import db
+from engine.collect import ptax
 from engine.score import licenses
 from engine.score.food import (
     CLOSED,
@@ -44,6 +45,7 @@ from engine.score.signals import (
     q,
 )
 from engine.text import title
+from engine.warehouse import address_key_sql
 
 OUT = Path("web/data/snapshot.json")
 
@@ -84,6 +86,8 @@ WIN_RATE = {"individual": 0.05, "company": 0.10}
 MARGIN = 0.30
 
 COMPANY_SQL = f"regexp_matches(upper(coalesce({{col}}, '')), '{INVESTOR_RE}')"
+# Exact-name key for buyers and tax-roll names: punctuation dropped, spaces collapsed.
+NAME_KEY_SQL = "trim(regexp_replace(regexp_replace(upper({col}), '[^A-Z0-9 ]', '', 'g'), ' +', ' ', 'g'))"
 SEGMENT_SQL = """
   CASE
     WHEN class IN ('202','203','204','205','206','207','208','209','210','234','278','295') THEN 'single-family'
@@ -226,10 +230,98 @@ def as_of(con) -> dict:
         SELECT (SELECT max(issue_date) FROM permits) AS permits,
                (SELECT max(violation_date) FROM violations) AS violations,
                (SELECT max(sale_date) FROM sales) AS sales,
+               (SELECT max(recorded_date) FROM ptax_transfers) AS transfers,
                (SELECT max(created_date) FROM sr311) AS complaints,
                (SELECT max(inspection_date) FROM food_inspections) AS foodInspections
     """,
     )
+
+
+def prepare_sales(con, today: date) -> dict:
+    """Temp table `sales_all`: Assessor sales plus the state transfer declarations (PTAX-203) it lacks.
+
+    The Assessor builds its sales from the same declarations (its sale_date is the deed's instrument date and its
+    doc_no the recorder's document number) but loads them in batches by recording week and skips weeks, so recent
+    months are incomplete. Declarations whose document number is not in `sales` are added with the Assessor's own
+    filters: under $10,000, quit-claim or executor deeds, or the same parcel and price within 365 days; exempt
+    declarations are dropped too (the Assessor carries almost none of them). Only the investor leads read this
+    table; every model keeps the Assessor history.
+    """
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE sales_all AS
+        WITH new AS (
+          SELECT t.* FROM ptax_transfers t
+          WHERE t.doc_no IS NOT NULL AND length(t.pin) = 14 AND t.instrument_date IS NOT NULL
+            AND t.instrument_date <= DATE '{today}'
+            AND t.township IN ({", ".join(f"'{x}'" for x in ptax.CHICAGO_TOWNSHIPS)})
+            AND NOT EXISTS (SELECT 1 FROM sales s WHERE s.doc_no = t.doc_no)
+          QUALIFY row_number() OVER (PARTITION BY t.doc_no ORDER BY t.recorded_date DESC, t.declaration_id DESC) = 1
+        ),
+        -- Condo units (PIN not ending in 0000) have no segment, as in the Assessor data (class 299).
+        classed AS (
+          SELECT n.*,
+            coalesce(
+              (SELECT first(s.class ORDER BY s.sale_date DESC, s.class) FROM sales s WHERE s.pin = n.pin),
+              CASE WHEN right(n.pin, 4) = '0000' THEN (SELECT r.class FROM res_chars r WHERE r.pin10 = n.pin10) END
+            ) AS class
+          FROM new n
+        ),
+        unioned AS (
+          SELECT pin, pin10, sale_date, sale_price, class, deed_type, doc_no, buyer_name, seller_name, is_multisale,
+            filtered_out, 'assessor' AS source, NULL::DATE AS recorded_date, false AS bank_reo,
+            NULL::VARCHAR AS use_segment
+          FROM sales
+          UNION ALL
+          SELECT c.pin, c.pin10, c.instrument_date, c.price, c.class, c.instrument_type, c.doc_no, c.buyer_name,
+            c.seller_name, coalesce(c.total_parcels, 1) > 1 OR c.additional_pins,
+            c.price IS NULL OR c.price < 10000 OR c.instrument_type IN ('Quit Claim Deed', 'Executor Deed')
+              OR c.exemption IS NOT NULL
+              OR EXISTS (SELECT 1 FROM sales s WHERE s.pin = c.pin AND s.sale_price = c.price
+                           AND abs(s.sale_date - c.instrument_date) <= 365),
+            'ptax', c.recorded_date, c.bank_reo,
+            CASE WHEN right(c.pin, 4) = '0000' THEN c.use_segment END
+          FROM classed c
+        )
+        SELECT *, CASE WHEN class IS NOT NULL THEN {SEGMENT_SQL} ELSE use_segment END AS segment FROM unioned
+    """)
+    return one(
+        con,
+        """
+        SELECT max(sale_date) AS newest,
+          count(*) FILTER (WHERE source = 'ptax') AS ptax_rows,
+          count(*) FILTER (WHERE source = 'ptax' AND NOT filtered_out AND NOT is_multisale) AS ptax_usable
+        FROM sales_all
+    """,
+    )
+
+
+def tag_scofflaws(con, leads: list[dict]) -> int:
+    """Mark leads whose address is on the City's Building Code Scofflaw List. Evidence only: in signal lab H42
+    listed buildings got permitted work no more often than buildings cited in the same months (lift 0.92 on the
+    2026-11-18 data), so the flag must not change ranking or probabilities."""
+    con.execute("CREATE OR REPLACE TEMP TABLE lead_keys (id VARCHAR, address VARCHAR)")
+    con.executemany("INSERT INTO lead_keys VALUES (?, ?)", [(x["id"], x["address"]) for x in leads])
+    rows = q(
+        con,
+        f"""
+        SELECT k.id, min(s.building_listed) AS listed, count(DISTINCT s.case_no) AS cases
+        FROM (SELECT id, {address_key_sql("address")} AS address_key FROM lead_keys) k
+        JOIN scofflaws s USING (address_key)
+        GROUP BY 1 ORDER BY 1
+    """,
+    )
+    hits = {r["id"]: r for r in rows}
+    for lead in leads:
+        if r := hits.get(lead["id"]):
+            lead["scofflaw"] = {"listedSince": iso(r["listed"]), "cases": r["cases"]}
+            lead["evidence"].append(
+                {
+                    "label": "Building Code Scofflaw List",
+                    "value": f"Address listed since {iso(r['listed']) or 'unknown date'} (owner in court for code "
+                    "violations; listed buildings do not get repairs permitted more often)",
+                }
+            )
+    return len(hits)
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -502,9 +594,8 @@ def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[di
         con,
         f"""
         WITH s AS (
-          SELECT *, {SEGMENT_SQL} AS segment,
-                 regexp_replace(upper(trim(buyer_name)), '[^A-Z0-9 ]', '', 'g') AS buyer_key
-          FROM sales
+          SELECT *, {NAME_KEY_SQL.format(col="buyer_name")} AS buyer_key
+          FROM sales_all
           WHERE NOT filtered_out AND NOT is_multisale AND {COMPANY_SQL.format(col="buyer_name")}
             AND NOT regexp_matches(upper(coalesce(buyer_name, '')), '{NON_OPERATOR_RE}')
         ),
@@ -525,9 +616,28 @@ def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[di
           JOIN permit_parties pp ON pp.permit_id = p.id AND pp.role = 'gc'
           WHERE s.buyer_key IN (SELECT buyer_key FROM recent)
           GROUP BY ALL
+        ),
+        -- Parcels already on the tax roll under the buyer's exact name (owner or tax-bill name).
+        roll AS (
+          SELECT k, pin10, mailing FROM (
+            SELECT {NAME_KEY_SQL.format(col="owner_name")} AS k, pin10, owner_mailing AS mailing FROM parcels
+            UNION ALL
+            SELECT {NAME_KEY_SQL.format(col="mail_name")}, pin10, mail_mailing FROM parcels
+          ) WHERE k IN (SELECT buyer_key FROM recent)
+        ),
+        roll_mail AS (
+          SELECT k, first(mailing ORDER BY n DESC, mailing) AS mailing FROM (
+            SELECT k, mailing, count(DISTINCT pin10) AS n FROM roll WHERE nullif(trim(mailing), ',') IS NOT NULL
+            GROUP BY ALL
+          ) GROUP BY k
         )
         SELECT r.pin10, r.sale_date, r.sale_price, r.class, r.segment, r.buyer_name, r.buyer_key, r.seller_name,
-          par.address, par.owner_name, par.owner_mailing, par.units,
+          r.source, r.doc_no, r.recorded_date, r.bank_reo,
+          par.address, par.address_key, par.owner_name, par.owner_mailing, par.units,
+          rm.mailing AS roll_mailing,
+          {address_key_sql("rm.mailing")} AS roll_mailing_key,
+          (SELECT count(DISTINCT x.pin10) FROM roll x WHERE x.k = r.buyer_key AND x.pin10 <> r.pin10)
+            AS roll_parcels,
           coalesce(pa.community_area, za.community_area) AS community_area,
           rp.purchases_24m,
           (SELECT list({{'name': name_raw, 'jobs': jobs}} ORDER BY jobs DESC, name_raw)[:3] FROM used u
@@ -544,6 +654,7 @@ def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[di
         LEFT JOIN pin_area pa ON pa.pin10 = r.pin10
         LEFT JOIN zip_area za ON za.zip = par.zip
         LEFT JOIN repeat rp ON rp.buyer_key = r.buyer_key
+        LEFT JOIN roll_mail rm ON rm.k = r.buyer_key
         ORDER BY r.sale_date DESC, r.pin10, r.buyer_key
     """,
     )
@@ -588,26 +699,12 @@ def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[di
                     "name": title(r["buyer_name"]),
                     "purchases24m": repeat,
                     "otherProperties": [title(a) for a in (r["other_properties"] or [])],
+                    "parcelsOnRoll": r["roll_parcels"] or 0,
                     "contractorsUsed": [
                         {"name": title(c["name"]), "jobs": c["jobs"]} for c in (r["contractors_used"] or [])
                     ],
                 },
-                "owner": (
-                    {
-                        "name": title(r["owner_name"]),
-                        "type": "company",
-                        "mailing": title(r["owner_mailing"]),
-                        "units": r["units"],
-                    }
-                    if same_entity(r["owner_name"], r["buyer_name"])
-                    else {
-                        "name": title(r["buyer_name"]),
-                        "type": "company",
-                        "mailing": None,
-                        "units": r["units"],
-                        "note": "The county tax roll has not caught up with this sale yet; research the buyer directly.",
-                    }
-                ),
+                "owner": investor_owner(r),
                 "permitsSince": [
                     {
                         "date": iso(x["date"]),
@@ -623,17 +720,65 @@ def investor_leads(con, today: date, today_sales: date, smodel: dict) -> list[di
                     {"label": "Property type", "value": r["segment"]},
                     {"label": "Buyer purchases (24 months)", "value": str(repeat)},
                     {"label": "Seller", "value": title(r["seller_name"]) or "—"},
+                    *(
+                        [{"label": "Bought from", "value": "A lender (bank-owned property)"}]
+                        if r["bank_reo"]
+                        else []
+                    ),
+                    *(
+                        [
+                            {
+                                "label": "Sale record",
+                                "value": f"State transfer declaration recorded {r['recorded_date']}",
+                            }
+                        ]
+                        if r["source"] == "ptax"
+                        else []
+                    ),
                 ],
+                "saleSource": r["source"],
                 "action": (
                     "Repeat investor: research the company (Illinois business registry, website) and call to "
                     "offer your crew for this and future properties."
                     if repeat >= 3
                     else "Research the buying company and reach out by email or phone; mail the owner address as backup."
                 ),
-                "sourceUrl": f"https://datacatalog.cookcountyil.gov/resource/wvhk-k5uv.json?pin={r['pin10']}0000",
+                "sourceUrl": (
+                    f"https://{ptax.DOMAIN}/resource/{ptax.DATASET_ID}.json?document_number={r['doc_no']}"
+                    if r["source"] == "ptax"
+                    else f"https://datacatalog.cookcountyil.gov/resource/wvhk-k5uv.json?pin={r['pin10']}0000"
+                ),
             }
         )
     return leads
+
+
+def investor_owner(r: dict) -> dict:
+    """Who to write to after an investor purchase: the roll owner once the tax roll shows the buyer, else the
+    buyer at the mailing address the roll lists for its other parcels (exact name), else the buyer with no address."""
+    if same_entity(r["owner_name"], r["buyer_name"]):
+        return {
+            "name": title(r["owner_name"]),
+            "type": "company",
+            "mailing": title(r["owner_mailing"]),
+            "units": r["units"],
+        }
+    owner = {"name": title(r["buyer_name"]), "type": "company", "mailing": None, "units": r["units"]}
+    if r["roll_mailing"] and r["roll_mailing_key"] != r["address_key"]:
+        n = r["roll_parcels"]
+        where = (
+            f"{n} other parcel{'' if n == 1 else 's'} held under this buyer's exact name"
+            if n
+            else "this parcel, where the tax bill already goes to this buyer's exact name"
+        )
+        return owner | {
+            "mailing": title(r["roll_mailing"]),
+            "mailingSource": "tax_roll_by_buyer_name",
+            "note": f"Mailing address the county tax roll lists for {where}; verify before mailing.",
+        }
+    return owner | {
+        "note": "The county tax roll has not caught up with this sale yet; research the buyer directly."
+    }
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -1737,7 +1882,8 @@ def build(out: Path) -> dict:
     print("violation leads ...", flush=True)
     v_leads, won = violation_leads(con, dates["violations"], vmodel, values)
     print("investor leads ...", flush=True)
-    s_leads = investor_leads(con, today, dates["sales"], smodel)
+    transfers = prepare_sales(con, today)
+    s_leads = investor_leads(con, today, transfers["newest"], smodel)
     print("311 leads ...", flush=True)
     cmodel, pmodel, xmodel = complaint_model(con), porch_request_model(con), vacant_model(con)
     c_leads = complaint_leads(con, dates["complaints"], cmodel)
@@ -1756,11 +1902,19 @@ def build(out: Path) -> dict:
     blocks = roofing_blocks(con, today)
     print("pre-application projects ...", flush=True)
     pre = preapp_projects(con, today)
+    scofflaw_leads = tag_scofflaws(con, v_leads + s_leads + c_leads + pr_leads + vb_leads + cr_leads)
+    print(f"{scofflaw_leads} leads on the Building Code Scofflaw List", flush=True)
     print("gc targets, competitors, areas ...", flush=True)
     snapshot = {
         "meta": {
             "generatedAt": generated_at(dates),
             "dataAsOf": {k: iso(v) for k, v in dates.items()},
+            # Investor leads read Assessor sales plus state transfer declarations the Assessor has not loaded.
+            "investorSales": {
+                "newestSale": iso(transfers["newest"]),
+                "transferRowsAdded": transfers["ptax_rows"],
+                "transferRowsUsable": transfers["ptax_usable"],
+            },
             "sources": [
                 {
                     "name": "City of Chicago building permits",
@@ -1773,6 +1927,14 @@ def build(out: Path) -> dict:
                 {
                     "name": "Cook County Assessor parcel sales",
                     "url": "https://datacatalog.cookcountyil.gov/d/wvhk-k5uv",
+                },
+                {
+                    "name": "Illinois Department of Revenue real estate transfer declarations (PTAX-203)",
+                    "url": ptax.SOURCE_URL,
+                },
+                {
+                    "name": "City of Chicago Building Code Scofflaw List",
+                    "url": "https://data.cityofchicago.org/d/crg5-4zyp",
                 },
                 {
                     "name": "Cook County Assessor parcel addresses",

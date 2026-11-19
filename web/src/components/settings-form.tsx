@@ -5,19 +5,36 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TargetSelect } from "@/components/target-select";
 import { saveWorkspace } from "@/lib/actions";
 import { getTarget, isTradeTarget, type TargetKey, type TargetOption } from "@/lib/targets";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  initial: { businessName: string; target: TargetKey; areas: number[]; phone: string; mailingAddress: string };
+  initial: {
+    businessName: string;
+    target: TargetKey;
+    areas: number[];
+    phone: string;
+    mailingAddress: string;
+    holdoutPct: number;
+    licenseNo: string;
+  };
   targets: TargetOption[];
   areas: { id: number; name: string; leads: number }[];
 }
 
+const HOLDOUT_ITEMS: Record<string, string> = {
+  "0": "Off: mail every letter lead",
+  "10": "Keep 10% unmailed",
+  "15": "Keep 15% unmailed",
+  "20": "Keep 20% unmailed",
+};
+
 export function SettingsForm({ initial, targets, areas }: Props) {
   const [target, setTarget] = useState(initial.target);
+  const [holdout, setHoldout] = useState(String(initial.holdoutPct));
   // The sidebar picker can change the target while this form is open: follow it without touching the other fields.
   const [savedTarget, setSavedTarget] = useState(initial.target);
   if (savedTarget !== initial.target) {
@@ -46,6 +63,7 @@ export function SettingsForm({ initial, targets, areas }: Props) {
       className="space-y-8"
       action={(fd) => {
         fd.set("target", target);
+        fd.set("holdoutPct", holdout);
         fd.delete("areas");
         for (const id of selected) fd.append("areas", String(id));
         startTransition(async () => {
@@ -89,6 +107,32 @@ export function SettingsForm({ initial, targets, areas }: Props) {
             maxLength={200}
           />
           <p className="text-xs text-muted-foreground">Required by law on marketing emails (CAN-SPAM).</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="licenseNo">Chicago contractor license number</Label>
+          <Input id="licenseNo" name="licenseNo" defaultValue={initial.licenseNo} placeholder="TGC123456" maxLength={40} />
+          <p className="text-xs text-muted-foreground">
+            The City requires it on any advertisement by a home repair contractor, so letters print it.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="holdoutPct">Measure what the letters add</Label>
+          <Select items={HOLDOUT_ITEMS} value={holdout} onValueChange={(v) => setHoldout(String(v))}>
+            <SelectTrigger id="holdoutPct" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(HOLDOUT_ITEMS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            A random share of letter leads is left out of printed letters and the mail-merge file, so their repair rate
+            can be compared with mailed leads. The same leads are held out every week.
+          </p>
         </div>
       </section>
 

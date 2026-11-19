@@ -20,8 +20,16 @@ const STATUS = {
   lost: "Lost",
   not_relevant: "Not relevant",
 };
+const REACH = { all: "Any way to reach", direct: "Phone or email", mail_only: "Mail only", none: "No way yet" };
 const SORT = { priority: "Priority", value: "Expected value", newest: "Newest", probability: "Chance of work" };
-const FILTER_LABEL = { kind: "Signal type", tier: "Priority", area: "Neighborhood", status: "Status", sort: "Sort by" };
+const FILTER_LABEL = {
+  kind: "Signal type",
+  tier: "Priority",
+  area: "Neighborhood",
+  status: "Status",
+  reach: "Ways to reach",
+  sort: "Sort by",
+};
 
 export function LeadFilters({ values, areas }: { values: LeadFiltersInput; areas: { id: number; name: string }[] }) {
   const router = useRouter();
@@ -55,7 +63,8 @@ export function LeadFilters({ values, areas }: { values: LeadFiltersInput; areas
     </Select>
   );
 
-  const active = ["kind", "tier", "area", "status"].some((k) => values[k as keyof LeadFiltersInput] !== "all") || values.q;
+  const active =
+    ["kind", "tier", "area", "status", "reach"].some((k) => values[k as keyof LeadFiltersInput] !== "all") || values.q;
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2" data-pending={pending || undefined}>
@@ -79,6 +88,7 @@ export function LeadFilters({ values, areas }: { values: LeadFiltersInput; areas
       {select("tier", TIER, "w-36")}
       {select("area", areaItems, "w-44")}
       {select("status", STATUS, "w-40")}
+      {select("reach", REACH, "w-40")}
       <div className="ml-auto flex items-center gap-2">
         <span className="text-xs text-muted-foreground">Sort</span>
         {select("sort", SORT, "w-40")}
@@ -90,7 +100,7 @@ export function LeadFilters({ values, areas }: { values: LeadFiltersInput; areas
           size="sm"
           onClick={() => {
             setQ("");
-            update({ kind: "all", tier: "all", area: "all", status: "all", q: "" });
+            update({ kind: "all", tier: "all", area: "all", status: "all", reach: "all", q: "" });
           }}
         >
           <X /> Clear

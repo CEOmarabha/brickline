@@ -2,7 +2,11 @@ import { splitMailing, toCsv } from "@/lib/csv";
 import { KIND_LABEL } from "@/lib/kinds";
 import { parseFilters, queryLeads } from "@/lib/lead-query";
 import { getCloseRates } from "@/lib/outcomes";
+import { isHoldout } from "@/lib/experiments";
 import { draftOutreach } from "@/lib/outreach";
+import { waysByLead } from "@/lib/reach";
+import { getReplies } from "@/lib/replies";
+import { replyCode } from "@/lib/reply-code";
 import { areaNames, expectedValue, getSnapshot, tradeProbability } from "@/lib/snapshot";
 import { getStatuses, getWorkspace, STATUS_LABEL } from "@/lib/workspace";
 
@@ -13,16 +17,17 @@ export async function GET(request: Request) {
   if (!ws.signedIn) return new Response("Sign in required", { status: 401, headers: NO_STORE });
   const url = new URL(request.url);
   const format = url.searchParams.get("format") === "mail" ? "mail" : "all";
-  const [snap, statuses, rates] = await Promise.all([getSnapshot(), getStatuses(), getCloseRates()]);
+  const [snap, statuses, rates, replies] = await Promise.all([getSnapshot(), getStatuses(), getCloseRates(), getReplies()]);
   const names = areaNames(snap);
-  const leads = queryLeads(snap, ws, statuses, parseFilters(url.searchParams), rates);
+  const ways = await waysByLead(snap.leads, replies);
+  const leads = queryLeads(snap, ws, statuses, parseFilters(url.searchParams), rates, ways);
   const area = (id: number | null) => (id ? (names.get(id) ?? "") : "");
   const stamp = snap.meta.dataAsOf.violations;
 
   let body: string;
   if (format === "mail") {
     const rows = leads
-      .filter((l) => l.kind !== "investor_purchase" && l.owner.mailing)
+      .filter((l) => l.kind !== "investor_purchase" && l.owner.mailing && !isHoldout(l, ws.holdoutPct))
       .map((l) => {
         const m = splitMailing(l.owner.mailing);
         const draft = draftOutreach(l, ws, snap, area(l.communityArea) || null);
@@ -36,7 +41,9 @@ export async function GET(request: Request) {
           area(l.communityArea),
           l.title,
           l.signalDate,
+          draft.disclosure ?? "",
           draft.body,
+          draft.replyCode,
           l.id,
         ];
       });
@@ -51,7 +58,9 @@ export async function GET(request: Request) {
         "neighborhood",
         "signal",
         "signal_date",
+        "disclosure_box",
         "letter_text",
+        "reply_code",
         "lead_id",
       ],
       rows,
@@ -78,6 +87,9 @@ export async function GET(request: Request) {
         "source_url",
         "job_value_usd",
         "status_updated",
+        "ways_to_reach",
+        "reply_code",
+        "holdout",
       ],
       leads.map((l) => {
         const st = statuses.get(l.id);
@@ -101,6 +113,9 @@ export async function GET(request: Request) {
           l.sourceUrl,
           st?.status === "won" && st.jobValueUsd !== null ? st.jobValueUsd.toFixed(2) : "",
           st ? st.updatedAt.toISOString() : "",
+          (ways.get(l.id) ?? []).join(" "),
+          replyCode(ws.id, l.id),
+          isHoldout(l, ws.holdoutPct) ? "yes" : "",
         ];
       }),
     );

@@ -9,6 +9,7 @@ import {
   TIER_ORDER,
   tradeProbability,
 } from "@/lib/snapshot";
+import { matchesReach, type Way } from "@/lib/reach";
 import { firstParam } from "@/lib/search-params";
 import { isOpenLead, type LeadStatusRow, type Workspace } from "@/lib/workspace";
 
@@ -17,6 +18,8 @@ export interface LeadFiltersInput {
   tier: string;
   area: string;
   status: string;
+  /** Ways to reach: all, direct (phone or email), mail_only, none. Needs the `ways` map in `queryLeads`. */
+  reach: string;
   sort: string;
   q: string;
 }
@@ -26,6 +29,7 @@ export const DEFAULT_FILTERS: LeadFiltersInput = {
   tier: "all",
   area: "all",
   status: "all",
+  reach: "all",
   sort: "priority",
   q: "",
 };
@@ -40,6 +44,7 @@ export function parseFilters(sp: Params | URLSearchParams): LeadFiltersInput {
     tier: get("tier"),
     area: get("area"),
     status: get("status"),
+    reach: get("reach"),
     sort: get("sort"),
     q: get("q").slice(0, 100),
   };
@@ -61,6 +66,7 @@ export function queryLeads(
   statuses: Map<string, LeadStatusRow>,
   f: LeadFiltersInput,
   rates?: CloseRates,
+  ways?: Map<string, Way[]>,
 ): Lead[] {
   const q = f.q.toLowerCase();
   const out = leadsForWorkspace(snap, ws.trade, ws.areas).filter((l) => {
@@ -70,6 +76,7 @@ export function queryLeads(
     if (f.status === "open") {
       if (!isOpenLead(statuses, l.id)) return false;
     } else if (f.status !== "all" && statuses.get(l.id)?.status !== f.status) return false;
+    if (ways && !matchesReach(ways.get(l.id), f.reach)) return false;
     if (q) {
       const hay = [
         l.address,

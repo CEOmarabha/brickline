@@ -1,6 +1,7 @@
 import { dateLabel } from "@/lib/format";
 import { tradeNoun } from "@/lib/insights";
 import type { Lead, Snapshot, TradeKey } from "@/lib/snapshot";
+import { replyCode } from "@/lib/reply-code";
 import type { Workspace } from "@/lib/workspace";
 
 export interface EmailDraft {
@@ -13,6 +14,13 @@ export interface Draft {
   subject?: string;
   body: string;
   compliance: string[];
+  /** Printed on the draft; an owner who quotes it can be matched to this lead (see `/leads/replies`). */
+  replyCode: string;
+  /**
+   * Letters only. Illinois 815 ILCS 505/2PP: a solicitation letter must say at the top, in at least 14-point bold
+   * type in a black-outlined box, that it is not a bill, that it is a solicitation, and any affiliation or lack of it.
+   */
+  disclosure?: string;
 }
 
 interface LetterContext {
@@ -48,8 +56,37 @@ function ownerLetterBody(kind: "complaint" | "porch_request" | "vacant", c: Lett
   ];
 }
 
-/** A first-touch draft for a human to review and send. Never auto-sent. */
+/**
+ * A first-touch draft for a human to review and send. Never auto-sent. Carries the lead's reply code; letters also
+ * carry the not-a-bill disclosure and the contractor's license number (docs/18 §5).
+ */
 export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaName: string | null): Draft {
+  const draft = firstTouch(lead, ws, snap, areaName);
+  const code = replyCode(ws.id, lead.id);
+  const lines = draft.body.split("\n");
+  const business = ws.businessName || "[Your company]";
+  const address = ws.mailingAddress || "[your mailing address]";
+  const sincerely = lines.indexOf("Sincerely,");
+  const at = sincerely >= 0 ? sincerely : lines.lastIndexOf(business);
+  const ref =
+    draft.channel === "letter"
+      ? `Reference code ${code}: please mention it when you call or write, so we know which property you mean.`
+      : `Reference code ${code} (quote it in a reply so we can find this property).`;
+  lines.splice(at < 0 ? lines.length : at, 0, ref, "");
+  if (draft.channel !== "letter") {
+    const optOut = lines.findIndex((l) => l.startsWith("Reply \"unsubscribe\""));
+    lines.splice(optOut < 0 ? lines.length : optOut, 0, `This email is an advertisement from ${business}, ${address}.`);
+    return { ...draft, body: lines.join("\n"), replyCode: code };
+  }
+  const signature = lines.lastIndexOf(address);
+  lines.splice(signature < 0 ? lines.length : signature + 1, 0, `Chicago license no. ${ws.licenseNo || "[license number]"}`);
+  const disclosure =
+    `THIS IS NOT A BILL. This letter is a solicitation for contracting services from ${business}, a private ` +
+    `contractor. ${business} is not affiliated with the City of Chicago or any other government agency.`;
+  return { ...draft, body: lines.join("\n"), replyCode: code, disclosure };
+}
+
+function firstTouch(lead: Lead, ws: Workspace, snap: Snapshot, areaName: string | null): Omit<Draft, "replyCode"> {
   const business = ws.businessName || "[Your company]";
   const phone = ws.phone || "[phone]";
   const address = ws.mailingAddress || "[your mailing address]";
@@ -77,8 +114,8 @@ export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaNam
         `${business} is a private contractor and is not affiliated with the City of Chicago. To stop receiving mail from us, call ${phone}.`,
       ].join("\n"),
       compliance: [
-        "Mail only for individual owners; don't cold-call or text personal numbers.",
-        "Keep the not-affiliated-with-the-City line and an opt-out.",
+        "Individual owners: mail first. Call or text only a number from a marketing-permitted provider that passed a Do Not Call scrub, by hand, 9:00-20:00; no autodialer or recorded voice.",
+        "Keep the not-a-bill box at the top (14-point bold, outlined), the license number, the not-affiliated line and the opt-out.",
       ],
     };
   }
@@ -105,9 +142,9 @@ export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaNam
       ].join("\n"),
       compliance: [
         company
-          ? "Company-owned: business-to-business mail or email to a business contact is fine; call a business line, not a personal cell."
-          : "Mail only for individual owners; don't cold-call or text personal numbers.",
-        "Keep the not-affiliated-with-the-City line and an opt-out.",
+          ? "Company-owned: business-to-business mail or email to a business contact is fine; call the business line by hand."
+          : "Individual owners: mail first. Call or text only a number from a marketing-permitted provider that passed a Do Not Call scrub, by hand, 9:00-20:00; no autodialer or recorded voice.",
+        "Keep the not-a-bill box at the top (14-point bold, outlined), the license number, the not-affiliated line and the opt-out.",
         "Don't mention the restaurant, its closing or any inspection or public record; the letter stands on its own offer to prepare the space.",
         "Pilot list: the contractor audience is unproven, so record outcomes for every lead you work.",
       ],
@@ -132,8 +169,8 @@ export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaNam
         `${business} is a private contractor and is not affiliated with the City of Chicago. To stop receiving mail from us, call ${phone}.`,
       ].join("\n"),
       compliance: [
-        "Mail only for individual owners; don't cold-call or text personal numbers.",
-        "Keep the not-affiliated-with-the-City line and an opt-out.",
+        "Individual owners: mail first. Call or text only a number from a marketing-permitted provider that passed a Do Not Call scrub, by hand, 9:00-20:00; no autodialer or recorded voice.",
+        "Keep the not-a-bill box at the top (14-point bold, outlined), the license number, the not-affiliated line and the opt-out.",
         "Don't mention the 311 report or the property's records; the letter stands on its own offer.",
       ],
     };
@@ -163,7 +200,7 @@ export function draftOutreach(lead: Lead, ws: Workspace, snap: Snapshot, areaNam
       "Reply \"unsubscribe\" and we won't email again.",
     ].join("\n"),
     compliance: [
-      "Business-to-business email is allowed under CAN-SPAM with your real name, postal address and a working opt-out.",
+      "Business-to-business email is allowed under CAN-SPAM when it says it is an advertisement and has your real name, postal address and a working opt-out.",
       "Calls to the company's business line are fine; no autodialed or prerecorded calls or texts to cell phones.",
     ],
   };
