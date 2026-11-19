@@ -1,4 +1,5 @@
 import { Globe, Mail, MapPin, Phone } from "lucide-react";
+import Link from "next/link";
 import { EmptyState } from "@/components/bits";
 import { Badge } from "@/components/ui/badge";
 import { count, dateLabel, pct } from "@/lib/format";
@@ -14,6 +15,7 @@ import {
   type UpcomingEvent,
   weeksLabel,
 } from "@/lib/events";
+import { boardEventHref } from "@/lib/possible-jobs";
 
 function searchUrl(name: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(`${name} Chicago`)}`;
@@ -110,7 +112,7 @@ function Area({ e }: { e: UpcomingEvent | RecurringSeries }) {
   );
 }
 
-export function UpcomingTable({ rows }: { rows: UpcomingEvent[] }) {
+export function UpcomingTable({ rows, boardIds }: { rows: UpcomingEvent[]; boardIds: ReadonlySet<string> }) {
   if (rows.length === 0) return <EmptyState title="No events in this view" />;
   return (
     <div className="max-h-[44rem] overflow-auto rounded-lg border">
@@ -128,43 +130,59 @@ export function UpcomingTable({ rows }: { rows: UpcomingEvent[] }) {
           </tr>
         </thead>
         <tbody className="divide-y">
-          {rows.map((e) => (
-            <tr key={e.id} className="align-top">
-              <td className="px-3 py-2.5 whitespace-nowrap">{dayRange(e.startDate, e.endDate)}</td>
-              <td className="px-3 py-2.5">
-                <div className="font-medium capitalize">{eventTitle(e)}</div>
-                <div className="text-xs text-muted-foreground">
-                  {e.type}
-                  {e.tier ? `, ${e.tier}` : ""}
-                </div>
-              </td>
-              <td className="px-3 py-2.5">
-                <Organizer e={e} />
-              </td>
-              <td className="px-3 py-2.5">
-                <Place e={e} />
-              </td>
-              <Area e={e} />
-              <td className="px-3 py-2.5 whitespace-nowrap">
-                <span className="tabular-nums">{e.daysUntil}</span>{" "}
-                <span className="text-xs text-muted-foreground">({weeksLabel(e.daysUntil)})</span>
-                {inNoticeWindow(e.daysUntil) && (
-                  <div>
-                    <Badge variant="secondary">2 to 8 weeks out</Badge>
+          {rows.map((e) => {
+            const href = boardEventHref(e.id, boardIds);
+            return (
+              <tr key={e.id} className="align-top">
+                <td className="px-3 py-2.5 whitespace-nowrap">{dayRange(e.startDate, e.endDate)}</td>
+                <td className="px-3 py-2.5">
+                  <div className="font-medium capitalize">
+                    {href ? (
+                      <Link href={href} className="hover:underline">
+                        {eventTitle(e)}
+                      </Link>
+                    ) : (
+                      eventTitle(e)
+                    )}
                   </div>
-                )}
-              </td>
-              <td className="px-3 py-2.5">
-                {e.status}
-                <div className="text-xs text-muted-foreground">
-                  {e.firstSeen ? `${e.source.includes("Park") ? "Listed" : "Review began"} ${dateLabel(e.firstSeen)}` : "Not yet in review"}
-                </div>
-              </td>
-              <td className="px-3 py-2.5">
-                <Contact contact={e.contact} organizer={e.organizer} />
-              </td>
-            </tr>
-          ))}
+                  <div className="text-xs text-muted-foreground">
+                    {e.type}
+                    {e.tier ? `, ${e.tier}` : ""}
+                  </div>
+                  {href && (
+                    <Link href={href} className="text-xs text-primary hover:underline">
+                      Possible jobs
+                    </Link>
+                  )}
+                </td>
+                <td className="px-3 py-2.5">
+                  <Organizer e={e} />
+                </td>
+                <td className="px-3 py-2.5">
+                  <Place e={e} />
+                </td>
+                <Area e={e} />
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  <span className="tabular-nums">{e.daysUntil}</span>{" "}
+                  <span className="text-xs text-muted-foreground">({weeksLabel(e.daysUntil)})</span>
+                  {inNoticeWindow(e.daysUntil) && (
+                    <div>
+                      <Badge variant="secondary">2 to 8 weeks out</Badge>
+                    </div>
+                  )}
+                </td>
+                <td className="px-3 py-2.5">
+                  {e.status}
+                  <div className="text-xs text-muted-foreground">
+                    {e.firstSeen ? `${e.source.includes("Park") ? "Listed" : "Review began"} ${dateLabel(e.firstSeen)}` : "Not yet in review"}
+                  </div>
+                </td>
+                <td className="px-3 py-2.5">
+                  <Contact contact={e.contact} organizer={e.organizer} />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -243,7 +261,7 @@ export function RecurringTable({ rows }: { rows: RecurringSeries[] }) {
   );
 }
 
-export function BlockPartyTable({ rows }: { rows: BlockParty[] }) {
+export function BlockPartyTable({ rows, boardIds }: { rows: BlockParty[]; boardIds: ReadonlySet<string> }) {
   if (rows.length === 0) return <EmptyState title="No block parties filed for this window yet" />;
   return (
     <div className="max-h-[36rem] overflow-auto rounded-lg border">
@@ -260,26 +278,44 @@ export function BlockPartyTable({ rows }: { rows: BlockParty[] }) {
           </tr>
         </thead>
         <tbody className="divide-y">
-          {rows.map((b) => (
-            <tr key={b.id} className="align-top">
-              <td className="px-3 py-2 whitespace-nowrap">{dayRange(b.startDate, b.endDate)}</td>
-              <td className="px-3 py-2">
-                {b.block ?? "—"}
-                {b.segments > 1 && (
-                  <div className="text-xs text-muted-foreground">
-                    +{b.segments - 1} more segment{b.segments === 2 ? "" : "s"}
-                  </div>
-                )}
-              </td>
-              <td className="px-3 py-2 text-muted-foreground">{b.communityArea?.name ?? "—"}</td>
-              <td className="px-3 py-2 text-muted-foreground">{b.ward ?? "—"}</td>
-              <td className="px-3 py-2 whitespace-nowrap tabular-nums">
-                {b.daysUntil} <span className="text-xs text-muted-foreground">({weeksLabel(b.daysUntil)})</span>
-              </td>
-              <td className="px-3 py-2 text-muted-foreground">{b.closure ?? "—"}</td>
-              <td className="px-3 py-2">{b.status}</td>
-            </tr>
-          ))}
+          {rows.map((b) => {
+            const href = boardEventHref(b.id, boardIds);
+            return (
+              <tr key={b.id} className="align-top">
+                <td className="px-3 py-2 whitespace-nowrap">{dayRange(b.startDate, b.endDate)}</td>
+                <td className="px-3 py-2">
+                  {href ? (
+                    <Link href={href} className="hover:underline">
+                      {b.block ?? "—"}
+                    </Link>
+                  ) : (
+                    (b.block ?? "—")
+                  )}
+                  {b.segments > 1 && (
+                    <div className="text-xs text-muted-foreground">
+                      +{b.segments - 1} more segment{b.segments === 2 ? "" : "s"}
+                    </div>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">{b.communityArea?.name ?? "—"}</td>
+                <td className="px-3 py-2 text-muted-foreground">{b.ward ?? "—"}</td>
+                <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                  {b.daysUntil} <span className="text-xs text-muted-foreground">({weeksLabel(b.daysUntil)})</span>
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">{b.closure ?? "—"}</td>
+                <td className="px-3 py-2">
+                  {b.status}
+                  {href && (
+                    <div>
+                      <Link href={href} className="text-xs text-primary hover:underline">
+                        Possible jobs
+                      </Link>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

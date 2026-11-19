@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { EmptyState, PageHeader, Pagination } from "@/components/bits";
+import { EventHostPanels } from "@/components/event-board-bits";
+import { PossibleJobs } from "@/components/possible-jobs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,12 +14,11 @@ import {
   getEventBoard,
   HOST_TYPE_LABEL,
   type HostType,
-  shiftDate,
   skipTraceEstimate,
 } from "@/lib/event-board";
 import { count, dateLabel, pct } from "@/lib/format";
-import { getLifecycles, type Lifecycle, type LifecyclesFile } from "@/lib/lifecycles";
-import { isHttpUrl } from "@/lib/links";
+import { getLifecycles, type LifecyclesFile } from "@/lib/lifecycles";
+import { eventJobs } from "@/lib/possible-jobs";
 import { firstParam } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
 
@@ -76,7 +77,6 @@ async function Board({ searchParams }: { searchParams: PageProps<"/event-board">
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const page = Math.min(pages, Math.max(1, Math.floor(Number(firstParam(sp.page))) || 1));
   const shown = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const byId = new Map(lifecycles.lifecycles.map((l) => [l.id, l]));
   const people = filtered.filter((e) => e.host.needsSkipTrace).length;
 
   return (
@@ -133,7 +133,7 @@ async function Board({ searchParams }: { searchParams: PageProps<"/event-board">
       {shown.length === 0 ? (
         <EmptyState title="No events match these filters" />
       ) : (
-        shown.map((e) => <EventCard key={e.id} e={e} board={board} lifecycle={byId.get(e.lifecycle)} lifecycles={lifecycles} />)
+        shown.map((e) => <EventCard key={e.id} e={e} board={board} lifecycles={lifecycles} />)
       )}
       <Pagination page={page} pages={pages} href={(n) => hrefWith(sp, { page: n > 1 ? String(n) : null })} />
     </div>
@@ -205,19 +205,10 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EventCard({
-  e,
-  board,
-  lifecycle,
-  lifecycles,
-}: {
-  e: BoardEvent;
-  board: EventBoard;
-  lifecycle: Lifecycle | undefined;
-  lifecycles: LifecyclesFile;
-}) {
+function EventCard({ e, board, lifecycles }: { e: BoardEvent; board: EventBoard; lifecycles: LifecyclesFile }) {
   const until = daysBetween(board.asOf, e.start);
-  const ward = e.ward ? board.wards[String(e.ward)] : undefined;
+  const jobs = eventJobs(e, board, lifecycles);
+  const href = `/event-board/${encodeURIComponent(e.id)}`;
   return (
     <Card>
       <CardHeader>
@@ -227,10 +218,21 @@ function EventCard({
               <Badge>{e.category}</Badge>
               {e.chance != null && <Badge variant="outline">{pct(e.chance, 0)} chance it happens again</Badge>}
             </div>
-            <CardTitle className="capitalize">{e.name}</CardTitle>
+            <CardTitle className="capitalize">
+              <Link href={href} className="hover:underline">
+                {e.name}
+              </Link>
+            </CardTitle>
             <div className="mt-1 text-sm text-muted-foreground">
               {[e.place, e.area?.name, e.ward ? `Ward ${e.ward}` : null].filter(Boolean).join(" · ") || "Place not published"}
             </div>
+            {jobs && (
+              <div className="mt-1 text-sm">
+                <Link href={href} className="text-primary hover:underline">
+                  {jobs.jobs} possible jobs: {jobs.openNow} open now, {jobs.comingUp} coming up
+                </Link>
+              </div>
+            )}
           </div>
           <div className="text-right text-sm">
             <div className="font-medium">
@@ -242,118 +244,14 @@ function EventCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground">Host · {HOST_TYPE_LABEL[e.host.type]}</div>
-            <div className="font-medium">{e.host.name ?? "Not published"}</div>
-            {e.host.mailing && <div>{e.host.mailing}</div>}
-            <ContactLinks phone={e.host.phone} email={e.host.email} website={e.host.website} />
-            {e.host.needsSkipTrace && (
-              <div className="mt-1 text-xs text-amber-700">
-                No public phone: skip trace (about ${board.skipTrace.priceLow.toFixed(2)}–${board.skipTrace.priceHigh.toFixed(2)}), then a Do
-                Not Call scrub. Mail or a door hanger works now.
-              </div>
-            )}
-            {e.host.source && <div className="mt-1 text-xs text-muted-foreground">Contact source: {e.host.source}</div>}
-          </div>
-          {ward && e.host.type !== "ward_office" ? (
-            <div className="rounded-md border p-3">
-              <div className="text-xs text-muted-foreground">Alderman&apos;s office (approves block parties and street events)</div>
-              <div className="font-medium">
-                Ward {ward.ward} · {ward.alderman}
-              </div>
-              <div>{ward.address}</div>
-              <ContactLinks phone={ward.phone} email={ward.email} website={ward.website} />
-            </div>
-          ) : (
-            <div className="rounded-md border p-3 text-xs text-muted-foreground">
-              Status: {e.status ?? "—"}
-              <br />
-              Source: {e.source}
-            </div>
-          )}
-        </div>
-
-        {lifecycle && (
+        <EventHostPanels e={e} board={board} />
+        {jobs && (
           <div>
             <div className="mb-2 font-medium">Jobs this event needs, by date</div>
-            <div className="grid gap-3 lg:grid-cols-2">
-              {lifecycle.stages.map((st) => {
-                const from = st.offsetDays ? shiftDate(e.start, st.offsetDays[0]) : null;
-                const to = st.offsetDays ? shiftDate(e.start, st.offsetDays[1]) : null;
-                const passed = to !== null && to < board.asOf;
-                return (
-                  <div key={st.name} className={cn("rounded-md border p-3", passed && "opacity-60")}>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium">{st.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {from && to ? (from === to ? dateLabel(from) : `${dateLabel(from)} – ${dateLabel(to)}`) : st.when}
-                        {passed ? " · passed" : ""}
-                      </span>
-                    </div>
-                    <ul className="mt-2 space-y-2">
-                      {st.services.map((sv) => {
-                        const vendors = lifecycles.vendors[sv.vendor];
-                        const partners = board.partners[sv.vendor] ?? [];
-                        return (
-                          <li key={sv.name}>
-                            <div>{sv.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {vendors ? `${count(vendors.companies)} Chicago companies` : ""}
-                              {partners.length > 0 && " · e.g. "}
-                              {partners.slice(0, 3).map((p, i) => (
-                                <span key={p.name}>
-                                  {i > 0 && ", "}
-                                  {p.name}
-                                  {p.phone && (
-                                    <>
-                                      {" "}
-                                      <a href={`tel:${p.phone.replace(/\D/g, "")}`} className="text-primary hover:underline">
-                                        {p.phone}
-                                      </a>
-                                    </>
-                                  )}
-                                </span>
-                              ))}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              Partner examples are public business listings (Overture Maps); call to confirm they do this work before you sign
-              them. <Link href={`/opportunities#${lifecycle.id}`} className="text-primary hover:underline">Full lifecycle</Link>
-            </div>
+            <PossibleJobs plan={jobs} />
           </div>
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function ContactLinks({ phone, email, website }: { phone: string | null; email: string | null; website: string | null }) {
-  if (!phone && !email && !website) return null;
-  return (
-    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-      {phone && (
-        <a href={`tel:${phone.replace(/\D/g, "")}`} className="text-primary hover:underline">
-          {phone}
-        </a>
-      )}
-      {email && (
-        <a href={`mailto:${email}`} className="text-primary hover:underline">
-          {email}
-        </a>
-      )}
-      {website && isHttpUrl(website) && (
-        <a href={website} target="_blank" rel="noopener noreferrer nofollow" className="text-primary hover:underline">
-          website
-        </a>
-      )}
-    </div>
   );
 }

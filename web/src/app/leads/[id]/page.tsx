@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { ProbabilityBar, StatusBadge, TierBadge } from "@/components/bits";
 import { CopyButton } from "@/components/copy-button";
 import { LeadStatusPanel } from "@/components/lead-status-panel";
+import { PossibleJobsCard } from "@/components/possible-jobs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,7 +15,9 @@ import { type ContactSuggestions, getLeadContacts } from "@/lib/contacts";
 import { ago, count, dateLabel, dateTimeLabel, exactMoney, liftLabel, money, pct } from "@/lib/format";
 import { isHttpUrl } from "@/lib/links";
 import { isHoldout } from "@/lib/experiments";
+import { getLifecycles } from "@/lib/lifecycles";
 import { draftOutreach } from "@/lib/outreach";
+import { leadJobs } from "@/lib/possible-jobs";
 import { getReplies, REPLY_CHANNEL_LABEL } from "@/lib/replies";
 import { getCloseRates, MIN_DECIDED, MIN_VALUED_WON } from "@/lib/outcomes";
 import { areaNames, closeRateFor, expectedValue, getSnapshot, jobValueFor, type Lead, type Snapshot, type TradeKey, tradeProbability } from "@/lib/snapshot";
@@ -74,7 +77,7 @@ export default function LeadPage({ params }: PageProps<"/leads/[id]">) {
 async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params"] }) {
   const { id } = await params;
   const leadId = decodeURIComponent(id);
-  const [snap, ws, statuses, history, rates, suggestions, allReplies] = await Promise.all([
+  const [snap, ws, statuses, history, rates, suggestions, allReplies, lifecycles] = await Promise.all([
     getSnapshot(),
     getWorkspace(),
     getStatuses(),
@@ -82,6 +85,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
     getCloseRates(),
     getLeadContacts(leadId),
     getReplies(),
+    getLifecycles(),
   ]);
   const replies = allReplies.filter((r) => r.leadId === leadId);
   const lead = snap.leads.find((l) => l.id === leadId);
@@ -103,6 +107,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
   const headline = headlineFor(lead, snap);
   const byTrade = lead.tradeProbabilities && lead.kind !== "investor_purchase" ? Object.entries(lead.tradeProbabilities) : [];
   const companyName = lead.kind === "investor_purchase" ? lead.buyer.name : lead.owner.type === "company" ? lead.owner.name : null;
+  const jobs = leadJobs(lead, snap, lifecycles);
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -123,6 +128,13 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
             </a>
           </p>
         </div>
+
+        {jobs && (
+          <PossibleJobsCard
+            plan={jobs}
+            description={`${jobs.lifecycleName}: the jobs this property needs from ${jobs.anchorLabel} on, stage by stage, and how many Chicago companies sell each one.`}
+          />
+        )}
 
         <Card>
           <CardHeader>

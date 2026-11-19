@@ -196,7 +196,14 @@ const TYPE_ITEMS: Record<string, string> = BUYER_TYPE_LABEL;
 const CHANNEL_ITEMS: Record<string, string> = CHANNEL_LABEL;
 const SOURCE_ITEMS: Record<string, string> = DEAL_SOURCE_LABEL;
 
-export function DealDetailsForm({ deal, leadLink }: { deal: DealView; leadLink: string | null }) {
+export function DealDetailsForm({
+  deal,
+  refLink,
+}: {
+  deal: DealView;
+  /** The Brickline lead or event the deal's link names. */
+  refLink: { href: string; label: string } | null;
+}) {
   const { pending, run } = useRun();
   const [title, setTitle] = useState(deal.title);
   const [buyerName, setBuyerName] = useState(deal.buyerName);
@@ -283,9 +290,9 @@ export function DealDetailsForm({ deal, leadLink }: { deal: DealView; leadLink: 
               Open the original <ExternalLink className="size-3" aria-hidden />
             </a>
           )}
-          {leadLink && (
-            <Link href={leadLink} className="text-xs text-primary underline-offset-4 hover:underline">
-              Open this lead in Brickline
+          {refLink && (
+            <Link href={refLink.href} className="text-xs text-primary underline-offset-4 hover:underline">
+              {refLink.label}
             </Link>
           )}
         </div>
