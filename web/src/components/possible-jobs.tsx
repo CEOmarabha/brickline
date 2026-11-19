@@ -140,17 +140,17 @@ export function PossibleJobsCard({ plan, description }: { plan: JobsPlan; descri
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
             <CardTitle>Possible jobs</CardTitle>
             <CardDescription>
               {description ?? `${plan.lifecycleName}: the jobs it sets off, stage by stage, and who sells each one.`}
             </CardDescription>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-semibold tabular-nums">{plan.openNow}</div>
+          <div className="shrink-0 text-right">
+            <div className="text-2xl font-semibold tabular-nums">{plan.jobs}</div>
             <div className="text-xs text-muted-foreground">
-              open now · {plan.comingUp} coming up · {plan.jobs} in all
+              {plan.openNow} open now · {plan.comingUp} coming up
             </div>
           </div>
         </div>
