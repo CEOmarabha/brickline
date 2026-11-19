@@ -91,7 +91,7 @@ The founder removed every self-imposed limit on whom we contact and how. What re
 - Every opt-out on any channel is honored within 10 business days (same day in practice) and kept forever.
 - Letters: the 815 ILCS 505/2PP not-a-bill box, the contractor's license number, no City look. Emails: CAN-SPAM.
 - No scraping against a site's terms or robots.txt and no working around a block (CFAA; Illinois computer tampering, 720 ILCS 5/16D).
-- Private persons' names, addresses and phones stay out of git and the app's shipped data files (served publicly until HANDOFF task 5): `data/private/` or the app's database only. Probe outputs hold counts only.
+- Private persons' phones and emails (skip-trace results, replies) never go into git or the app's shipped data files: `data/private/`, the skip-trace provider, or the app's database only. Names and mailing addresses from public records may ship in app data, as the snapshot's owner names already do (`web/data/event-board.json` carries block-party hosts); the app stays private until HANDOFF task 5 moves this data out of shipped files. Probe outputs hold counts only.
 - Numbers come from data; confirmed vs inferred stays explicit; humans approve every send; lead rates stay labelled historical proxies.
 
 ## 7. Conversion levers to test (design first, then run) [H]

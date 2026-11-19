@@ -119,7 +119,17 @@ Each storyline is a lifecycle in the code. "Where we come in" is the entry point
 - **Property:** solar installs (neighbors of past solar permits, H01), roof replacement cycles, porch and deck inspections (311), tuckpointing on pre-1910 masonry (H13), tree work after storms, fencing after sales, ADU builds (preapprovals, retest 2027), condo-association projects (big permits on condo parcels).
 - **Business:** new-business insurance, POS and payments, uniforms, office furniture, signage (H33 buyers), fire-extinguisher and alarm inspections for new licenses, waste hauling contracts for new restaurants, commercial brokers for closures.
 
-## 7. How to work the private lists (D-027)
+## 7. The Event board and the private lists (D-027)
+
+The app's **Event board** (`/event-board`) shows every upcoming event (block parties with host name and mailing address, festivals, parades, races, markets, Park District events, park weddings and private parties) and the 2,919 likely 2027 block parties ranked by repeat chance. For each event it shows:
+
+- the host type (private person, ward office, organization), with public contacts;
+- the alderman's office for the ward;
+- the jobs on a dated timeline (stage windows counted back from the event date);
+- partner companies per job;
+- a skip-trace panel: cost, expected numbers found and numbers left after the Do Not Call scrub, for the hosts on the current filter.
+
+The CSV lists below stay in `data/private/` for offline work.
 
 `uv run python -m engine.leads.hosts` writes three files to `data/private/` (never committed or shipped):
 
