@@ -4,7 +4,7 @@
 
 ## 0. Why experiments, and what is already built
 
-Historical rates ("15% of porch violations get a permitted repair within a year") say what happens without us. They cannot say what a letter adds, which letter works, or whether speed matters. Only randomized comparisons can. Built in this round (web, migration `006_lead_replies.sql`):
+Historical rates ("15% of porch violations get a permitted repair within a year") say what happens without us. They cannot say what a letter adds, which letter works, or whether speed matters. Only randomized comparisons can. Built in this round (web, migration `008_lead_replies.sql`):
 
 - **Reference code on every draft** (`web/src/lib/reply-code.ts`): 7 characters from the workspace and lead ids plus a check character, the same every time, printed on letters and emails and in the mail-merge CSV (`reply_code`). A misread character or two swapped neighbours are rejected when the code is typed in (all 416,000 single substitutions and 13,508 adjacent swaps in a 2,000-code test); this was added after a browser test typed `T` for `7` and the reply was saved against no lead.
 - **Owner reply log** (`/leads/replies`): the founder records a reply by code (channel, date, what the owner said, the phone or email the owner chose to give). Stored only in Postgres. Replies show on the lead page and in the weekly report.

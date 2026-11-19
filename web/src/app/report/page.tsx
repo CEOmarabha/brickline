@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { PageHeader, Trend } from "@/components/bits";
 import { PrintButton } from "@/components/print-button";
+import { TradeOnlyNote } from "@/components/trade-only-note";
 import { Skeleton } from "@/components/ui/skeleton";
 import { count, dateLabel, money, pct } from "@/lib/format";
 import { buildInsights } from "@/lib/insights";
@@ -12,6 +13,7 @@ import { isHoldout } from "@/lib/experiments";
 import { draftOutreach } from "@/lib/outreach";
 import { chicagoDate, getReplies, REPLY_CHANNEL_LABEL } from "@/lib/replies";
 import { areaNames, areaSignal, expectedValue, getSnapshot, tradeProbability } from "@/lib/snapshot";
+import { isTradeTarget } from "@/lib/targets";
 import { getStatuses, getWorkspace, workspaceLabel } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +40,14 @@ async function Report({ searchParams }: { searchParams: PageProps<"/report">["se
     getCloseRates(),
     getReplies(),
   ]);
+  if (!isTradeTarget(ws.target)) {
+    return (
+      <>
+        <PageHeader title="Weekly report" />
+        <TradeOnlyNote target={ws.target} snap={snap} />
+      </>
+    );
+  }
   const names = areaNames(snap);
   const label = workspaceLabel(ws);
   const tradeLabel = snap.trades[ws.trade].label;
@@ -73,7 +83,7 @@ async function Report({ searchParams }: { searchParams: PageProps<"/report">["se
             actions={<PrintButton label="Print letters" />}
           />
           {tabs}
-          {!ws.configured && (
+          {(!ws.businessName || !ws.phone || !ws.mailingAddress) && (
             <p className="mt-3 text-sm text-muted-foreground">
               Add the company name, phone and mailing address in <Link href="/settings" className="underline">Settings</Link> first.
             </p>

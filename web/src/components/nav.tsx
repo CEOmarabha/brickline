@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Bot, Building2, FileText, Handshake, LayoutDashboard, ListChecks, Map, MenuIcon, Settings, Target, Trophy } from "lucide-react";
+import { BarChart3, Bot, Briefcase, Building2, FileText, Handshake, LayoutDashboard, ListChecks, Map, MenuIcon, PartyPopper, Settings, Target, Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, Suspense, useState } from "react";
@@ -11,13 +11,15 @@ import { cn } from "@/lib/utils";
 const ITEMS: { href: string; label: string; icon: typeof Map; section?: string }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: ListChecks },
+  { href: "/events", label: "Events", icon: PartyPopper },
   { href: "/assistant", label: "Assistant", icon: Bot },
   { href: "/areas", label: "Neighborhoods", icon: Map },
   { href: "/market", label: "Market & competitors", icon: Trophy },
   { href: "/commercial", label: "Commercial", icon: Building2 },
   { href: "/results", label: "Results", icon: BarChart3 },
   { href: "/report", label: "Weekly report", icon: FileText },
-  { href: "/prospects", label: "Prospects", icon: Target, section: "Our sales" },
+  { href: "/deals", label: "Deals", icon: Briefcase, section: "Our sales" },
+  { href: "/prospects", label: "Prospects", icon: Target },
   { href: "/pilots", label: "Pilot lists", icon: Handshake },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -100,7 +102,7 @@ function MobileMenu({
         <SheetHeader>
           <SheetTitle className="text-sidebar-foreground">{brand}</SheetTitle>
         </SheetHeader>
-        <nav className="flex flex-col gap-0.5 px-3">
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3">
           {ITEMS.map(({ href, label, icon: Icon, section }) => (
             <Fragment key={href}>
               {section && <SectionLabel>{section}</SectionLabel>}
@@ -118,7 +120,7 @@ function MobileMenu({
             </Fragment>
           ))}
         </nav>
-        {footer && <div className="mt-auto border-t border-sidebar-border p-4">{footer}</div>}
+        {footer && <div className="mt-auto shrink-0 border-t border-sidebar-border p-4">{footer}</div>}
       </SheetContent>
     </Sheet>
   );

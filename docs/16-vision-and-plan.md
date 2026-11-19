@@ -1,6 +1,6 @@
 # 16 — Vision, where we are, and what to do now vs later
 
-*v1, 2026-11-17. Written after testing the event, brokerage, cleaning, dumpster and national-expansion ideas against real Chicago records (signal lab round 6). Numbers come from `13-signal-lab.md`, the backtests and the snapshot; anything not measured is labelled [hypothesis].*
+*v1.1, 2026-11-18 (founder chose to test event services and brokered referrals; see the update in §4).* *v1, 2026-11-17. Written after testing the event, brokerage, cleaning, dumpster and national-expansion ideas against real Chicago records (signal lab round 6). Numbers come from `13-signal-lab.md`, the backtests and the snapshot; anything not measured is labelled [hypothesis].*
 
 ## 1. The vision in one paragraph
 
@@ -39,6 +39,11 @@ Brickline finds **who is about to buy, from public records, before it is obvious
 2. B2B track: pick **two** pilot lists only — "New business coming" (cleaning companies, sign shops) and "Trades still open" (elevator, fire-alarm contractors). 10 buyers each from `/pilots`; send the 5-row sample; offer a 4-week pilot in exchange for recorded outcomes.
 3. Record everything: replies, meetings, pilots, won jobs with values, deal terms. This is the data that becomes the case study and the pricing evidence.
 
+**Update 2026-11-18 — founder decision: run two brokerage tests alongside the pilots, tracked in `/deals`.**
+- **Event services:** khaled offers end-to-end event planning/coordination with partner vendors (customer pays vendors directly; khaled charges a disclosed planning fee). Leads: organization events from city permits (`/pilots/events`: festivals are visible a median 59 days ahead, 43% name an organization), recurring series the season before, block parties by flyer only, and **events found by hand on social media and messaged one at a time** (personal, never automated; no bulk follows or DMs; honor every opt-out). Venue partnerships are the next source to add by hand.
+- **Porch referral test:** letters in khaled's own brand to porch-notice owners, inbound calls, hand-off to 2–3 partner porch contractors with a written fee per appointment or per job.
+- **What makes these worth it:** every deal is recorded from first contact to fee collected, so after 30 days we know cost and conversion per source instead of guessing. Same gate at day 60, counting brokerage fees as paying customers.
+
 **Gate at day 60:** 3+ paying pilots → build client logins and move lead data out of shipped files (HANDOFF task). 0 pilots after ~100 real conversations → change the offer or the audience before building anything else.
 
 **Next (60–120 days), only after the gate:**
@@ -49,7 +54,7 @@ Brickline finds **who is about to buy, from public records, before it is obvious
 
 **Later (after ~10 paid outcomes):** opportunity router and vendor matching, address timeline demo, recurring-event alerts if a rental buyer appears, paid contact enrichment, a second city.
 
-**Never (or until the law and the business change):** event-day coordination, reselling services in our own name, referral fees in healthcare, scraping social media against its terms, autodialed or AI calls, texts without consent.
+**Never (or until the law and the business change):** automated social-media scraping or bulk DMs, reselling rentals or contracting work in our own name, referral fees in healthcare, scraping social media against its terms, autodialed or AI calls, texts without consent.
 
 ## 5. How to pitch (from computed numbers)
 

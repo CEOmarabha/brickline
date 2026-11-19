@@ -1,9 +1,11 @@
 import "server-only";
 
+import type { DealsStatusResult } from "@/lib/assistant-deals";
 import type { OutreachStatusResult } from "@/lib/assistant-outreach";
 import { runTool, TOOL_DEFS, type ToolContext } from "@/lib/assistant-tools";
 import { count, dateLabel, exactMoney, money } from "@/lib/format";
 import { MIN_DECIDED } from "@/lib/outcomes";
+import { isTradeTarget, type ListTargetKey, targetLabel } from "@/lib/targets";
 import { LEAD_FOLLOW_UP_DAYS, workspaceLabel } from "@/lib/workspace";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
@@ -24,10 +26,40 @@ type Block =
   | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
   | { type: string; [k: string]: unknown };
 
-function systemPrompt(ctx: ToolContext): string {
+/** What each non-trade target means for the tools: which ones describe its list and which ones still describe the old trade. */
+const TARGET_TOOL_GUIDE: Record<ListTargetKey, string> = {
+  events:
+    "For event leads there is no events tool: point the founder to /leads (the upcoming events list) and to his deals (call deals_status), and never invent events, organizers, dates or counts.",
+  new_business:
+    "For the new-business list call commercial_opportunities with list='new_business'; the full list is on /leads and /commercial.",
+  restaurant_spaces:
+    "For the build-out permits call commercial_opportunities with list='new_business'. There is no tool for the closed restaurant spaces unless the workspace's last trade is general (search_leads with kind='closed_restaurant'): point the founder to /leads, and never invent addresses or counts.",
+  commercial_subs:
+    "For the subcontractor list call commercial_opportunities with list='open_trades'; the full list is on /leads and /commercial.",
+  pest_control:
+    "For pest control there is no pest tool: point the founder to /leads (the pest list) and never invent restaurants, findings or counts.",
+};
+
+function targetLines(ctx: ToolContext): string[] {
   const { snap, ws } = ctx;
+  const label = targetLabel(ws.target, snap.trades);
+  const who = workspaceLabel(ws);
+  if (isTradeTarget(ws.target)) {
+    return [
+      `You are Brickline's sales advisor for ${who}, a Chicago ${snap.trades[ws.trade].label.toLowerCase()} business working ${ws.areas.length === 0 ? "citywide" : `${ws.areas.length} neighborhoods`}.`,
+      `Current target: ${label} (${ws.target}).`,
+    ];
+  }
   return [
-    `You are Brickline's sales advisor for ${workspaceLabel(ws)}, a Chicago ${snap.trades[ws.trade].label.toLowerCase()} business working ${ws.areas.length === 0 ? "citywide" : `${ws.areas.length} neighborhoods`}.`,
+    `You are Brickline's sales advisor for ${who}, a Chicago business that is looking for ${label.toLowerCase()}.`,
+    `Current target: ${label} (${ws.target}). It is not a trade, so the trade lead tools (search_leads, get_lead, neighborhood_stats, competitors, pipeline, my_results, suggested_moves, commercial_projects) describe trade leads for the workspace's last trade (${snap.trades[ws.trade].label.toLowerCase()}), not the current target: say so when you use them and never present them as the current target's leads. ${TARGET_TOOL_GUIDE[ws.target]}`,
+  ];
+}
+
+function systemPrompt(ctx: ToolContext): string {
+  const { snap } = ctx;
+  return [
+    ...targetLines(ctx),
     `Data is current through ${snap.meta.dataAsOf.violations} (property sales through ${snap.meta.dataAsOf.sales}; the county publishes sales late${snap.meta.dataAsOf.transfers ? `, so investor purchases also come from state transfer declarations through ${snap.meta.dataAsOf.transfers}` : ""}).`,
     "",
     "Rules:",
@@ -42,6 +74,7 @@ function systemPrompt(ctx: ToolContext): string {
     "- To write an email or letter, call draft_email (prospect_id from outreach_status or a /prospects link, or an exact company name; lead_id for a lead) and present the subject and body in full. You may lightly personalize the wording, but add no facts, names, numbers, addresses, email addresses or phone numbers that are not in the tool results. Keep placeholders such as [Your name] and [your mailing address], the opt-out line and the not-affiliated line, and pass on its compliance notes and warnings.",
     "- To prepare a call, call call_brief and present the opening, reason, questions, objections, next step and compliance reminders. If the tool refuses (an individual homeowner, or a prospect marked Not interested), relay the refusal and the alternative and never work around it.",
     "- For outreach status, call outreach_status. Phone numbers, email addresses and notes are deliberately not in tool results: use the `phone_on_file`, `email_on_file` and `has_notes` flags, and point the founder to the /prospects/<id> link to see the details.",
+    "- For the founder's brokered deals (buyers he found and contacts personally, handed to partner vendors), call deals_status. For privacy it has no buyer names, deal titles, handles, contact details, locations or notes: refer to a deal by its type, event date and link (for example [Person deal, event Jun 14](/deals/d-abc)), never ask the founder to paste buyer details, and never guess them. You don't write messages to deal buyers; the deal page has the drafts.",
     "- Link leads as markdown links using the `link` field, e.g. [2031 W 23rd St](/leads/v-porch-123). Link prospects the same way, e.g. [Mr. Porch, Incorporated](/prospects/porch-mr-porch).",
     "- Be brief and concrete: lead with the answer, then a short list. No preamble.",
   ].join("\n");
@@ -131,8 +164,44 @@ function eventText(e: OutreachStatusResult["prospect_pipeline"]["recent_events"]
   return e.kind === "status_change" ? `${what} (${e.status})` : what;
 }
 
+/** A short paragraph on the founder's brokered deals; empty when there are none. Built from the privacy-safe tool result. */
+function dealsAnswer(r: DealsStatusResult | { error: string }): string {
+  if ("error" in r || r.deals_total === 0) return "";
+  const counts = Object.entries(r.counts_by_status)
+    .filter(([, n]) => n > 0)
+    .map(([label, n]) => `${label} ${count(n)}`)
+    .join(", ");
+  const m = r.money_from_your_records;
+  const money = [
+    m.total_quoted_usd === null ? null : `${exactMoney(m.total_quoted_usd)} quoted`,
+    m.fees_on_booked_or_completed_usd === null ? null : `${exactMoney(m.fees_on_booked_or_completed_usd)} in fees on booked or completed deals`,
+    m.fees_collected_usd === null ? null : `${exactMoney(m.fees_collected_usd)} collected`,
+  ].filter(Boolean);
+  return [
+    `**Your deals** (${count(r.deals_total)}): ${counts}.${money.length > 0 ? ` From your records: ${money.join(", ")}.` : ""}`,
+    r.due_total === 0
+      ? "No deal follow-ups are due."
+      : [
+          `**${count(r.due_total)} deal ${r.due_total === 1 ? "follow-up" : "follow-ups"} due today or overdue:**`,
+          ...r.due
+            .slice(0, 5)
+            .map(
+              (d) =>
+                `- [${d.label}](${d.link}): ${d.status}, ${d.days_overdue === 0 ? "due today" : `${d.days_overdue} ${d.days_overdue === 1 ? "day" : "days"} overdue`}. Next: ${d.next_step}.`,
+            ),
+          ...(r.due_total > 5 ? [`- ${count(r.due_total - 5)} more: [see all due deals](/deals?status=due).`] : []),
+        ].join("\n"),
+  ].join("\n");
+}
+
+/** Quick answers that describe trade leads, neighborhoods or competitors: they say nothing about events or commercial lists. */
+const TRADE_ONLY_QUICK: readonly QuickKey[] = ["best_leads", "hot_areas", "competitors"];
+
 /** Deterministic answers built straight from the tools; work without an AI key. */
 export async function quickAnswer(key: QuickKey, ctx: ToolContext): Promise<string> {
+  if (!isTradeTarget(ctx.ws.target) && TRADE_ONLY_QUICK.includes(key)) {
+    return `You're looking for ${targetLabel(ctx.ws.target, ctx.snap.trades)}, not a trade, so this answer about trade leads doesn't apply. Your list is on [Leads](/leads)${ctx.ws.target === "events" ? ", and your deals are on [Deals](/deals)" : ""}.`;
+  }
   switch (key) {
     case "best_leads": {
       const r = (await runTool("search_leads", { status: "open", sort: "priority", limit: 6 }, ctx)) as {
@@ -250,6 +319,7 @@ export async function quickAnswer(key: QuickKey, ctx: ToolContext): Promise<stri
               d.total_monthly_value_usd === null ? "no monthly value entered" : `${exactMoney(d.total_monthly_value_usd)} a month`
             } (${count(d.with_monthly_value)} with a value)`;
       const deals = [dealLine("Paying", p.deal_value.paying), dealLine("Pilot", p.deal_value.pilot)].filter(Boolean);
+      const brokered = (await runTool("deals_status", {}, ctx)) as DealsStatusResult | { error: string };
       return [
         `**Your prospect pipeline** (${count(p.prospects_total)} contractors, ${count(p.prospects_tracked)} in your pipeline): ${counts}.`,
         deals.length > 0 ? `**Deal value (entered by you):** ${deals.join("; ")}.` : "",
@@ -273,6 +343,7 @@ export async function quickAnswer(key: QuickKey, ctx: ToolContext): Promise<stri
                 .slice(0, 5)
                 .map((e) => `- ${dateLabel(e.date)}: [${e.company}](${e.link}), ${eventText(e)}.`),
             ].join("\n"),
+        dealsAnswer(brokered),
         `**Lead outreach in ${r.lead_outreach.workspace}:** ${leadCounts || "no leads worked yet"}. ${
           overdueLeads === 0
             ? "No lead follow-ups are overdue."

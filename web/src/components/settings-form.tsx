@@ -6,20 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TargetSelect } from "@/components/target-select";
 import { saveWorkspace } from "@/lib/actions";
+import { getTarget, isTradeTarget, type TargetKey, type TargetOption } from "@/lib/targets";
 import { cn } from "@/lib/utils";
 
 interface Props {
   initial: {
     businessName: string;
-    trade: string;
+    target: TargetKey;
     areas: number[];
     phone: string;
     mailingAddress: string;
     holdoutPct: number;
     licenseNo: string;
   };
-  trades: Record<string, string>;
+  targets: TargetOption[];
   areas: { id: number; name: string; leads: number }[];
 }
 
@@ -30,9 +32,15 @@ const HOLDOUT_ITEMS: Record<string, string> = {
   "20": "Keep 20% unmailed",
 };
 
-export function SettingsForm({ initial, trades, areas }: Props) {
-  const [trade, setTrade] = useState(initial.trade);
+export function SettingsForm({ initial, targets, areas }: Props) {
+  const [target, setTarget] = useState(initial.target);
   const [holdout, setHoldout] = useState(String(initial.holdoutPct));
+  // The sidebar picker can change the target while this form is open: follow it without touching the other fields.
+  const [savedTarget, setSavedTarget] = useState(initial.target);
+  if (savedTarget !== initial.target) {
+    setSavedTarget(initial.target);
+    setTarget(initial.target);
+  }
   const [selected, setSelected] = useState<Set<number>>(new Set(initial.areas));
   const [filter, setFilter] = useState("");
   const [pending, startTransition] = useTransition();
@@ -54,7 +62,7 @@ export function SettingsForm({ initial, trades, areas }: Props) {
     <form
       className="space-y-8"
       action={(fd) => {
-        fd.set("trade", trade);
+        fd.set("target", target);
         fd.set("holdoutPct", holdout);
         fd.delete("areas");
         for (const id of selected) fd.append("areas", String(id));
@@ -81,19 +89,9 @@ export function SettingsForm({ initial, trades, areas }: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="trade">Trade</Label>
-          <Select items={trades} value={trade} onValueChange={(v) => setTrade(String(v))}>
-            <SelectTrigger id="trade" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(trades).map(([k, v]) => (
-                <SelectItem key={k} value={k}>
-                  {v}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="target">What are you looking for?</Label>
+          <TargetSelect id="target" options={targets} value={target} onValueChange={setTarget} />
+          <p className="text-xs text-muted-foreground">{getTarget(target).description}.</p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="phone">Phone for letters and emails</Label>
@@ -145,6 +143,11 @@ export function SettingsForm({ initial, trades, areas }: Props) {
             <p className="text-sm text-muted-foreground">
               {selected.size === 0 ? "None selected: you'll see all 77 community areas." : `${selected.size} selected.`}
             </p>
+            {!isTradeTarget(target) && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Neighborhoods narrow trade leads. The list for what you&apos;re looking for now covers all of Chicago.
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <Input

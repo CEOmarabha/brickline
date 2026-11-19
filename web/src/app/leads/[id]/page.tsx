@@ -90,10 +90,13 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
   const names = areaNames(snap);
   const area = lead.communityArea ? (names.get(lead.communityArea) ?? null) : null;
   const status = statuses.get(lead.id);
-  const p = tradeProbability(lead, ws.trade, snap);
-  const ev = expectedValue(lead, ws.trade, snap, rates);
+  // Looking for restaurant spaces, a closed restaurant is valued as general-contracting work (its own trade), not as
+  // whichever trade the workspace worked in last.
+  const trade: TradeKey = ws.target === "restaurant_spaces" && lead.kind === "closed_restaurant" ? "general" : ws.trade;
+  const p = tradeProbability(lead, trade, snap);
+  const ev = expectedValue(lead, trade, snap, rates);
   const close = closeRateFor(lead, snap, rates);
-  const job = jobValueFor(lead, ws.trade, snap, rates);
+  const job = jobValueFor(lead, trade, snap, rates);
   const draft = draftOutreach(lead, ws, snap, area);
   const { margin } = snap.meta.assumptions;
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lead.address}, Chicago, IL`)}`;
@@ -141,7 +144,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
             )}
             <div>
               <div className="flex items-baseline justify-between text-sm">
-                <span className="text-muted-foreground">Chance of {snap.trades[ws.trade].label.toLowerCase()} work</span>
+                <span className="text-muted-foreground">Chance of {snap.trades[trade].label.toLowerCase()} work</span>
                 <span className="text-lg font-semibold tabular-nums">{pct(p)}</span>
               </div>
               <div className="mt-2">
@@ -185,11 +188,11 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
               <ul className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 {byTrade
                   .sort(([, a], [, b]) => b - a)
-                  .map(([trade, prob]) => (
-                    <li key={trade}>
+                  .map(([key, prob]) => (
+                    <li key={key}>
                       <div className="flex items-baseline justify-between">
-                        <span className={trade === ws.trade ? "font-medium" : "text-muted-foreground"}>
-                          {snap.trades[trade as TradeKey].label}
+                        <span className={key === trade ? "font-medium" : "text-muted-foreground"}>
+                          {snap.trades[key as TradeKey].label}
                         </span>
                         <span className="tabular-nums">{pct(prob)}</span>
                       </div>

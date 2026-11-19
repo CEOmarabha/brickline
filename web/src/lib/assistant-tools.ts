@@ -1,5 +1,6 @@
 import "server-only";
 
+import { dealsStatus } from "@/lib/assistant-deals";
 import { callBrief, draftEmail, outreachStatus } from "@/lib/assistant-outreach";
 import { liftLabel, pct } from "@/lib/format";
 import { buildInsights } from "@/lib/insights";
@@ -146,6 +147,12 @@ export const TOOL_DEFS = [
         lead_id: { type: "string" },
       },
     },
+  },
+  {
+    name: "deals_status",
+    description:
+      "The founder's own deals: buyers he found and contacts personally and hands to partner vendors for a planning or referral fee. Counts by status, follow-ups due today or overdue (with the next step and a /deals/<id> link), totals quoted, fees and fees collected, and funnel numbers by source (contacted, replied, booked, median days from found to booked), all from his own records. For privacy it never includes buyer names, deal titles, handles, links to posts, contact details, locations, budgets or notes: refer to a deal by its type, event date and link.",
+    input_schema: { type: "object", properties: {} },
   },
 ] as const;
 
@@ -496,6 +503,8 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
       return draftEmail(input, ctx);
     case "call_brief":
       return callBrief(input, ctx);
+    case "deals_status":
+      return dealsStatus(ctx);
     default:
       return { error: `Unknown tool ${name}` };
   }

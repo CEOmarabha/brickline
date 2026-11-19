@@ -92,7 +92,7 @@ export function WorkspaceSwitcher({
                       toast.error(result.error);
                       return;
                     }
-                    toast.success(`Created ${name.trim()}. Set its trade and neighborhoods in Settings.`);
+                    toast.success(`Created ${name.trim()}. Set what it is looking for and its neighborhoods in Settings.`);
                     setName("");
                     setOpen(false);
                   } catch {
@@ -105,7 +105,7 @@ export function WorkspaceSwitcher({
               <DialogHeader>
                 <DialogTitle>New client workspace</DialogTitle>
                 <DialogDescription>
-                  One workspace per contractor you manage: its own trade, neighborhoods, letterhead and lead statuses.
+                  One workspace per contractor you manage: its own target (trade, events or commercial list), neighborhoods, letterhead and lead statuses.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-1.5">

@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/bits";
+import { ClosedRestaurants } from "@/components/commercial/closed-restaurants";
+import { NewBusiness } from "@/components/commercial/new-business";
+import { OpenTrades } from "@/components/commercial/open-trades";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,9 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { count, dateLabel, money, pct } from "@/lib/format";
 import { areaNames, type GcTarget, getSnapshot } from "@/lib/snapshot";
 import { getWorkspace } from "@/lib/workspace";
-import { ClosedRestaurants } from "./closed-restaurants";
-import { NewBusiness } from "./new-business";
-import { OpenTrades } from "./open-trades";
 
 export const metadata: Metadata = { title: "Commercial" };
 

@@ -44,6 +44,7 @@ uv run python -m engine.collect.archive || echo "WARNING: source archive failed 
 uv run python -m engine.leads.snapshot
 uv run python -m engine.leads.pest
 uv run python -m engine.leads.buyers
+uv run python -m engine.leads.events
 uv run python -m engine.leads.prospects --trades porch masonry roofing
 # Free contact suggestions (Overture, Chicago business licenses, company websites). Safe to rerun: website
 # results are cached in data/raw/web_contacts for 30 days, so only new or stale sites are fetched (~1.5 min cold).

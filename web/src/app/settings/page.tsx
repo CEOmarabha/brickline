@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { pct } from "@/lib/format";
 import { isHttpUrl } from "@/lib/links";
-import { getSnapshot, leadsForWorkspace, TRADE_KEYS } from "@/lib/snapshot";
+import { getSnapshot, leadsForWorkspace } from "@/lib/snapshot";
+import { targetOptions } from "@/lib/targets";
 import { getWorkspace } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -14,7 +15,10 @@ export const metadata: Metadata = { title: "Settings" };
 export default function SettingsPage() {
   return (
     <>
-      <PageHeader title="Settings" description="Your trade and neighborhoods decide which leads you see and how they're scored." />
+      <PageHeader
+        title="Settings"
+        description="What you're looking for and your neighborhoods decide which leads you see and how they're scored."
+      />
       <Suspense fallback={<Skeleton className="h-[36rem] w-full" />}>
         <Settings />
       </Suspense>
@@ -24,7 +28,6 @@ export default function SettingsPage() {
 
 async function Settings() {
   const [snap, ws] = await Promise.all([getSnapshot(), getWorkspace()]);
-  const trades = Object.fromEntries(TRADE_KEYS.map((k) => [k, snap.trades[k].label]));
   const leads = leadsForWorkspace(snap, ws.trade, []);
   const areas = snap.areas
     .map((a) => ({ id: a.id, name: a.name, leads: leads.filter((l) => l.communityArea === a.id).length }))
@@ -39,14 +42,14 @@ async function Settings() {
             key={ws.id}
             initial={{
               businessName: ws.businessName,
-              trade: ws.trade,
+              target: ws.target,
               areas: ws.areas,
               phone: ws.phone,
               mailingAddress: ws.mailingAddress,
               holdoutPct: ws.holdoutPct,
               licenseNo: ws.licenseNo,
             }}
-            trades={trades}
+            targets={targetOptions(snap.trades)}
             areas={areas}
           />
         </CardContent>

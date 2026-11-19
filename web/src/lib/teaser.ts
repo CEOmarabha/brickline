@@ -73,6 +73,7 @@ function syntheticWorkspace(p: Prospect): Workspace {
     name: p.company,
     businessName: p.company,
     trade: p.trade,
+    target: p.trade,
     areas: p.areaIds,
     phone: "",
     mailingAddress: "",
