@@ -5,7 +5,9 @@ import { callBrief, draftEmail, outreachStatus } from "@/lib/assistant-outreach"
 import { liftLabel, pct } from "@/lib/format";
 import { buildInsights } from "@/lib/insights";
 import { DEFAULT_FILTERS, queryLeads } from "@/lib/lead-query";
+import { getLifecycles } from "@/lib/lifecycles";
 import { MIN_VALUED_WON, type RevenueTotals, type SegmentOutcome } from "@/lib/outcomes";
+import { type JobsPlan, leadJobs } from "@/lib/possible-jobs";
 import {
   areaNames,
   areaSignal,
@@ -60,7 +62,8 @@ export const TOOL_DEFS = [
   },
   {
     name: "get_lead",
-    description: "Full detail for one lead by id: evidence, owner or buyer, permits since, why it scores as it does.",
+    description:
+      "Full detail for one lead by id: evidence, owner type, the buyer's past contractors and permits since, why it scores as it does, and the possible jobs by stage (opportunity map). Owner, buyer and seller names, mailing addresses and notes are left out; they are on the lead page.",
     input_schema: { type: "object", properties: { lead_id: { type: "string" } }, required: ["lead_id"] },
   },
   {
@@ -198,13 +201,42 @@ function compactLead(l: Lead, ctx: ToolContext) {
     expected_value_usd: Math.round(expectedValue(l, ctx.ws.trade, ctx.snap, ctx.rates)),
     contact:
       l.kind === "investor_purchase"
-        ? { buyer: l.buyer.name, purchases_last_2y: l.buyer.purchases24m }
+        ? { buyer_name_on_file: Boolean(l.buyer.name), purchases_last_2y: l.buyer.purchases24m }
         : {
-            owner: l.owner.name,
             owner_type: l.owner.type,
+            owner_name_on_file: Boolean(l.owner.name),
             has_mailing_address: Boolean(l.owner.mailing),
             approach: ownerTypeFor(l) === "company" ? "business contact, mail as backup" : "mail",
           },
+  };
+}
+
+/** Evidence rows that hold a person's or company's name; their values stay on the lead page. */
+const NAME_EVIDENCE = new Set(["Seller"]);
+
+function evidenceForAi(l: Lead) {
+  return l.evidence.map((e) => (NAME_EVIDENCE.has(e.label) ? { label: e.label, value: "[on the lead page]" } : e));
+}
+
+/** The lead's opportunity-map stages and jobs, without partner or contractor names. */
+function possibleJobsForAi(plan: JobsPlan) {
+  return {
+    lifecycle: plan.lifecycleName,
+    dates_counted_from: `${plan.anchorLabel} (${plan.anchor}); rules of thumb`,
+    jobs_open_now: plan.openNow,
+    jobs_coming_up: plan.comingUp,
+    stages: plan.stages.map((s) => ({
+      stage: s.name,
+      window: s.from && s.to ? `${s.from} to ${s.to}` : s.when,
+      state: s.state,
+      jobs: s.jobs.map((j) => ({
+        job: j.name,
+        chicago_companies: j.companies,
+        ...(j.chances.length > 0 ? { chance_of_permit: j.chances.map((c) => `${c.label} ${pct(c.p)}`).join(", ") } : {}),
+        ...(j.incumbentShare !== null ? { permits_naming_a_company: pct(j.incumbentShare, 0) } : {}),
+      })),
+    })),
+    page: `/opportunities#${plan.lifecycleId}`,
   };
 }
 
@@ -269,11 +301,11 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
       const id = str(input.lead_id) ?? "";
       const l = snap.leads.find((x) => x.id === id);
       if (!l) return { error: "No lead with that id in this week's data" };
+      const jobs = leadJobs(l, snap, await getLifecycles());
       return {
         ...compactLead(l, ctx),
         why: l.probabilityBasis,
-        evidence: l.evidence,
-        owner_mailing: l.owner.mailing,
+        evidence: evidenceForAi(l),
         next_step: l.action,
         ...(l.tradeProbabilities
           ? {
@@ -282,7 +314,7 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
               ),
             }
           : {}),
-        note: statuses.get(l.id)?.note ?? "",
+        has_notes: (statuses.get(l.id)?.note ?? "").trim() !== "",
         ...(l.kind === "investor_purchase"
           ? {
               buyer_other_properties: l.buyer.otherProperties,
@@ -290,6 +322,7 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
               permits_since_purchase: l.permitsSince,
             }
           : {}),
+        ...(jobs ? { possible_jobs: possibleJobsForAi(jobs) } : {}),
         source: l.sourceUrl,
       };
     }
@@ -346,7 +379,7 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
         return {
           lead: l ? compactLead(l, ctx) : { id: s.leadId, note: "no longer in this week's data" },
           status: STATUS_LABEL[s.status],
-          note: s.note,
+          has_notes: s.note.trim() !== "",
           days_since_update: Math.floor((now - s.updatedAt.getTime()) / 86_400_000),
         };
       });
@@ -403,7 +436,7 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
         projects: projects.map((p) => ({
           address: p.address,
           neighborhood: p.communityArea ? names.get(p.communityArea) : null,
-          owner: p.owner,
+          owner_name_on_file: Boolean(p.owner),
           chance_of_major_permit_in_180_days: pct(p.probability),
           signals: p.signals,
           recent_gcs: p.recentGcs,

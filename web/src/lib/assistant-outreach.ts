@@ -27,7 +27,8 @@ import { buildTeaser, draftColdEmail, draftFollowUpEmail, joinNames, nameKey } f
  * Outreach tools for the founder's own sales pipeline. Everything here is read-only and owner-scoped: pipeline rows
  * are read with `ctx.owner` (the signed-in viewer, never the client workspace). Results are sent to the AI provider,
  * so they never carry phone numbers, email addresses or free-text notes, only yes/no flags and a link to the page
- * where the founder sees them.
+ * where the founder sees them. Lead drafts and briefs also leave out property owners' and buyers' names and mailing
+ * addresses: placeholders stand in for them, and the lead page fills them in.
  */
 
 type Input = Record<string, unknown>;
@@ -42,6 +43,18 @@ const ENGAGED: readonly ProspectStatus[] = ["replied", "meeting", "pilot", "payi
 
 const prospectLink = (id: string) => `/prospects/${encodeURIComponent(id)}`;
 const leadLink = (id: string) => `/leads/${encodeURIComponent(id)}`;
+
+const OWNER_NAME = "[owner name]";
+const BUYER_NAME = "[buyer company]";
+const OWNER_COMPANY = "[owner company]";
+
+/** The lead with the owner's and buyer's names swapped for placeholders and the owner's mailing address removed. */
+function withoutNames(lead: Lead): Lead {
+  const owner = { ...lead.owner, name: lead.owner.name ? OWNER_NAME : null, mailing: null };
+  return lead.kind === "investor_purchase"
+    ? { ...lead, owner, buyer: { ...lead.buyer, name: lead.buyer.name ? BUYER_NAME : null } }
+    : { ...lead, owner };
+}
 
 /** A saved contact name is used in greetings only if it really is a name (not a pasted phone number or email). */
 function usableContactName(name: string): string {
@@ -368,9 +381,9 @@ async function draftLeadEmail(ctx: ToolContext, leadId: string) {
   const lead = snap.leads.find((l) => l.id === leadId);
   if (!lead) return { error: "No lead with that id in this week's data" };
   const area = lead.communityArea ? (areaNames(snap).get(lead.communityArea) ?? null) : null;
-  // The business phone and mailing address stay placeholders so they are not sent to the AI provider; the draft on
-  // the lead page fills in the saved values.
-  const draft = draftOutreach(lead, { ...ws, phone: "", mailingAddress: "" }, snap, area);
+  // The business phone and mailing address, and the owner's or buyer's name, stay placeholders so they are not sent
+  // to the AI provider; the draft on the lead page fills in the real values.
+  const draft = draftOutreach(withoutNames(lead), { ...ws, phone: "", mailingAddress: "" }, snap, area);
   const contacts = await getLeadContacts(lead.id);
   const link = leadLink(lead.id);
   return {
@@ -384,7 +397,7 @@ async function draftLeadEmail(ctx: ToolContext, leadId: string) {
         : "Send it yourself from your own mailbox to a business contact you found. The assistant sends nothing.",
     ],
     warnings: tradeWarning(lead, ctx),
-    placeholders_note: `[phone] and [your mailing address] are placeholders so your details aren't sent to the AI provider. The draft on the lead page (${link}) fills in the details saved in Settings.`,
+    placeholders_note: `[phone], [your mailing address], ${OWNER_NAME} and ${BUYER_NAME} are placeholders so your details and the owner's or buyer's name aren't sent to the AI provider. The draft on the lead page (${link}) fills them in from Settings and the public record.`,
     for: { lead_id: lead.id, address: lead.address, link, owner_type: lead.owner.type },
     recipient: {
       mailing_address_on_file: Boolean(lead.owner.mailing),
@@ -604,12 +617,19 @@ async function leadCallBrief(ctx: ToolContext, leadId: string) {
   const noun = tradeNoun(ws.trade);
   const area = lead.communityArea ? (areaNames(snap).get(lead.communityArea) ?? null) : null;
   const where = area ? ` in ${area}` : "";
-  const company = lead.owner.name;
+  const company = !individual && lead.owner.name ? OWNER_COMPANY : null;
   const pitch = leadPitch(lead, noun, business, where);
   const phoneOnFile = Boolean(contacts?.phones.length);
 
   return {
-    for: { lead_id: lead.id, address: lead.address, link, owner_type: lead.owner.type, company },
+    for: {
+      lead_id: lead.id,
+      address: lead.address,
+      link,
+      owner_type: lead.owner.type,
+      owner_name_on_file: Boolean(lead.owner.name),
+      ...(company ? { placeholders_note: `${OWNER_COMPANY} stands for the company's name, which is on the lead page.` } : {}),
+    },
     facts: {
       address: lead.address,
       neighborhood: area,
