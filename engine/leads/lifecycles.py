@@ -272,16 +272,18 @@ LIFECYCLES: tuple[Lifecycle, ...] = (
     Lifecycle(
         "org_special_event",
         "events",
-        "Organization event with a food or liquor license",
-        "Churches, chambers, schools and clubs take a one-day Special Event Food or Liquor license for their fairs "
-        "and fundraisers. The license itself shows up only days ahead, but about half the holders do it again the "
-        "next year, so their usual month is predictable and the organization is named.",
+        "Fair or fundraiser with one-day food and drink licenses",
+        "Fairs, church festivals and fundraisers bring in vendors who each take a one-day Special Event Food or "
+        "Liquor license. The license shows up only days ahead, and most holders are the vendors themselves: of 393 "
+        "that held one in 2+ of the last 3 years, 291 are restaurants, 44 food trucks and 35 bars or breweries; 23 "
+        "are organizers. So this list is mostly partners to recruit (they want the event calendar), and the events "
+        "themselves come from the festival permits.",
         "City Special Event Food and Special Event Liquor licenses",
         "Chicago business licenses r5kz-chrr",
         "special_event",
-        "License a median 6 days ahead; repeat holders known a year ahead",
-        "The organization named on the license",
-        "Business phone, email or website (organizations)",
+        "License a median 6 days ahead; repeat vendors known a year ahead",
+        "The vendor (restaurant, truck, bar) and the event organizer",
+        "Business phone, email or website",
         (
             Stage(
                 "Planning",
