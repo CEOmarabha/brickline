@@ -12,6 +12,8 @@ from engine.collect.social.providers import (
     apify_run,
     serpapi_enabled,
     serpapi_search,
+    tavily_enabled,
+    tavily_search,
 )
 from engine.leads.event_models import RawEvent, strip_personal_contacts
 
@@ -26,6 +28,8 @@ def collect_x() -> tuple[list[RawEvent], list[dict]]:
         items.extend(_via_api(bearer))
     if not items and serpapi_enabled():
         items.extend(_via_serpapi())
+    if not items and tavily_enabled():
+        items.extend(_via_tavily())
     if not items and apify_enabled() and apify_actor("x"):
         items.extend(_via_apify())
     if not items:
@@ -33,7 +37,7 @@ def collect_x() -> tuple[list[RawEvent], list[dict]]:
             {
                 "source": "x",
                 "status": "skipped",
-                "detail": "set X_BEARER_TOKEN, SERPAPI_API_KEY, or APIFY_TOKEN + APIFY_X_ACTOR",
+                "detail": "set X_BEARER_TOKEN, SERPAPI_API_KEY, TAVILY_API_KEY, or APIFY_TOKEN + APIFY_X_ACTOR",
             }
         )
     return items, notes
@@ -71,6 +75,24 @@ def _via_serpapi() -> list[RawEvent]:
     for intent in INTENT_QUERIES[:4]:
         for row in serpapi_search(f"{intent} Chicago", engine="google"):
             link = row.get("link") or ""
+            if "x.com" not in link and "twitter.com" not in link:
+                continue
+            out.append(
+                RawEvent(
+                    source="x",
+                    source_url=link,
+                    title=row.get("title"),
+                    text=strip_personal_contacts(row.get("snippet") or row.get("title") or ""),
+                )
+            )
+    return out
+
+
+def _via_tavily() -> list[RawEvent]:
+    out: list[RawEvent] = []
+    for intent in INTENT_QUERIES[:4]:
+        for row in tavily_search(f"{intent} Chicago site:x.com"):
+            link = row.get("link") or row.get("url") or ""
             if "x.com" not in link and "twitter.com" not in link:
                 continue
             out.append(

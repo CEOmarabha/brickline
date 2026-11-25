@@ -1,20 +1,20 @@
 """Extract, geo-fence, fuzzy-dedup and score event leads.
 
-Optional Anthropic JSON extraction (ANTHROPIC_API_KEY). The model is forbidden from inventing
-contacts; any phone/email it returns is dropped. Rule-based extraction always runs so the
-pipeline works without a key.
+Optional LLM JSON extraction (Anthropic, Gemini's OpenAI-compatible endpoint, or a generic
+OpenAI-compatible server such as Ollama / Groq / OpenRouter). The model is forbidden from
+inventing contacts; any phone/email it returns is dropped. Rule-based extraction always runs
+so the pipeline works at $0 without a key.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import re
 import urllib.request
 from datetime import date
 from typing import Any
 
-from engine.collect.social.config import REGIONS
+from engine.collect.social.config import REGIONS, env
 from engine.enrich.names import normalize, token_set_ratio
 from engine.leads.event_models import (
     PERSONAL_EMAIL_RE,
@@ -54,6 +54,19 @@ SIZE_RE = re.compile(
 INTENT_RE = re.compile(
     r"looking for|need a |need an |anyone know.*(dj|cater|venue|photo)|quien (?:sabe|tiene)",
     re.I,
+)
+
+GEMINI_OPENAI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai"
+LLM_SYSTEM = (
+    "Extract a public event lead. Reply with JSON only, no markdown. "
+    "Never invent a phone, email, handle or contact. If a contact is not in the text, omit it. "
+    "If the text is not an event or a request for event vendors, set confidence to 0."
+)
+LLM_USER_PREFIX = (
+    "Schema: {event_name, date (YYYY-MM-DD or null), venue, city, "
+    "region (chicagoland|milwaukee|nw_indiana|null), host_org, est_size (int or null), "
+    "vendor_needs (array of short tags), evidence_quote (short substring copied from the text), "
+    "confidence (0-1)}. Text:\n"
 )
 
 
@@ -124,42 +137,69 @@ def rule_extract(item: RawEvent) -> dict[str, Any]:
     }
 
 
+def llm_available() -> bool:
+    """True when any supported LLM credential is set (Anthropic, Gemini, or OpenAI-compatible)."""
+    return bool(
+        env("ANTHROPIC_API_KEY") or env("GEMINI_API_KEY") or env("OPENAI_API_KEY") or env("OPENAI_BASE_URL")
+    )
+
+
+def openai_endpoint() -> tuple[str, str, str] | None:
+    """Return (base_url, api_key, model) for an OpenAI-compatible chat server, or None.
+
+    Resolution order when Anthropic is not used:
+    1. OPENAI_BASE_URL (+ OPENAI_API_KEY + OPENAI_MODEL) — Ollama at
+       http://localhost:11434/v1, Groq, OpenRouter, a self-hosted proxy, etc.
+    2. GEMINI_API_KEY → https://generativelanguage.googleapis.com/v1beta/openai/
+    3. OPENAI_API_KEY alone → https://api.openai.com/v1
+    """
+    base = env("OPENAI_BASE_URL").rstrip("/")
+    key = env("OPENAI_API_KEY")
+    model = env("OPENAI_MODEL") or env("LLM_MODEL")
+    if base:
+        if not key:
+            key = "ollama" if "11434" in base else "dummy"
+        if not model:
+            model = "llama3.2" if "11434" in base else "gpt-4o-mini"
+        return base, key, model
+    gemini = env("GEMINI_API_KEY")
+    if gemini:
+        return GEMINI_OPENAI_BASE, gemini, env("GEMINI_MODEL") or "gemini-2.0-flash"
+    if key:
+        return "https://api.openai.com/v1", key, model or "gpt-4o-mini"
+    return None
+
+
 def llm_extract(item: RawEvent) -> dict[str, Any] | None:
-    """Strict JSON via Anthropic. Returns None without a key or on failure. Never keeps invented contacts."""
-    key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    """Strict JSON via Anthropic or an OpenAI-compatible endpoint. Never keeps invented contacts."""
+    parsed = _anthropic_extract(item) or _openai_extract(item)
+    return _sanitize_llm(parsed) if parsed else None
+
+
+def _user_payload(item: RawEvent) -> str:
+    return LLM_USER_PREFIX + json.dumps(
+        {
+            "title": item.title,
+            "text": item.text[:2500],
+            "venue": item.venue,
+            "city": item.city,
+            "start": item.start,
+            "source_url": item.source_url,
+        },
+        ensure_ascii=False,
+    )
+
+
+def _anthropic_extract(item: RawEvent) -> dict[str, Any] | None:
+    key = env("ANTHROPIC_API_KEY")
     if not key:
         return None
-    model = (os.environ.get("ASSISTANT_MODEL") or "claude-sonnet-5-5").strip()
+    model = env("ASSISTANT_MODEL") or "claude-sonnet-5-5"
     prompt = {
         "model": model,
         "max_tokens": 600,
-        "system": (
-            "Extract a public event lead. Reply with JSON only, no markdown. "
-            "Never invent a phone, email, handle or contact. If a contact is not in the text, omit it. "
-            "If the text is not an event or a request for event vendors, set confidence to 0."
-        ),
-        "messages": [
-            {
-                "role": "user",
-                "content": (
-                    "Schema: {event_name, date (YYYY-MM-DD or null), venue, city, "
-                    "region (chicagoland|milwaukee|nw_indiana|null), host_org, est_size (int or null), "
-                    "vendor_needs (array of short tags), evidence_quote (short substring copied from the text), "
-                    "confidence (0-1)}. Text:\n"
-                    + json.dumps(
-                        {
-                            "title": item.title,
-                            "text": item.text[:2500],
-                            "venue": item.venue,
-                            "city": item.city,
-                            "start": item.start,
-                            "source_url": item.source_url,
-                        },
-                        ensure_ascii=False,
-                    )
-                ),
-            }
-        ],
+        "system": LLM_SYSTEM,
+        "messages": [{"role": "user", "content": _user_payload(item)}],
     }
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages",
@@ -181,14 +221,78 @@ def llm_extract(item: RawEvent) -> dict[str, Any] | None:
         for c in body.get("content") or []
         if isinstance(c, dict) and c.get("type") == "text"
     ]
-    raw = "\n".join(chunks).strip()
-    raw = re.sub(r"^```(?:json)?|```$", "", raw).strip()
+    return _parse_llm_json("\n".join(chunks))
+
+
+def _openai_extract(item: RawEvent) -> dict[str, Any] | None:
+    endpoint = openai_endpoint()
+    if not endpoint:
+        return None
+    base, key, model = endpoint
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": LLM_SYSTEM},
+            {"role": "user", "content": _user_payload(item)},
+        ],
+        "max_tokens": 600,
+        "temperature": 0,
+    }
+    url = f"{base}/chat/completions"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {key}",
+        },
+        method="POST",
+    )
     try:
-        parsed = json.loads(raw)
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            body = json.loads(resp.read().decode("utf-8", "replace"))
+    except Exception:
+        return None
+    if not isinstance(body, dict):
+        return None
+    choices = body.get("choices") or []
+    if not choices or not isinstance(choices[0], dict):
+        return None
+    message = choices[0].get("message") or {}
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, list):
+        parts = []
+        for part in content:
+            if isinstance(part, dict):
+                parts.append(str(part.get("text") or part.get("content") or ""))
+            else:
+                parts.append(str(part))
+        content = "".join(parts)
+    if not isinstance(content, str):
+        return None
+    return _parse_llm_json(content)
+
+
+def _parse_llm_json(raw: str) -> dict[str, Any] | None:
+    text = raw.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text).strip()
+    try:
+        parsed = json.loads(text)
     except json.JSONDecodeError:
-        return None
-    if not isinstance(parsed, dict):
-        return None
+        start = text.find("{")
+        end = text.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        try:
+            parsed = json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _sanitize_llm(parsed: dict[str, Any]) -> dict[str, Any]:
+    parsed = dict(parsed)
     parsed.pop("phone", None)
     parsed.pop("email", None)
     parsed.pop("contacts", None)

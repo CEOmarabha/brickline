@@ -64,3 +64,26 @@ def crawl_pages(
     except Exception as exc:  # browser missing, sandbox, etc.
         return found, f"{platform} playwright failed: {type(exc).__name__}"
     return found, None
+
+
+def fetch_public_html(url: str, *, timeout_ms: int = 45_000) -> str:
+    """Logged-out Playwright fetch of a public page. Empty string if Playwright is missing."""
+    if not playwright_available():
+        return ""
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+    from playwright.sync_api import sync_playwright
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(locale="en-US")
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+                page.wait_for_timeout(1200)
+                return page.content()
+            except PlaywrightTimeout:
+                return ""
+            finally:
+                browser.close()
+    except Exception:
+        return ""

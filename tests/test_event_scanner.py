@@ -13,9 +13,12 @@ from zoneinfo import ZoneInfo
 
 from engine.collect.event_feeds import park_row_wanted
 from engine.collect.social import facebook, session, throttle
+from engine.collect.social import listings as listings_mod
+from engine.collect.social.listings import parse_eventbrite_page
+from engine.collect.social.providers import page_looks_blocked, tavily_enabled
 from engine.leads import event_extract, event_store
 from engine.leads.event_models import RawEvent, strip_personal_contacts
-from engine.leads.event_scan import run
+from engine.leads.event_scan import collect_all, run
 
 
 class ParkSliceTests(unittest.TestCase):
@@ -133,6 +136,111 @@ class ExtractTests(unittest.TestCase):
         b = RawEvent(source="rss", source_url="https://ex.test/e", title="Fest", start="2026-12-01")
         self.assertEqual(a.item_hash(), b.item_hash())
 
+    def test_llm_available_openai_compatible(self):
+        with patch.dict(
+            os.environ,
+            {"ANTHROPIC_API_KEY": "", "GEMINI_API_KEY": "", "OPENAI_API_KEY": "", "OPENAI_BASE_URL": ""},
+            clear=False,
+        ):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            os.environ.pop("GEMINI_API_KEY", None)
+            os.environ.pop("OPENAI_API_KEY", None)
+            os.environ.pop("OPENAI_BASE_URL", None)
+            self.assertFalse(event_extract.llm_available())
+        with patch.dict(
+            os.environ,
+            {
+                "GEMINI_API_KEY": "abc",
+                "ANTHROPIC_API_KEY": "",
+                "OPENAI_BASE_URL": "",
+                "OPENAI_API_KEY": "",
+            },
+            clear=False,
+        ):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            os.environ.pop("OPENAI_BASE_URL", None)
+            os.environ.pop("OPENAI_API_KEY", None)
+            self.assertTrue(event_extract.llm_available())
+            base, key, model = event_extract.openai_endpoint()
+            self.assertIn("generativelanguage.googleapis.com", base)
+            self.assertEqual(key, "abc")
+            self.assertTrue(model)
+        with patch.dict(
+            os.environ,
+            {
+                "OPENAI_BASE_URL": "http://localhost:11434/v1",
+                "OPENAI_API_KEY": "",
+                "GEMINI_API_KEY": "",
+                "ANTHROPIC_API_KEY": "",
+            },
+            clear=False,
+        ):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            os.environ.pop("GEMINI_API_KEY", None)
+            os.environ.pop("OPENAI_API_KEY", None)
+            base, key, model = event_extract.openai_endpoint()
+            self.assertEqual(base, "http://localhost:11434/v1")
+            self.assertEqual(key, "ollama")
+            self.assertEqual(model, "llama3.2")
+
+    def test_openai_extract_drops_invented_contacts(self):
+        payload = {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "event_name": "Grant Park Fest",
+                                "phone": "312-555-0199",
+                                "email": "host@gmail.com",
+                                "vendor_needs": ["dj"],
+                                "confidence": 0.9,
+                                "evidence_quote": "Need a DJ",
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
+        class _Resp:
+            def read(self):
+                return json.dumps(payload).encode()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        item = RawEvent(
+            source="eventbrite",
+            source_url="https://www.eventbrite.com/e/grant-park-fest-tickets-1",
+            title="Grant Park Fest",
+            text="Need a DJ in Chicago",
+            city="Chicago",
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "GEMINI_API_KEY": "test-key",
+                "ANTHROPIC_API_KEY": "",
+                "OPENAI_BASE_URL": "",
+                "OPENAI_API_KEY": "",
+            },
+            clear=False,
+        ):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            os.environ.pop("OPENAI_BASE_URL", None)
+            os.environ.pop("OPENAI_API_KEY", None)
+            with patch("urllib.request.urlopen", return_value=_Resp()):
+                out = event_extract.llm_extract(item)
+        self.assertIsNotNone(out)
+        self.assertEqual(out["event_name"], "Grant Park Fest")
+        self.assertNotIn("phone", out)
+        self.assertNotIn("email", out)
+        self.assertEqual(out["vendor_needs"], ["dj"])
+
 
 class StoreTests(unittest.TestCase):
     def test_merge_keeps_review_status(self):
@@ -153,6 +261,35 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(merged[0]["review_status"], "contacted")
         self.assertEqual(merged[0]["changed_at"][:10], "2026-11-25")
         self.assertFalse(merged[0]["is_new"])
+
+    def test_local_reviews_without_postgres(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "event-lead-reviews.json"
+            with patch.dict(
+                os.environ, {"DATABASE_URL": "", "EVENT_LEAD_REVIEWS_PATH": str(path)}, clear=False
+            ):
+                os.environ.pop("DATABASE_URL", None)
+                event_store.write_local_review("abc123deadbeef", "contacted")
+                items = [{"item_hash": "abc123deadbeef", "review_status": "new", "title": "Fest"}]
+                overlaid = event_store.apply_local_reviews(items)
+                data = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(overlaid[0]["review_status"], "contacted")
+        self.assertEqual(data["reviews"]["abc123deadbeef"], "contacted")
+
+    def test_local_reviews_skipped_when_postgres_url_set(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "event-lead-reviews.json"
+            path.write_text(
+                json.dumps({"reviews": {"abc123deadbeef": "rejected"}}),
+                encoding="utf-8",
+            )
+            with patch.dict(
+                os.environ,
+                {"DATABASE_URL": "postgres://example/db", "EVENT_LEAD_REVIEWS_PATH": str(path)},
+            ):
+                items = [{"item_hash": "abc123deadbeef", "review_status": "new"}]
+                overlaid = event_store.apply_local_reviews(items)
+        self.assertEqual(overlaid[0]["review_status"], "new")
 
     def test_sanitize_drops_cookies(self):
         row = {
@@ -241,6 +378,43 @@ class ThrottleTests(unittest.TestCase):
             self.assertEqual(t.min_delay, 1.5)
 
 
+class ListingsTests(unittest.TestCase):
+    def test_parse_eventbrite_city_page(self):
+        body = """
+        Upcoming in Chicago
+        <a href="https://www.eventbrite.com/e/chicago-wedding-expo-tickets-12345">expo</a>
+        Markdown: [Fest](https://www.eventbrite.com/e/grant-park-summer-fest-tickets-999)
+        duplicate https://www.eventbrite.com/e/chicago-wedding-expo-tickets-12345
+        """
+        rows = parse_eventbrite_page(
+            body,
+            source_url="https://www.eventbrite.com/d/il--chicago/events/",
+            region="chicagoland",
+            city="Chicago",
+        )
+        urls = {r.source_url for r in rows}
+        self.assertIn("https://www.eventbrite.com/e/chicago-wedding-expo-tickets-12345", urls)
+        self.assertIn("https://www.eventbrite.com/e/grant-park-summer-fest-tickets-999", urls)
+        self.assertEqual(len(rows), 2)
+        titles = {r.title for r in rows}
+        self.assertTrue(any("Wedding Expo" in (t or "") for t in titles))
+
+    def test_eventbrite_search_api_not_referenced(self):
+        source = Path(listings_mod.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("eventbriteapi.com/v3/events/search", source)
+
+    def test_challenge_page_is_blocked(self):
+        self.assertTrue(page_looks_blocked("Let's confirm you are human\nComplete the security check"))
+        self.assertFalse(page_looks_blocked('<a href="https://www.eventbrite.com/e/fest-tickets-1">Fest</a>'))
+
+    def test_tavily_enabled(self):
+        with patch.dict(os.environ, {"TAVILY_API_KEY": "tvly-test"}, clear=False):
+            self.assertTrue(tavily_enabled())
+        with patch.dict(os.environ, {"TAVILY_API_KEY": ""}, clear=False):
+            os.environ.pop("TAVILY_API_KEY", None)
+            self.assertFalse(tavily_enabled())
+
+
 class ScanGateTests(unittest.TestCase):
     def test_require_chicago_hour_skips(self):
         fake = datetime(2026, 11, 25, 15, 0, tzinfo=ZoneInfo("America/Chicago"))
@@ -249,6 +423,16 @@ class ScanGateTests(unittest.TestCase):
                 code = run(public_only=True, use_llm=False, require_chicago_hour=True)
         self.assertEqual(code, 0)
         collect.assert_not_called()
+
+    def test_public_only_skips_authenticated_social(self):
+        with patch("engine.leads.event_scan.collect_park_district", return_value=[]):
+            with patch("engine.leads.event_scan.collect_dcase_special_events", return_value=[]):
+                with patch("engine.leads.event_scan.collect_rss_calendars", return_value=[]):
+                    with patch("engine.leads.event_scan.collect_warehouse_cdot", return_value=[]):
+                        with patch("engine.leads.event_scan.collect_social") as social:
+                            social.return_value = ([], [])
+                            collect_all(public_only=True)
+        social.assert_called_once_with(authenticated=False)
 
 
 if __name__ == "__main__":

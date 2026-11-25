@@ -7,7 +7,7 @@ Daily collection of upcoming event leads for Chicagoland, Milwaukee / SE Wiscons
 From the repository root:
 
 ```bash
-# Public calendars only (no Facebook / Instagram / TikTok sessions)
+# Public calendars + free listings (no Facebook / Instagram / TikTok sessions)
 python -m engine.leads.event_scan --public-only --no-llm
 
 # Full run: public + listings + social (sessions/tokens if configured)
@@ -17,9 +17,19 @@ python -m engine.leads.event_scan
 python -m engine.leads.event_scan --require-chicago-hour
 ```
 
-`scripts/daily-event-scan.sh` wraps the same command. GitHub Actions (`.github/workflows/event-scan.yml`) fires at 12:00 and 13:00 UTC with `--require-chicago-hour` so only the 7 AM America/Chicago slot writes a digest (CST = UTC−6, CDT = UTC−5).
+`scripts/daily-event-scan.sh` wraps the same command.
 
-Optional Postgres: set `DATABASE_URL` and apply `web/migrations/009_event_leads.sql`. The Python job upserts rows and leaves `review_status` alone; `web/scripts/upsert-event-leads.mjs` can load the JSON when Python has no `psycopg`. Review status in the Events UI writes to that table and is overlaid on the next scan.
+### Mac setup (full scan at 6:30 AM America/Chicago)
+
+```bash
+scripts/setup-mac-event-scanner.sh
+```
+
+Installs Python deps and Playwright Chromium, copies `secrets/event-scanner.env`, optionally saves FB/IG/TikTok sessions, and installs a launchd job at **6:30 AM America/Chicago**. Set the Mac timezone to America/Chicago (System Settings → General → Date & Time). The wrapper also no-ops unless the Chicago hour is 06. Logs: `data/event-scan.launchd.log` (gitignored). Flags: `--skip-sessions`, `--skip-launchd`.
+
+**GitHub Actions stays public-only.** `.github/workflows/event-scan.yml` always runs `--public-only --no-llm --require-chicago-hour` (no session cookies). Use launchd on a trusted Mac for authenticated social.
+
+Optional Postgres: set `DATABASE_URL` and apply `web/migrations/009_event_leads.sql`. The Python job upserts rows and leaves `review_status` alone; `web/scripts/upsert-event-leads.mjs` can load the JSON when Python has no `psycopg`. When `DATABASE_URL` is unset, review status (new / approved / rejected / contacted) is written to gitignored `data/event-lead-reviews.json` so local PGlite (in-memory) does not lose it across restarts. The next scan overlays that file.
 
 ## Public sources (no login)
 
@@ -31,7 +41,7 @@ Optional Postgres: set `DATABASE_URL` and apply `web/migrations/009_event_leads.
 | CDOT street events | Local DuckDB warehouse when present. | Skipped if `data/warehouse.duckdb` is missing. |
 | Milwaukee special-event *permits* | **Not scraped.** | No open dataset. `city.milwaukee.gov` calendar is Cloudflare 403. Wisconsin public-records request: DPW Special Events, (414) 286-3915. |
 | McCormick Place calendar | **Not scraped.** | SiteGround captcha (HTTP 202) / Ungerboeck 500. Copy by hand or a licensed fetch that already passed the interstitial. No captcha solver. |
-| Eventbrite / Meetup / Luma / AllEvents | Public feeds, official APIs, or licensed providers. | See env vars below. |
+| Eventbrite / Meetup / Luma / AllEvents | **Eventbrite:** public city pages via plain HTTPS, then Jina Reader `r.jina.ai`, Playwright, or Firecrawl when `FIRECRAWL_API_URL`/`KEY` is set. Challenge/captcha bodies are skipped so the next transport can try. The retired `/v3/events/search` call is not used. Optional Tavily / SerpApi / Apify fallbacks. Meetup iCal; Luma/AllEvents as before. | $0 path needs no Eventbrite token. Direct GET of `eventbrite.com/d/il--chicago/events/` returned event `/e/` links on 2026-11-25; Jina from a datacenter IP hit a human-check page. |
 | Reddit | Official OAuth only (`REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`). | `reddit.com/robots.txt` disallows anonymous crawl. |
 | X | Bearer token, SerpApi, or Apify. | No anonymous crawl. |
 
@@ -60,7 +70,7 @@ python -m engine.collect.social.save_session instagram
 python -m engine.collect.social.save_session tiktok
 ```
 
-A headed browser opens. Log in yourself. When you see the logged-in home feed, return to the terminal and press Enter. That writes `secrets/<platform>.storage.json`.
+A headed browser opens. Log in yourself. When you see the logged-in home feed, return to the terminal and press Enter. That writes `secrets/<platform>.storage.json`. `scripts/setup-mac-event-scanner.sh` runs the same three commands after installing Playwright.
 
 **Option B — Cookie-Editor (or similar) browser extension**
 
@@ -103,12 +113,16 @@ When a session expires, re-export cookies with Option A or B. Do not loop the he
 | --- | --- |
 | `ANTHROPIC_API_KEY` | Optional strict-JSON extract (never invents contacts). `--no-llm` skips it. |
 | `ASSISTANT_MODEL` | Anthropic model id (default `claude-sonnet-5-5`). |
-| `DATABASE_URL` | Postgres upsert of `event_lead`. |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | OpenAI-compatible Gemini (`https://generativelanguage.googleapis.com/v1beta/openai/`). Default model `gemini-2.0-flash`. |
+| `OPENAI_BASE_URL` / `OPENAI_API_KEY` / `OPENAI_MODEL` | Generic OpenAI-compatible chat. Ollama: `http://localhost:11434/v1` + key `ollama`. Also Groq / OpenRouter. |
+| `DATABASE_URL` | Postgres upsert of `event_lead`. When unset, reviews persist in `data/event-lead-reviews.json`. |
+| `EVENT_LEAD_REVIEWS_PATH` | Override path for the local review JSON. |
 | `APIFY_TOKEN` | Licensed Apify actors (events, IG, TikTok, Eventbrite, …). |
 | `APIFY_FACEBOOK_ACTOR` / `APIFY_INSTAGRAM_ACTOR` / `APIFY_TIKTOK_ACTOR` | Override default actor ids. |
 | `SERPAPI_API_KEY` | Google Events and related engines. |
-| `FIRECRAWL_API_KEY` | Licensed page fetch (Luma/AllEvents fallback). |
-| `EVENTBRITE_TOKEN` | Official Eventbrite API. |
+| `TAVILY_API_KEY` | Optional Tavily search (alongside SerpApi) for Eventbrite/X fallbacks. |
+| `FIRECRAWL_API_KEY` / `FIRECRAWL_API_URL` | Licensed (or self-hosted) page fetch. Eventbrite city pages, Luma/AllEvents. |
+| `JINA_READER_URL` | Jina Reader base (default `https://r.jina.ai`). |
 | `MEETUP_TOKEN` | Official Meetup API. |
 | `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | Reddit OAuth. |
 | `X_BEARER_TOKEN` | X API. |
@@ -117,9 +131,9 @@ When a session expires, re-export cookies with Option A or B. Do not loop the he
 
 ## Pipeline
 
-1. Collect raw items (public HTTPS, then social if not `--public-only`).
+1. Collect raw items (public HTTPS, then listings; authenticated Facebook/Instagram/TikTok only if not `--public-only`).
 2. Geo-fence the three regions. Drop social posts with no place.
-3. Rule extract (name, date, venue, size, vendor-need tags, evidence quote). Optional Anthropic JSON; phones/emails are stripped.
+3. Rule extract (name, date, venue, size, vendor-need tags, evidence quote). Optional LLM JSON (Anthropic, Gemini, or OpenAI-compatible); phones/emails are stripped. Rules always run at $0.
 4. Fuzzy dedup on name + date + venue.
 5. Score: recency, 2–8 week notice window, size, vendor-need, contactability.
 6. Merge with the previous snapshot (`item_hash` stable; `first_seen` / `last_seen`; `content_hash` change detection; keep `review_status`).

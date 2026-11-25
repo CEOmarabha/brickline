@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Daily event-lead scan at 7 AM America/Chicago.
+# Daily event-lead scan.
 #   scripts/daily-event-scan.sh                 # full run (public + social if secrets exist)
-#   scripts/daily-event-scan.sh --public-only   # calendars only
+#   scripts/daily-event-scan.sh --public-only   # calendars + listings; no FB/IG/TikTok sessions
 #   scripts/daily-event-scan.sh --chicago-hour  # no-op unless local Chicago hour is 7
+# Local Mac: scripts/setup-mac-event-scanner.sh schedules this at 6:30 AM America/Chicago via launchd.
+# GitHub Actions stays --public-only --no-llm.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 command -v uv >/dev/null || export PATH="$HOME/.local/bin:$PATH"

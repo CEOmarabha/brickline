@@ -9,12 +9,14 @@ America/Chicago digest. Optional Postgres upsert when DATABASE_URL is set.
 
     uv run python -m engine.leads.event_scan --public-only
     uv run python -m engine.leads.event_scan --no-llm
+
+`--public-only` still runs listing collectors (Eventbrite city pages, Meetup, …) and skips
+authenticated Facebook / Instagram / TikTok. GitHub Actions always uses --public-only.
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from datetime import date, timedelta
 
@@ -48,16 +50,20 @@ def collect_all(*, public_only: bool) -> tuple[list, list[dict]]:
             notes.append({"source": label, "status": "ok", "count": len(batch)})
         except Exception as exc:
             notes.append({"source": label, "status": "error", "detail": f"{type(exc).__name__}: {exc}"[:240]})
-    if not public_only:
-        try:
-            social, social_notes = collect_social(authenticated=True)
-            items.extend(social)
-            notes.extend(social_notes)
-            notes.append({"source": "social", "status": "ok", "count": len(social)})
-        except Exception as exc:
-            notes.append(
-                {"source": "social", "status": "error", "detail": f"{type(exc).__name__}: {exc}"[:240]}
-            )
+    try:
+        social, social_notes = collect_social(authenticated=not public_only)
+        items.extend(social)
+        notes.extend(social_notes)
+        notes.append(
+            {
+                "source": "social",
+                "status": "ok",
+                "count": len(social),
+                "authenticated": not public_only,
+            }
+        )
+    except Exception as exc:
+        notes.append({"source": "social", "status": "error", "detail": f"{type(exc).__name__}: {exc}"[:240]})
     return items, notes
 
 
@@ -98,6 +104,7 @@ def run(*, public_only: bool, use_llm: bool, require_chicago_hour: bool) -> int:
     merged = event_store.merge(previous, rows, now)
     pg = event_store.upsert_postgres(merged)
     merged = event_store.apply_postgres_reviews(merged)
+    merged = event_store.apply_local_reviews(merged)
     as_of = now.date().isoformat()
     event_store.write_json(merged, notes=notes, as_of=as_of)
     event_store.write_digest(merged, as_of=as_of)
@@ -120,7 +127,11 @@ def run(*, public_only: bool, use_llm: bool, require_chicago_hour: bool) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--public-only", action="store_true", help="skip social/authenticated collectors")
+    ap.add_argument(
+        "--public-only",
+        action="store_true",
+        help="skip authenticated Facebook/Instagram/TikTok; still run public listings",
+    )
     ap.add_argument("--no-llm", action="store_true", help="rule-based extract only")
     ap.add_argument(
         "--require-chicago-hour",
@@ -128,7 +139,7 @@ def main() -> int:
         help="no-op unless the local America/Chicago hour is 7 (for dual UTC cron entries)",
     )
     args = ap.parse_args()
-    use_llm = not args.no_llm and bool((os.environ.get("ANTHROPIC_API_KEY") or "").strip())
+    use_llm = not args.no_llm and event_extract.llm_available()
     return run(public_only=args.public_only, use_llm=use_llm, require_chicago_hour=args.require_chicago_hour)
 
 

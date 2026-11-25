@@ -13,6 +13,7 @@ from engine.leads.event_models import REVIEW_STATUSES, chicago_now, strip_person
 JSON_OUT = Path("web/data/event-leads.json")
 DIGEST_OUT = Path("web/data/event-digest.json")
 STATE_OUT = Path("data/event-scan-state.json")
+REVIEWS_OUT = Path("data/event-lead-reviews.json")
 MAX_SHIPPED = 600
 
 
@@ -111,9 +112,26 @@ def write_digest(items: list[dict], *, as_of: str, path: Path = DIGEST_OUT, limi
     return path
 
 
+def reviews_path() -> Path:
+    override = (os.environ.get("EVENT_LEAD_REVIEWS_PATH") or "").strip()
+    if override:
+        return Path(override).expanduser()
+    return REVIEWS_OUT
+
+
 def apply_postgres_reviews(items: list[dict]) -> list[dict]:
     """Overlay review_status from Postgres so UI changes survive the next scan."""
-    reviews = fetch_postgres_reviews()
+    return _apply_reviews(items, fetch_postgres_reviews())
+
+
+def apply_local_reviews(items: list[dict]) -> list[dict]:
+    """Overlay review_status from gitignored JSON when DATABASE_URL is unset (no Postgres)."""
+    if (os.environ.get("DATABASE_URL") or "").strip():
+        return items
+    return _apply_reviews(items, fetch_local_reviews())
+
+
+def _apply_reviews(items: list[dict], reviews: dict[str, str]) -> list[dict]:
     if not reviews:
         return items
     out = []
@@ -124,6 +142,33 @@ def apply_postgres_reviews(items: list[dict]) -> list[dict]:
             row["review_status"] = status
         out.append(row)
     return out
+
+
+def fetch_local_reviews() -> dict[str, str]:
+    path = reviews_path()
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    blob = data.get("reviews") if isinstance(data.get("reviews"), dict) else data
+    return {str(k): v for k, v in blob.items() if k != "updatedAt" and v in REVIEW_STATUSES}
+
+
+def write_local_review(item_hash: str, status: str) -> Path:
+    """Persist one review status to gitignored JSON. Used by tests; the UI writes the same file."""
+    if status not in REVIEW_STATUSES:
+        raise ValueError(f"unknown review status: {status}")
+    path = reviews_path()
+    reviews = fetch_local_reviews()
+    reviews[item_hash] = status
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"updatedAt": chicago_now().isoformat(), "reviews": reviews}
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
 
 
 def fetch_postgres_reviews() -> dict[str, str]:
