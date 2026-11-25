@@ -1,5 +1,7 @@
 # AI Lead Intelligence Platform & Marketing Agency — Project Plan
 
+**Website:** https://brickline-83d7.apps.grok.bot (private; sign in with Cursor)
+
 Planning and research workspace for a business that turns public records into sales opportunities for local businesses (starting with construction-related trades in the City of Chicago), paired with a marketing and sales agency.
 
 This repo contains the plan, the evidence behind it, and the first pieces of the engine: a local warehouse of Chicago and Cook County records and historical backtests of lead formulas.

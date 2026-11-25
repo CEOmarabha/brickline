@@ -3,6 +3,9 @@ name = "lead-intelligence"
 version = "0.1.0"
 description = "Public-records lead intelligence engine: collection, backtests, and signal research"
 requires-python = ">=3.11"
+
+[project.urls]
+Homepage = "https://brickline-83d7.apps.grok.bot"
 dependencies = [
     "duckdb>=1.1",
 ]
