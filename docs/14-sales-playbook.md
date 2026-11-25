@@ -109,9 +109,9 @@ These are for buyers outside the porch/masonry track. Both are pilots: say plain
 
 ## 5e. Event services and brokered deals (`/deals`)
 
-**Finding events (by hand):**
-- City data: `/pilots/events` lists organization events in the next 120 days (festivals typically 2 months ahead), recurring series to contact the season before, and block parties (resident-filed: flyers or door hangers on the block a few weeks before, never personal contact).
-- Social media: search public posts and local groups yourself (hashtags, neighborhood and school groups, "looking for a DJ/tent/caterer" requests). Paste the post link into **Quick add** on `/deals`. No bots, no scraping tools, no bulk follows or DMs: platforms ban accounts for that, and unsolicited mass messages hurt the brand. Reply to explicit requests where group rules allow.
+**Finding events:**
+- City data: `/pilots/events` lists organization events in the next 120 days (festivals typically 2 months ahead), recurring series to contact the season before, and block parties (resident-filed: flyers or door hangers on the block a few weeks before). `/events?tab=scanner` and `/events/digest` are the daily scanner (Park tentative/weddings, DCASE, tourism RSS, plus Facebook/Instagram/TikTok when sessions are configured — `docs/21`).
+- Social media: the scanner reads public events, public groups, and groups the team's own accounts already joined. Paste a post link into **Quick add** on `/deals` when you will message someone. No bulk follows or DMs: reply to explicit requests where group rules allow, one person at a time from a real account.
 - Venues and planners: ask banquet halls, churches and park fieldhouses whether they refer customers who need rentals or coordination.
 
 **Contacting people:** one message per person, written for them, using the drafts on the deal page (DM, email, follow-up, quote note). Say who you are, what you offer and how to say no; never imply you're with the City or the platform; never claim "cheaper than the market" (say "one point of contact" and "a transparent flat planning fee"). If they say no or stop, mark **Opted out**: the app then refuses drafts and follow-ups for that contact.

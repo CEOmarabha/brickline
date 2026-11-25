@@ -46,6 +46,9 @@ TYPE_LABEL = {
     "Assembly": "Rally or assembly",
     "Sidewalk sale": "Sidewalk sale or market",
     "Park District event": "Park District event",
+    "Park District wedding": "Wedding",
+    "Park District social rental": "Private party",
+    "Park District venue rental": "Park District venue rental",
 }
 ORG_RE = re.compile(
     INVESTOR_RE
@@ -286,18 +289,23 @@ def build(con) -> dict:
                 "host": host_record(host, title(mailing) if mailing else None, orgs, wards),
             }
         )
+    already = {(e["start"], e.get("place"), e["category"]) for e in events}
     for r in con.execute(f"""
         SELECT event_type, park_name, start_date, end_date, status, count(*) AS n
         FROM park_events
         WHERE event_type IN ('Venue Rental - Wedding', 'Venue Rental - Social')
-          AND start_date > DATE '{as_of}' AND start_date <= DATE '{end}' AND is_held
+          AND start_date > DATE '{as_of}' AND start_date <= DATE '{end}'
+          AND coalesce(status, '') NOT IN ('Stage Denied', 'Cancelled', 'Denied')
         GROUP BY ALL ORDER BY start_date, park_name, event_type
     """).fetchall():
         kind, park, start, finish, status, _ = r
+        category = "Wedding" if kind.endswith("Wedding") else "Private party"
+        if (start.isoformat(), park, category) in already:
+            continue
         events.append(
             {
                 "id": f"park-{start}-{normalize(park).replace(' ', '-').lower()}-{kind[-6:].lower()}",
-                "category": "Wedding" if kind.endswith("Wedding") else "Private party",
+                "category": category,
                 "lifecycle": "park_wedding",
                 "name": f"{'Wedding' if kind.endswith('Wedding') else 'Private party'} at {park}",
                 "start": start.isoformat(),

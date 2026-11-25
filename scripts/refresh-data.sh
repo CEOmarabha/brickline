@@ -53,6 +53,7 @@ uv run python -m engine.enrich.contacts
 uv run python -m engine.leads.lifecycles
 uv run python -m engine.leads.hosts
 uv run python -m engine.leads.event_board
+# Daily event-lead scan (Park/DCASE/RSS + optional social sessions) is scripts/daily-event-scan.sh, not this weekly job.
 
 if [[ $backtest -eq 1 ]]; then
   uv run python research/signal_lab/lab.py

@@ -71,8 +71,11 @@ CDOT_LABEL = {
 }
 PARK_EVENT = "Park District event"
 PARK_VENUE = "Park District venue rental"
+PARK_WEDDING = "Park District wedding"
+PARK_SOCIAL = "Park District social rental"
 PARK_VENUE_GROUP = "Venue (civic/corporate/philanthropic)"
-TYPE_ORDER = (*(CDOT_LABEL[t] for t in CDOT_TYPES), PARK_EVENT, PARK_VENUE)
+PARK_SOCIAL_TYPES = ("Venue Rental - Wedding", "Venue Rental - Social")
+TYPE_ORDER = (*(CDOT_LABEL[t] for t in CDOT_TYPES), PARK_EVENT, PARK_VENUE, PARK_WEDDING, PARK_SOCIAL)
 CLOSURE_LABEL = {
     "Full": "Full street closure",
     "Curblane": "Curb lane",
@@ -415,26 +418,46 @@ def cdot_event(row: dict, asof: date, screen: NameScreen) -> dict:
 
 
 def park_rows(con: duckdb.DuckDBPyConnection, lo: date, hi: date) -> list[dict]:
+    social = ", ".join(f"'{t}'" for t in PARK_SOCIAL_TYPES)
     return q(
         con,
         f"""
-        SELECT p.event_key, p.grp, coalesce(p.park_no::VARCHAR, 'n:' || p.park_name) AS pk, p.park_name, p.start_date,
-            p.end_date, p.status, p.is_held,
+        SELECT p.event_key, p.grp, p.event_type, coalesce(p.park_no::VARCHAR, 'n:' || p.park_name) AS pk, p.park_name,
+            p.start_date, p.end_date, p.status, p.is_held,
             p.listed_date, p.organization, coalesce(o.status, 'none') AS org_status, o.key AS org_key
         FROM park_events p LEFT JOIN org_ok o ON o.name = p.organization
-        WHERE p.is_real AND p.event_key IS NOT NULL AND coalesce(p.status, '') <> 'Stage Denied'
+        WHERE coalesce(p.status, '') <> 'Stage Denied'
           AND p.start_date > DATE '{lo}' AND p.start_date <= DATE '{hi}'
-          AND (p.grp LIKE 'Event %' OR (p.grp = '{PARK_VENUE_GROUP}' AND o.status IN ('organization', 'government')))
+          AND (
+            (p.is_real AND p.event_key IS NOT NULL
+             AND (p.grp LIKE 'Event %' OR (p.grp = '{PARK_VENUE_GROUP}' AND o.status IN ('organization', 'government'))))
+            OR p.event_type IN ({social})
+          )
         ORDER BY p.start_date, p.event_key, p.park_name, p.status
     """,
     )
 
 
+def park_type(row: dict) -> str:
+    et = row.get("event_type") or ""
+    if et == "Venue Rental - Wedding":
+        return PARK_WEDDING
+    if et == "Venue Rental - Social":
+        return PARK_SOCIAL
+    if row.get("grp") == PARK_VENUE_GROUP:
+        return PARK_VENUE
+    return PARK_EVENT
+
+
 def park_events_from(rows: list[dict], asof: date, screen: NameScreen) -> list[dict]:
-    """One event per (event key, tier, start month); the facility shown is the first by name."""
+    """One event per (event key, tier, start month); social venue rentals group by park and day."""
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
-        groups[(r["event_key"], r["grp"], r["start_date"].strftime("%Y-%m"))].append(r)
+        et = r.get("event_type") or ""
+        if et in PARK_SOCIAL_TYPES:
+            groups[(et, r["park_name"] or r["pk"], r["start_date"].isoformat())].append(r)
+        else:
+            groups[(r["event_key"], r["grp"], r["start_date"].strftime("%Y-%m"))].append(r)
     out = []
     for (key, grp, month), rs in sorted(groups.items()):
         org_rows = [r for r in rs if r["org_status"] in ("organization", "government")]
@@ -456,11 +479,12 @@ def park_events_from(rows: list[dict], asof: date, screen: NameScreen) -> list[d
         else:
             organizer, is_person, st, kind = None, None, "unpublished", None
         digest = hashlib.md5(f"{key}|{grp}|{month}".encode()).hexdigest()[:10]  # noqa: S324 (id only)
+        first = rs[0]
         out.append(
             {
                 "id": f"park-{digest}",
                 "source": SOURCE_PARK,
-                "type": PARK_VENUE if grp == PARK_VENUE_GROUP else PARK_EVENT,
+                "type": park_type(first),
                 "tier": None if grp == PARK_VENUE_GROUP else grp,
                 "name": title(key) if screen.event_name_ok(key, bool(organizer)) else None,
                 "startDate": start.isoformat(),
@@ -1204,6 +1228,10 @@ def main() -> int:
         "upcomingNoOrganization": len(upcoming) - len(org_events),
         "upcomingCdot": len(event_cdot),
         "upcomingPark": len(park_up),
+        "upcomingParkTentative": sum(
+            1 for e in park_up if e["status"] in ("Tentative", "Waiting Decision", "On Hold")
+        ),
+        "upcomingParkWeddings": sum(1 for e in park_up if e["type"] in (PARK_WEDDING, PARK_SOCIAL)),
         "upcoming2To8Weeks": sum(1 for e in org_events if 14 <= e["daysUntil"] <= 56),
         "recurring": len(recurring),
         "recurringWithOrganization": sum(1 for s in recurring if s["organizer"]),
@@ -1224,7 +1252,9 @@ def main() -> int:
         "definition": (
             f"Upcoming = CDOT public-way event permits (festival, parade, athletic, assembly, sidewalk sale, block "
             f"party) and Park District event reservations (event tiers 1 to 6, plus civic, corporate or philanthropic "
-            f"venue rentals that name an organization) starting in the {WINDOW_DAYS} days after {asof.isoformat()}, "
+            f"venue rentals that name an organization, plus every upcoming wedding and social venue rental, including "
+            f"Tentative, Waiting Decision and On Hold — not only Approved/Issued/Completed) starting in the "
+            f"{WINDOW_DAYS} days after {asof.isoformat()}, "
             f"the newest processed or issued date in the CDOT table. Permits cancelled or denied are left out; a "
             f"permit is one row however many street segments it covers. Recurring = CDOT festival, parade, athletic "
             f"and assembly series and Park District event series that took place in at least {MIN_SEASONS} of the "

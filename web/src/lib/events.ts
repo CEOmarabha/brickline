@@ -7,7 +7,7 @@ import path from "node:path";
 export const EVENT_GROUPS = ["organizations", "recurring", "blockparties"] as const;
 export type EventGroup = (typeof EVENT_GROUPS)[number];
 
-export const EVENT_TABS = ["organizations", "recurring", "blockparties"] as const;
+export const EVENT_TABS = ["organizations", "recurring", "blockparties", "scanner"] as const;
 export type EventTab = (typeof EVENT_TABS)[number];
 
 export interface EventContact {
@@ -148,6 +148,8 @@ export interface EventsFile {
     upcomingNoOrganization: number;
     upcomingCdot: number;
     upcomingPark: number;
+    upcomingParkTentative?: number;
+    upcomingParkWeddings?: number;
     upcoming2To8Weeks: number;
     recurring: number;
     recurringWithOrganization: number;

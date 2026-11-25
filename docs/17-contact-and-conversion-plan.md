@@ -82,7 +82,7 @@ The founder removed every self-imposed limit on whom we contact and how. What re
 - Individual owners and private event hosts (block-party hosts included) are leads like any other: letters, door hangers, and hand-dialed calls or one-to-one texts.
 - Paid data: skip tracing and contact providers may be bought, from providers whose terms allow marketing use (e.g. BatchData, PropStream; not TLOxp or IDI, whose terms bar marketing; `docs/18` §5).
 - Block-party applicants' names and mailing addresses are collected (`block_party_hosts`, private lists in `data/private/`).
-- Social media: a human may message individuals who posted publicly about their event, one at a time (D-022).
+- Social media: a human may message individuals who posted publicly about their event, one at a time. Collection may use the team's own logged-in sessions (D-029); sending stays manual.
 - Business emails built from a company's pattern may be used once a hosted verifier confirms them, sent by hand.
 
 **The legal floor (kept):**

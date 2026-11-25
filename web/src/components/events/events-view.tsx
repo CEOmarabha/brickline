@@ -1,6 +1,7 @@
 import { Download } from "lucide-react";
 import Link from "next/link";
 import { EmptyState, PageHeader, StatCard } from "@/components/bits";
+import { ScannerView } from "@/components/events/scanner-view";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,6 +15,7 @@ import {
   withoutOrganizer,
 } from "@/lib/events";
 import { getEventBoard } from "@/lib/event-board";
+import { getEventLeads } from "@/lib/event-leads";
 import { count, dateLabel, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { viewerId } from "@/lib/workspace";
@@ -52,27 +54,41 @@ export async function EventsView({
   const narrow = (Array.isArray(sp.notice) ? sp.notice[0] : sp.notice) === "2-8";
   const viewParam = Array.isArray(sp.view) ? sp.view[0] : sp.view;
   const view: RecurringView = viewParam === "next120" || viewParam === "all" ? viewParam : "organizations";
-  const [owner, file, board] = await Promise.all([viewerId(), getEvents(), getEventBoard()]);
+  const [owner, file, board, leads] = await Promise.all([
+    viewerId(),
+    getEvents(),
+    getEventBoard(),
+    getEventLeads(),
+  ]);
   const boardIds = new Set(board.events.map((e) => e.id));
 
-  if (!file) {
+  if (!file && tab !== "scanner") {
     return (
       <>
         <PageHeader title={title} actions={actions} />
         <EmptyState title="The events list has not been generated yet">
-          Run <code>uv run python -m engine.leads.events</code> from the repository root, then reload.
+          Run <code>uv run python -m engine.leads.events</code> from the repository root, then reload. The daily
+          scanner is on the{" "}
+          <Link href={hrefOf(basePath, { tab: "scanner" })} className="underline underline-offset-2">
+            scanner tab
+          </Link>
+          .
         </EmptyState>
       </>
     );
   }
 
-  const c = file.counts;
+  const c = file?.counts;
   const pill = (active: boolean) =>
     cn("rounded-full border px-3 py-1 text-sm hover:bg-muted", active && "border-primary bg-primary/10 text-primary");
   const tabs: { key: EventTab; label: string }[] = [
-    { key: "organizations", label: `Next ${file.windowDays} days: organizations (${count(c.upcomingWithOrganization)})` },
-    { key: "recurring", label: `Expected next season, recurring (${count(c.recurring)})` },
-    { key: "blockparties", label: `Block parties, next ${file.windowDays} days (${count(c.blockParties)})` },
+    {
+      key: "organizations",
+      label: `Next ${file?.windowDays ?? 120} days: organizations (${count(c?.upcomingWithOrganization ?? 0)})`,
+    },
+    { key: "recurring", label: `Expected next season, recurring (${count(c?.recurring ?? 0)})` },
+    { key: "blockparties", label: `Block parties, next ${file?.windowDays ?? 120} days (${count(c?.blockParties ?? 0)})` },
+    { key: "scanner", label: `Daily scanner (${count(leads.counts.total)})` },
   ];
   const csv = (group: string, label: string) => (
     <a
@@ -84,6 +100,25 @@ export async function EventsView({
     </a>
   );
 
+  function tabPanel(): React.ReactNode {
+    switch (tab) {
+      case "scanner":
+        return <ScannerView file={leads} signedIn={Boolean(owner)} />;
+      case "organizations":
+        return file ? (
+          <OrganizationsTab file={file} narrow={narrow} basePath={basePath} boardIds={boardIds} />
+        ) : null;
+      case "recurring":
+        return file ? <RecurringTab file={file} view={view} basePath={basePath} /> : null;
+      case "blockparties":
+        return file ? <BlockPartiesTab file={file} boardIds={boardIds} /> : null;
+      default: {
+        const _exhaustive: never = tab;
+        return _exhaustive;
+      }
+    }
+  }
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -91,9 +126,10 @@ export async function EventsView({
         description={
           description ?? (
             <>
-              Chicago events on the City&rsquo;s public permit records through {dateLabel(file.asOf)}, with the organizer when
-              it is an organization and a business listing to start from. A targeting list for event services and the
-              vendors who supply them: nothing here predicts who will hire anyone.
+              Chicago events on the City&rsquo;s public permit records
+              {file ? ` through ${dateLabel(file.asOf)}` : ""}, with the organizer when it is an organization and a
+              business listing to start from. A targeting list for event services and the vendors who supply them:
+              nothing here predicts who will hire anyone.
             </>
           )
         }
@@ -113,7 +149,7 @@ export async function EventsView({
         }
       />
 
-      <Explainer file={file} />
+      {file && <Explainer file={file} />}
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-2" role="navigation" aria-label="Event list sections">
@@ -124,17 +160,17 @@ export async function EventsView({
           ))}
         </div>
 
-        {tab === "organizations" && <OrganizationsTab file={file} narrow={narrow} basePath={basePath} boardIds={boardIds} />}
-        {tab === "recurring" && <RecurringTab file={file} view={view} basePath={basePath} />}
-        {tab === "blockparties" && <BlockPartiesTab file={file} boardIds={boardIds} />}
+        {tabPanel()}
       </section>
 
-      <HowToUse file={file} />
+      {file && <HowToUse file={file} />}
 
       <p className="text-xs text-muted-foreground">
-        {file.attribution.text} Event data as of {dateLabel(file.asOf)}
-        {file.parkListedThrough ? ` (Park District feed listed through ${dateLabel(file.parkListedThrough)})` : ""}.{" "}
-        {file.privacy}
+        {file
+          ? `${file.attribution.text} Event data as of ${dateLabel(file.asOf)}${
+              file.parkListedThrough ? ` (Park District feed listed through ${dateLabel(file.parkListedThrough)})` : ""
+            }. ${file.privacy}`
+          : "Daily scanner leads are stored in event-leads.json. Review status lives in the app database."}
       </p>
     </div>
   );

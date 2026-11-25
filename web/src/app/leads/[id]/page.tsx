@@ -460,7 +460,7 @@ async function LeadDetail({ params }: { params: PageProps<"/leads/[id]">["params
                 ))}
                 {(suggestions.socials ?? []).map((f) => (
                   <div key={`s-${f.value}`}>
-                    <div className="text-xs text-muted-foreground">Business page (message by hand only)</div>
+                    <div className="text-xs text-muted-foreground">Business page</div>
                     <ContactValue field={f} kind="website" />
                     <SourceLine field={f} />
                   </div>
