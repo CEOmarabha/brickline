@@ -10,6 +10,10 @@ dependencies = [
     "duckdb>=1.1",
 ]
 
+[project.optional-dependencies]
+social = ["playwright>=1.40"]
+postgres = ["psycopg[binary]>=3.2"]
+
 [dependency-groups]
 dev = ["ruff>=0.6"]
 
@@ -23,7 +27,7 @@ select = ["E", "F", "W", "I", "B", "UP"]
 [tool.ruff.lint.per-file-ignores]
 # SQL templates, regex tables and report renderers read better unwrapped: research code plus the SQL-heavy engine
 # modules (snapshot/pest/prospects, contact enrichment, the shared signal SQL, and the clerk/overture/PTAX collectors).
-"{research/**,engine/{leads,enrich}/*.py,engine/score/{events,food,licenses}.py,engine/collect/{clerk,overture,ptax}.py}" = ["E501"]
+"{research/**,engine/{leads,enrich}/*.py,engine/warehouse.py,engine/score/{events,food,licenses}.py,engine/collect/{clerk,overture,ptax,event_feeds,http}.py,engine/collect/social/*.py,tests/**}" = ["E501"]
 
 [build-system]
 requires = ["hatchling"]

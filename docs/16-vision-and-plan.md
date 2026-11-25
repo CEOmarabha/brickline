@@ -40,7 +40,7 @@ Brickline finds **who is about to buy, from public records, before it is obvious
 3. Record everything: replies, meetings, pilots, won jobs with values, deal terms. This is the data that becomes the case study and the pricing evidence.
 
 **Update 2026-11-18 — founder decision: run two brokerage tests alongside the pilots, tracked in `/deals`.**
-- **Event services:** khaled offers end-to-end event planning/coordination with partner vendors (customer pays vendors directly; khaled charges a disclosed planning fee). Leads: organization events from city permits (`/pilots/events`: festivals are visible a median 59 days ahead, 43% name an organization), recurring series the season before, block parties by flyer only, and **events found by hand on social media and messaged one at a time** (personal, never automated; no bulk follows or DMs; honor every opt-out). Venue partnerships are the next source to add by hand.
+- **Event services:** khaled offers end-to-end event planning/coordination with partner vendors (customer pays vendors directly; khaled charges a disclosed planning fee). Leads: organization events from city permits (`/pilots/events`: festivals are visible a median 59 days ahead, 43% name an organization), recurring series the season before, block parties by flyer only, the **daily scanner** (`/events?tab=scanner`, D-029), and social posts messaged one at a time (no bulk follows or DMs; honor every opt-out). Venue partnerships remain a hand source.
 - **Porch referral test:** letters in khaled's own brand to porch-notice owners, inbound calls, hand-off to 2–3 partner porch contractors with a written fee per appointment or per job.
 - **What makes these worth it:** every deal is recorded from first contact to fee collected, so after 30 days we know cost and conversion per source instead of guessing. Same gate at day 60, counting brokerage fees as paying customers.
 
@@ -54,7 +54,7 @@ Brickline finds **who is about to buy, from public records, before it is obvious
 
 **Later (after ~10 paid outcomes):** opportunity router and vendor matching, address timeline demo, recurring-event alerts if a rental buyer appears, paid contact enrichment, a second city.
 
-**Never (or until the law and the business change):** automated social-media scraping or bulk DMs, reselling rentals or contracting work in our own name, referral fees in healthcare, scraping social media against its terms, autodialed or AI calls, texts without consent.
+**Never (or until the law and the business change):** bulk DMs or follows, fake-account farms, captcha-solving services, reselling rentals or contracting work in our own name, referral fees in healthcare, autodialed or AI calls, texts without consent. Authenticated social *collection* with the team's own sessions is in D-029 / `docs/21` (Omar accepted the account risk); stop it if a platform objects.
 
 ## 5. How to pitch (from computed numbers)
 

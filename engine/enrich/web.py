@@ -38,6 +38,8 @@ ERROR_CACHE_DAYS = 3
 MAX_VALUES = 5
 DEADLINE = 25.0  # seconds for one page, including a slow body
 
+# Directories and profile hosts that are not a company's own website. Event-lead collection from
+# Facebook, Instagram and TikTok is engine.collect.social, not this crawler.
 SOCIAL_AND_DIRECTORY = (
     "facebook.com", "instagram.com", "linkedin.com", "twitter.com", "x.com", "youtube.com", "tiktok.com",
     "pinterest.com", "yelp.com", "yellowpages.com", "linktr.ee", "angi.com", "angieslist.com", "homeadvisor.com",

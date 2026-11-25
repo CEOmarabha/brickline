@@ -833,10 +833,14 @@ def build() -> None:
         )
         SELECT organization, park_no, park_name, start_date, end_date, event_type, tier, grp,
             grp IS NOT NULL AS is_real,
-            CASE WHEN grp IS NOT NULL THEN
-                coalesce({event_key_sql("event_description")}, {event_key_sql("organization")})
+            CASE WHEN grp IS NOT NULL OR event_type IN ('Venue Rental - Wedding', 'Venue Rental - Social') THEN
+                coalesce({event_key_sql("event_description")}, {event_key_sql("organization")},
+                    {event_key_sql("park_name")})
             END AS event_key,
-            status, status IN ('Approved', 'Completed', 'Issued') AS is_held, listed_date
+            status,
+            status IN ('Approved', 'Completed', 'Issued') AS is_held,
+            status IN ('Approved', 'Completed', 'Issued', 'Waiting Decision', 'Tentative', 'On Hold') AS is_open,
+            listed_date
         FROM src
         WHERE start_date IS NOT NULL
     """)
