@@ -1,6 +1,37 @@
 # Handoff — read this first if you are picking up the work
 
-*Last updated 2026-11-18 night: possible jobs (the opportunity map applied to every lead, event and linked deal, `/event-board/<id>` pages) and the assistant privacy fix from the publish security review. Earlier the same day, two sessions landed: target selector and `/events`, upcoming events list, `/deals` brokerage pipeline; and PTAX-203 fresh investor leads, mailing fill, new contact sources, scofflaw H42, reply codes and holdouts, the Illinois not-a-bill box on letters, `docs/18` contact research and `docs/19` experiment design. Keep this file current: update "Current state" and "Next tasks" whenever a task lands.*
+*Last updated 2026-11-25: the unfinished request to put this repo on GitHub and a folder on khaled's computer, with the live site link. Product state below is still the 2026-11-18 night landing (possible jobs, assistant privacy fix). Keep this file current: update "Current state" and "Next tasks" whenever a task lands.*
+
+## Unfinished request (2026-11-25): GitHub copy and a folder on the computer
+
+khaled asked cloud agent https://cursor.com/agents/bc-35a21f89-46aa-4630-864f-cafa0208ce1c to (1) upload this whole project to his GitHub, (2) make a copy on his computer as a folder, and (3) add the website link. Do this before the product tasks below. The product work is unchanged.
+
+**Website (HTTP 200 on 2026-11-25):** https://brickline-83d7.apps.grok.bot — private Cursor app `brickline-83d7`. Pull request https://cursor.com/codebase/khaled-hend/brickline/pull/6 (branch `cursor/add-website-link-ce1c`, commit `cb11247`, not merged) puts that URL at the top of `README.md` and as `[project.urls] Homepage` in `pyproject.toml`. `main` is still `91d41d1` and does not have the link. Push that branch, or merge #6 first, so the copy includes it.
+
+**GitHub account:** `ima-rsn` (user id 341117118), the account connected to Cursor. Private repos already there: `genesis`, `aegis`, `helion`. There is no `brickline` repo. Create it **private**. This tree has sales scripts, pricing, and public-record names and mailing addresses in `web/data/*.json`. Private persons' phones and emails stay out of git.
+
+**Why the 2026-11-25 agent stopped:** it could read GitHub and could not create or push. The `cursor-github` tools are lookup-only. `gh` was not logged in, there was no SSH key, and the worker was not started with `--mint-scm-token`, so no GitHub write token was installed. A later cloud agent with the same read-only connection cannot finish this; say so and stop. Do not scrape tokens out of `.git/config` (on a cloud VM the Origin remote URL contains an access token) and do not zip `.git`.
+
+**Where the full history lives:** https://origin.cursor.com/git/khaled-hend/brickline — clone `https://origin.cursor.com/git/khaled-hend/brickline.git`.
+
+**Finish it on a machine where `gh auth status` shows `ima-rsn`** (khaled's computer, or a worker that actually holds a GitHub write token):
+
+```bash
+git clone https://origin.cursor.com/git/khaled-hend/brickline.git
+cd brickline
+git fetch origin cursor/add-website-link-ce1c
+git checkout cursor/add-website-link-ce1c
+gh repo create ima-rsn/brickline --private --source=. --remote=github --push \
+  --homepage https://brickline-83d7.apps.grok.bot \
+  --description "Public-records lead intelligence for Chicago contractors"
+gh repo view ima-rsn/brickline --json url,isPrivate,homepageUrl
+```
+
+If `gh` is not logged in, run `gh auth login`, then the `gh repo create` line again. After PR #6 is merged, clone `main` instead of the feature branch. The `git clone` is what creates the `brickline` folder. A cloud VM cannot write onto khaled's computer.
+
+Then confirm https://github.com/ima-rsn/brickline is private, its homepage is the app URL, and the GitHub `main` commit is the one you pushed. Keep the Origin remote. The command above adds GitHub as `github`. Do not force-push Origin `main`.
+
+The weekly refresh timer was last recorded on 2026-11-18 (`sub_8c61dd3e-…`) and was expected to expire before Monday 2026-11-23. This agent did not confirm a renewal. If `list_subscriptions` has no `brickline-weekly-refresh`, recreate task 1 below, then continue the product tasks.
 
 ## The business in five lines
 
@@ -128,6 +159,7 @@ Warehouse tables: `ptax_transfers` (Illinois PTAX-203 declarations for Chicago s
 
 ## Next tasks (in order)
 
+0. **GitHub copy and a folder on the computer (2026-11-25, not done).** Follow "Unfinished request" at the top of this file. Private repo `ima-rsn/brickline`, homepage https://brickline-83d7.apps.grok.bot, from a machine where `gh` is logged in as `ima-rsn`. Include PR #6 so the README has the link.
 1. **Weekly refresh timer (re-create in every new agent).** Recurring cursor-subscriptions `subscribe_timer`, name `brickline-weekly-refresh`, cron `0 12 * * 1` (12:00 UTC Mondays = 6 AM Chicago in winter, 7 AM in summer). Timers belong to the agent that created them, so a new chat must call `subscribe_timer` again with the same name and this prompt: run `scripts/refresh-data.sh --backtest` (full sync if data/ is missing), sanity-check lead counts vs last week (investigate >30% swings), run ruff + web typecheck/lint/build, commit `web/data/*.json`, `research/findings/*` and `research/archive/manifest.json`, push, republish the app if it is live (publish-app, project_dir `web`, preview_url of a running dev server), and post a 3-line summary; then, because subscriptions expire 7 days after creation (before the next Monday), re-create the timer with the same name, cron and prompt (the prompt itself says so). Re-created on 2026-11-18 by the contact-sources agent (id `sub_8c61dd3e-…`); it expires 7 days after creation, so the Monday 2026-11-23 run must renew it (its prompt says so).
 1b. **Contact coverage and conversion: built 2026-11-18 (`docs/17` §4a).** Open follow-ups: (a) have a lawyer read one letter template with the new not-a-bill box, the "free assessment" wording and the violation letter's opening line (`docs/18` §6, flags 2–4); (b) the founder downloads the Illinois SOS LLC and corporation bulk files by hand (the site forbids automated queries) so a parser can add managers and agents for company owners; (c) NCOA/CASS through a print-and-mail service before the first large send; (d) pre-register E1–E4 in `docs/19` when the first clients mail (E2 arm assignment is not built yet); (e) a public reply page only after HANDOFF task 5 (public host). Keep the `docs/17` §6 rules.
 2. **Get the first 3 paying customers (founder action; see `docs/16` §4 and its 2026-11-18 update).** Two brokerage tests now run alongside the pilots, all in `/deals`: event services (city event list + recurring series + hand-found social posts + venue partners; partners signed first) and the porch referral test (own-brand letters, 2–3 partner contractors). Also: Contractor track plus two B2B lists only ("New business coming" to cleaning companies and sign shops; "Trades still open" to elevator and fire-alarm contractors) using `/pilots` buyers and drafts; offer a free sample → 30-day pilot → subscription or fee per won job; record outcomes, job values and deal terms. Gate at day 60. Background on the lists: New since 2026-11-16: (c) "New business coming" (H33) for sign shops, POS/payments, insurance, commercial cleaning, security and furniture sellers, brokers; (d) "Trades still open after big permits" (H29) for elevator, electrical, fire-alarm and sign contractors. Both on `/commercial`; record outcomes. Earlier lists: (a) Pest control: pick 3–5 companies from `/pilots/pest`, send the draft email, give one a free 4-week list (CSV from `/export/pest?range=28d` first, then weekly), and collect their date_contacted/outcome columns every week. Only after outcomes exist, decide whether a pest lead kind with a measured win rate is worth adding. (b) Closed restaurant spaces: test who pays (build-out GCs from the general-contracting prospects, kitchen-equipment dealers, signage shops, commercial brokers) with the `/commercial` list; record outcomes on the lead statuses. Open H23 follow-ups: operator-level grouping beyond exact names (N15), rodent complaints near restaurants.
