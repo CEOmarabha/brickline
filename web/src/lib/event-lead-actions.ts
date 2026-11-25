@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { type ActionResult, runAction, UserError } from "@/lib/action-result";
 import { sql } from "@/lib/db";
+import { hasPostgres, writeLocalReview } from "@/lib/event-lead-reviews-file";
 import { REVIEW_STATUSES, type ReviewStatus } from "@/lib/event-lead-types";
 import { requireOwner } from "@/lib/workspace";
 
@@ -26,12 +27,16 @@ export async function setEventLeadReview(itemHash: unknown, status: unknown): Pr
     await requireOwner();
     const hash = parseHash(itemHash);
     const review = parseStatus(status);
-    await sql(
-      `insert into event_lead (item_hash, source, review_status, last_seen)
-       values ($1, 'manual', $2, now())
-       on conflict (item_hash) do update set review_status = $2`,
-      [hash, review],
-    );
+    if (hasPostgres()) {
+      await sql(
+        `insert into event_lead (item_hash, source, review_status, last_seen)
+         values ($1, 'manual', $2, now())
+         on conflict (item_hash) do update set review_status = $2`,
+        [hash, review],
+      );
+    } else {
+      await writeLocalReview(hash, review);
+    }
     refresh();
   });
 }

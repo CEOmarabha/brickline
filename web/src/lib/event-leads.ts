@@ -3,6 +3,7 @@ import "server-only";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { sql } from "@/lib/db";
+import { hasPostgres, readLocalReviews } from "@/lib/event-lead-reviews-file";
 import {
   type EventDigestFile,
   type EventLead,
@@ -59,6 +60,13 @@ export async function getEventDigestFile(): Promise<EventDigestFile | null> {
 }
 
 async function reviewOverlay(): Promise<Map<string, ReviewStatus>> {
+  if (!hasPostgres()) {
+    try {
+      return await readLocalReviews();
+    } catch {
+      return new Map();
+    }
+  }
   try {
     const rows = await sql<{ item_hash: string; review_status: string }>(
       "select item_hash, review_status from event_lead",
@@ -78,7 +86,7 @@ function normalizeLead(row: EventLead, overlay: Map<string, ReviewStatus>): Even
   return { ...row, review_status: status, score: Number(row.score) || 0 };
 }
 
-/** Leads with Postgres review_status overlaid when the table has rows. */
+/** Leads with review_status overlaid from Postgres or local JSON. */
 export async function getEventLeads(): Promise<EventLeadsFile> {
   const file = await getEventLeadsFile();
   const overlay = await reviewOverlay();

@@ -7,11 +7,6 @@ on:
     - cron: "0 12 * * *"
     - cron: "0 13 * * *"
   workflow_dispatch:
-    inputs:
-      public_only:
-        description: Skip authenticated social collectors
-        type: boolean
-        default: false
 
 jobs:
   scan:
@@ -25,25 +20,13 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: pip install duckdb
-      - name: Scan
+      - name: Scan (public calendars + free listings only)
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
-          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
-          FB_COOKIE: ${{ secrets.FB_COOKIE }}
-          IG_COOKIE: ${{ secrets.IG_COOKIE }}
-          TIKTOK_COOKIE: ${{ secrets.TIKTOK_COOKIE }}
-          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
-        run: |
-          extra=()
-          if [[ "${{ github.event.inputs.public_only }}" == "true" ]]; then
-            extra+=(--public-only)
-          fi
-          python -m engine.leads.event_scan --require-chicago-hour --no-llm "${extra[@]}"
+          FIRECRAWL_API_URL: ${{ secrets.FIRECRAWL_API_URL }}
+        run: python -m engine.leads.event_scan --public-only --no-llm --require-chicago-hour
       - name: Commit snapshot
         run: |
           git config user.name "brickline-event-scan"
